@@ -111,6 +111,12 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .icon-btn.danger:not(:disabled):hover { color: var(--danger); border-color: var(--danger); }
 .chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .clear-btn.is-confirming { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+.record-btn { color: var(--danger); }
+.record-btn.is-count-in { border-color: var(--danger); }
+.record-btn.is-on { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+.record-count { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; line-height: 1; }
+.toolbar-label { display: inline-flex; align-items: center; gap: 6px; padding-right: 2px; font-size: 13px; color: var(--muted); }
+.toolbar-label.is-off { opacity: 0.5; }
 .toggle-btn[aria-pressed='true'] { color: var(--accent); border-color: var(--accent); }
 .toolbar :disabled { opacity: 0.4; }
 
@@ -137,8 +143,12 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .timeline {
   position: relative;
   --lane: 16px;
+  --chord-h: 112px;
+  --vocal-top: calc(var(--lane) + 26px + var(--chord-h) + 8px);
+  --vocal-h: 44px;
   min-width: 100%;
-  height: calc(152px + var(--lane));
+  --lanes: 1;
+  height: calc(var(--vocal-top) + var(--lanes) * (var(--vocal-h) + 6px));
   background:
     repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 calc(var(--lane) + 20px) / 100% calc(100% - var(--lane) - 20px) no-repeat,
     repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--beat)) 0 calc(var(--lane) + 20px) / 100% calc(100% - var(--lane) - 20px) no-repeat;
@@ -155,7 +165,7 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .chord {
   position: absolute;
   top: calc(var(--lane) + 26px);
-  bottom: 6px;
+  height: var(--chord-h);
   margin-left: 3px;
   border-radius: var(--radius);
   background: var(--raised);
@@ -213,7 +223,7 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .add-slot {
   position: absolute;
   top: calc(var(--lane) + 26px);
-  bottom: 6px;
+  height: var(--chord-h);
   margin-left: 3px;
   border-radius: var(--radius);
   border: 1.5px dashed var(--line-strong);
@@ -237,7 +247,7 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .timeline-empty {
   position: absolute;
   top: calc(var(--lane) + 26px);
-  bottom: 6px;
+  height: var(--chord-h);
   margin: 0;
   display: flex;
   align-items: center;
@@ -248,6 +258,68 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .timeline-empty span { color: var(--text); }
 /* With nothing on it, the grid would only cut through the hint. */
 .timeline.is-empty { background: none; }
+
+/* Vocal lanes: each item sets --row to its lane. */
+.vocal-row, .vocal-lane-hint, .vocal-take, .vocal-recording {
+  top: calc(var(--vocal-top) + var(--row, 0) * (var(--vocal-h) + 6px));
+}
+.vocal-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--vocal-h);
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+.vocal-row:not(:disabled):hover { background: rgb(255 255 255 / 0.03); }
+.vocal-row.is-armed { background: rgb(255 255 255 / 0.04); }
+.vocal-row:disabled { cursor: default; }
+
+.vocal-lane-hint {
+  position: absolute;
+  height: var(--vocal-h);
+  left: 3px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--line-strong);
+  background: var(--panel);
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.vocal-take {
+  position: absolute;
+  height: var(--vocal-h);
+  margin-left: 3px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--raised));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  overflow: hidden;
+  pointer-events: none;
+}
+.vocal-take.is-muted { opacity: 0.35; }
+.vocal-take { display: flex; align-items: center; gap: 2px; padding: 0 3px; }
+.vocal-take span { flex: none; width: 2px; border-radius: 1px; background: var(--accent); }
+.vocal-recording {
+  position: absolute;
+  top: var(--vocal-top);
+  height: var(--vocal-h);
+  left: 0;
+  width: 0;
+  margin-left: 3px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 30%, transparent);
+  border: 1px solid var(--danger);
+  pointer-events: none;
+}
 
 /* Loop */
 .loop-lane {

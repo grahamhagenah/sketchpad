@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from './store'
-import { togglePlay } from './audio/engine'
+import { togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
 import { Palette } from './components/Palette'
@@ -38,6 +38,8 @@ function useShortcuts() {
         s.toggleMetronome()
       } else if (e.key === 'l') {
         s.toggleLoop()
+      } else if (e.key === 'r') {
+        void toggleRecord()
       } else if (e.key === 'a') {
         s.setArp({ on: !s.arp.on })
       } else if (e.key === 'Escape') {
@@ -73,6 +75,7 @@ export default function App() {
         <span><kbd>M</kbd> click</span>
         <span><kbd>L</kbd> loop</span>
         <span><kbd>A</kbd> arp</span>
+        <span><kbd>R</kbd> record</span>
       </footer>
     </div>
   )

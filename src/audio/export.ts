@@ -2,6 +2,7 @@ import * as Tone from 'tone'
 import { keyLabel, keySignature } from '../music/theory'
 import { arrange } from './arrange'
 import { createInstruments, midiToHz } from './instruments'
+import { toAudioBuffer, type Take } from './take'
 import type { Song } from './engine'
 
 type ExportSong = Pick<Song, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'>
@@ -103,12 +104,19 @@ export function songToMidi(song: ExportSong): Blob {
 
 const TAIL_SECONDS = 2.5
 
-/** Renders the whole progression once, on the same sounds as playback, to a 24-bit WAV. */
-export async function songToWav(song: ExportSong): Promise<Blob> {
+/**
+ * Renders the whole progression once, on the same sounds as playback, to a
+ * 24-bit WAV, with any vocal takes given mixed in.
+ */
+export async function songToWav(song: ExportSong, takes: Take[] = []): Promise<Blob> {
   const quarterSeconds = 60 / song.bpm
   const hits = arrange(song)
-  const end = Math.max(0, ...hits.map((h) => h.start + h.dur))
-  const duration = end * quarterSeconds + TAIL_SECONDS
+  const takeStart = (take: Take) => take.startBeat * (4 / song.timeSig[1]) * quarterSeconds
+  const end = Math.max(
+    Math.max(0, ...hits.map((h) => h.start + h.dur)) * quarterSeconds,
+    ...takes.map((take) => takeStart(take) + take.samples.length / take.sampleRate),
+  )
+  const duration = end + TAIL_SECONDS
 
   const rendered = await Tone.Offline(async () => {
     const { pad, bass, reverb } = createInstruments(song.sound)
@@ -119,9 +127,21 @@ export async function songToWav(song: ExportSong): Promise<Blob> {
       if (h.pad.length) pad.triggerAttackRelease(h.pad.map(midiToHz), h.held ? length * 0.97 : length, time, h.velocity)
       if (h.bass !== null) bass.triggerAttackRelease(midiToHz(h.bass), length * 0.97, time, 0.9)
     }
+    for (const take of takes) new Tone.Player(toAudioBuffer(take)).toDestination().start(takeStart(take))
   }, duration, 2, 44100)
 
   return encodeWav(rendered.get()!)
+}
+
+/**
+ * The vocal on its own, padded with silence from the song's first beat, so it
+ * lines up when dropped at bar 1 in a DAW.
+ */
+export function takeToWav(song: Pick<ExportSong, 'bpm' | 'timeSig'>, take: Take): Blob {
+  const lead = Math.round(take.startBeat * (4 / song.timeSig[1]) * (60 / song.bpm) * take.sampleRate)
+  const samples = new Float32Array(lead + take.samples.length)
+  samples.set(take.samples, lead)
+  return encodeWav(toAudioBuffer({ ...take, samples }))
 }
 
 function encodeWav(buffer: AudioBuffer): Blob {

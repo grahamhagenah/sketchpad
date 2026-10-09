@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { Mode } from './music/theory'
 import { DEFAULT_SOUND, type Sound } from './audio/sound'
 import { DEFAULT_ARP, type Arp } from './audio/arrange'
+import { LANES, type TakeInfo } from './audio/take'
 
 export type TimeSig = [number, number]
 export const TIME_SIG_GROUPS: { label: string; sigs: TimeSig[] }[] = [
@@ -55,6 +56,14 @@ interface State extends Song {
   loopOn: boolean
   sound: Sound
   arp: Arp
+  /** One recorded vocal per lane, or null; the audio lives in IndexedDB, not here. */
+  takes: (TakeInfo | null)[]
+  vocalMuted: boolean[]
+  /** The lane that recording goes into. */
+  armedLane: number
+  recording: 'off' | 'count-in' | 'on'
+  /** Beats left in the count-in, shown on the record button. */
+  countIn: number | null
   playing: boolean
 
   setKey: (key: number) => void
@@ -65,6 +74,11 @@ interface State extends Song {
   toggleLoop: () => void
   setSound: (patch: Partial<Sound>) => void
   setArp: (patch: Partial<Arp>) => void
+  setTake: (lane: number, take: TakeInfo | null) => void
+  toggleVocalMute: (lane: number) => void
+  setArmedLane: (lane: number) => void
+  setRecording: (recording: State['recording']) => void
+  setCountIn: (countIn: number | null) => void
   setPlaying: (playing: boolean) => void
   setLoop: (loop: LoopRegion | null) => void
 
@@ -98,6 +112,11 @@ export const useStore = create<State>()(
       loopOn: true,
       sound: DEFAULT_SOUND,
       arp: DEFAULT_ARP,
+      takes: Array(LANES).fill(null),
+      vocalMuted: Array(LANES).fill(false),
+      armedLane: 0,
+      recording: 'off',
+      countIn: null,
       playing: false,
 
       setKey: (key) => set({ key }),
@@ -118,6 +137,11 @@ export const useStore = create<State>()(
       toggleLoop: () => set({ loopOn: !get().loopOn }),
       setSound: (patch) => set({ sound: { ...get().sound, ...patch } }),
       setArp: (patch) => set({ arp: { ...get().arp, ...patch } }),
+      setTake: (lane, take) => set({ takes: get().takes.map((t, i) => (i === lane ? take : t)) }),
+      toggleVocalMute: (lane) => set({ vocalMuted: get().vocalMuted.map((m, i) => (i === lane ? !m : m)) }),
+      setArmedLane: (armedLane) => set({ armedLane }),
+      setRecording: (recording) => set({ recording, countIn: recording === 'count-in' ? get().countIn : null }),
+      setCountIn: (countIn) => set({ countIn }),
       setPlaying: (playing) => set({ playing }),
       setLoop: (loop) => set({ loop }),
 
@@ -178,7 +202,10 @@ export const useStore = create<State>()(
       // Fill in sound settings saved before a setting existed.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>
-        return { ...current, ...p, sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp } }
+        // vocalMuted was once a single flag for the one take there was.
+        const muted = p.vocalMuted as boolean[] | boolean | undefined
+        const vocalMuted = Array.from({ length: LANES }, (_, i) => (Array.isArray(muted) ? !!muted[i] : i === 0 && !!muted))
+        return { ...current, ...p, sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp }, vocalMuted }
       },
       partialize: (s) => ({
         key: s.key,
@@ -191,6 +218,7 @@ export const useStore = create<State>()(
         loopOn: s.loopOn,
         sound: s.sound,
         arp: s.arp,
+        vocalMuted: s.vocalMuted,
       }),
     },
   ),

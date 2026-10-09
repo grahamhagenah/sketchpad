@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
 import { useStore, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, type Chord } from '../store'
 import { chordInfo, keyLabel, type Mode } from '../music/theory'
-import { audition, togglePlay } from '../audio/engine'
+import { audition, deleteTake, engine, togglePlay, toggleRecord } from '../audio/engine'
 import { SoundButton } from './SoundPanel'
 import { ArpButton } from './ArpPanel'
-import { download, exportName, songToMidi, songToWav } from '../audio/export'
+import { download, exportName, songToMidi, songToWav, takeToWav } from '../audio/export'
 
 /** The one bar for playback, song settings and editing the selected chord. */
 export function Toolbar() {
@@ -32,6 +32,7 @@ export function Toolbar() {
           >
             {playing ? <StopIcon /> : <PlayIcon />}
           </button>
+          <RecordButton />
           <IconToggle label="Metronome (M)" pressed={metronome} onClick={toggleMetronome}>
             <Icon d="M9 3h6l4 18H5zM12 15l5-8" />
           </IconToggle>
@@ -116,6 +117,7 @@ export function Toolbar() {
             <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
           </button>
         </div>
+        <VocalControls />
         <div className="toolbar-group toolbar-end">
           <ClearButton />
         </div>
@@ -127,6 +129,8 @@ export function Toolbar() {
 /** One Export button with a small menu to pick MIDI or WAV. */
 function ExportButton() {
   const hasChords = useStore((s) => s.chords.length > 0)
+  const takes = useStore((s) => s.takes)
+  const hasTake = takes.some(Boolean)
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
   const [rendering, setRendering] = useState(false)
@@ -143,11 +147,19 @@ function ExportButton() {
     const s = useStore.getState()
     setRendering(true)
     try {
-      download(await songToWav(s), `${exportName(s)}.wav`)
+      const audible = engine.allTakes.filter((t, lane): t is NonNullable<typeof t> => !!t && !s.vocalMuted[lane])
+      download(await songToWav(s, audible), `${exportName(s)}.wav`)
       setOpen(false)
     } finally {
       setRendering(false)
     }
+  }
+  const exportVocal = (lane: number) => {
+    const s = useStore.getState()
+    const take = engine.allTakes[lane]
+    if (!take) return
+    download(takeToWav(s, take), `${exportName(s)}-vocal-${lane + 1}.wav`)
+    setOpen(false)
   }
 
   return (
@@ -172,10 +184,100 @@ function ExportButton() {
           </button>
           <button type="button" className="menu-item" onClick={exportWav} disabled={rendering} aria-live="polite">
             <span className="menu-item-title">{rendering ? 'Rendering…' : 'WAV'}</span>
-            <span className="menu-item-about">24-bit audio, played through once</span>
+            <span className="menu-item-about">24-bit audio, played through once{hasTake ? ', with the vocals' : ''}</span>
           </button>
+          {takes.map(
+            (t, lane) =>
+              t && (
+                <button type="button" key={lane} className="menu-item" onClick={() => exportVocal(lane)} disabled={rendering}>
+                  <span className="menu-item-title">Vocal {lane + 1}</span>
+                  <span className="menu-item-about">This take alone, lined up to bar 1</span>
+                </button>
+              ),
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Red dot when idle; during the count-in it shows the beats left, in time with
+ * the clicks; while recording it's solid red with a stop square.
+ */
+function RecordButton() {
+  const recording = useStore((s) => s.recording)
+  const countIn = useStore((s) => s.countIn)
+  const hasChords = useStore((s) => s.chords.length > 0)
+  const label = recording === 'off' ? 'Record a vocal (R)' : recording === 'count-in' ? 'Cancel recording (R)' : 'Stop recording (R)'
+  return (
+    <button
+      type="button"
+      className={`icon-btn record-btn is-${recording}`}
+      aria-label={label}
+      aria-pressed={recording !== 'off'}
+      title={recording === 'off' ? 'Record a vocal over the loop (R). Headphones help keep the chords out of the take.' : label}
+      disabled={!hasChords}
+      onClick={() => void toggleRecord()}
+    >
+      {recording === 'count-in' ? (
+        <span className="record-count" aria-live="assertive">
+          {countIn ?? ''}
+        </span>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+          {recording === 'on' ? <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" /> : <circle cx="12" cy="12" r="9" fill="currentColor" />}
+        </svg>
+      )}
+    </button>
+  )
+}
+
+function VocalControls() {
+  const takes = useStore((s) => s.takes)
+  const mutedLanes = useStore((s) => s.vocalMuted)
+  const lane = useStore((s) => s.armedLane)
+  const recording = useStore((s) => s.recording)
+  const { toggleVocalMute, setArmedLane } = useStore()
+  const take = takes[lane]
+  const muted = mutedLanes[lane]
+  return (
+    <div className="toolbar-group" role="group" aria-label="Vocal">
+      <select
+        aria-label="Vocal lane to record into"
+        title="The vocal lane to record into and edit"
+        value={lane}
+        disabled={recording !== 'off'}
+        onChange={(e) => setArmedLane(Number(e.target.value))}
+      >
+        {takes.map((t, i) => (
+          <option key={i} value={i}>
+            Vocal {i + 1}
+            {t ? '' : ' · empty'}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label={muted ? `Unmute vocal ${lane + 1}` : `Mute vocal ${lane + 1}`}
+        aria-pressed={muted}
+        title={muted ? 'Unmute this vocal' : 'Mute this vocal'}
+        disabled={!take}
+        onClick={() => toggleVocalMute(lane)}
+      >
+        <Icon d={muted ? 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6' : 'M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12'} />
+      </button>
+      <button
+        type="button"
+        className="icon-btn danger"
+        aria-label={`Delete vocal ${lane + 1}`}
+        title="Delete this vocal"
+        disabled={!take || recording !== 'off'}
+        onClick={() => void deleteTake(lane)}
+      >
+        <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
+      </button>
     </div>
   )
 }

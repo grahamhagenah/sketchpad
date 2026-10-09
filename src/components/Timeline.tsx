@@ -3,6 +3,7 @@ import { useStore, type Chord } from '../store'
 import { chordInfo } from '../music/theory'
 import { audition, engine } from '../audio/engine'
 import { LoopLane } from './LoopLane'
+import type { TakeInfo } from '../audio/take'
 
 interface Drag {
   id: string
@@ -45,6 +46,12 @@ export function Timeline() {
   const width = Math.max(bars * barPx, totalBeats * beatPx) + barPx
 
   const playheadRef = useRef<HTMLDivElement>(null)
+  const recordingRef = useRef<HTMLDivElement>(null)
+  const { takes, vocalMuted, recording, bpm, armedLane, setArmedLane } = useStore()
+  // Lanes with takes, plus one free lane to record a new take into.
+  const lastTake = takes.reduce((last, t, i) => (t ? i : last), -1)
+  const laneCount = Math.min(takes.length, Math.max(lastTake + 2, armedLane + 1))
+  const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
 
@@ -100,6 +107,11 @@ export function Timeline() {
   }
 
   useEffect(() => {
+    // A recording starts where the loop does, which is where the playhead first lands.
+    if (recording === 'on') recordStart.current = engine.position() ?? 0
+  }, [recording])
+
+  useEffect(() => {
     if (!playing) {
       setActiveId(null)
       return
@@ -112,6 +124,10 @@ export function Timeline() {
       if (pos !== null && playheadRef.current) {
         const x = pos * beatPx
         playheadRef.current.style.transform = `translateX(${x}px)`
+        if (recordingRef.current) {
+          recordingRef.current.style.left = `${recordStart.current * beatPx}px`
+          recordingRef.current.style.width = `${Math.max(0, x - recordStart.current * beatPx)}px`
+        }
         // Turn the page when the playhead runs off either edge, as it does at
         // the end of the view or when the loop jumps back.
         const view = scrollRef.current
@@ -144,6 +160,7 @@ export function Timeline() {
         className={`timeline ${chords.length ? '' : 'is-empty'}`}
         style={{
           width,
+          ['--lanes' as string]: laneCount,
           ['--beat' as string]: `${beatPx}px`,
           ['--bar' as string]: `${barPx}px`,
         }}
@@ -209,6 +226,24 @@ export function Timeline() {
           +
         </button>
 
+        {Array.from({ length: laneCount }, (_, lane) => (
+          <VocalLane
+            key={lane}
+            lane={lane}
+            take={takes[lane]}
+            muted={vocalMuted[lane]}
+            armed={lane === armedLane}
+            locked={recording !== 'off'}
+            onArm={() => setArmedLane(lane)}
+            bpm={bpm}
+            beatPx={beatPx}
+            beatsPerQuarter={den / 4}
+          />
+        ))}
+        {recording === 'on' && (
+          <div className="vocal-recording" ref={recordingRef} style={{ ['--row' as string]: armedLane }} aria-hidden="true" />
+        )}
+
         {playing && <div className="playhead" ref={playheadRef} aria-hidden="true" />}
       </div>
     </div>
@@ -263,5 +298,70 @@ function ChordBlock({ chord, left, beatPx, name, roman, selected, active, draggi
         onPointerCancel={() => (drag.current = null)}
       />
     </div>
+  )
+}
+
+interface VocalLaneProps {
+  lane: number
+  take: TakeInfo | null
+  muted: boolean
+  /** The lane recording goes into. */
+  armed: boolean
+  /** True while recording, when the armed lane can't change. */
+  locked: boolean
+  onArm: () => void
+  bpm: number
+  beatPx: number
+  /** Beats per quarter note: 1 in x/4, 2 in x/8. */
+  beatsPerQuarter: number
+}
+
+/** One vocal lane: click it to record into it; its take is drawn at the beat it starts on. */
+function VocalLane({ lane, take, muted, armed, locked, onArm, bpm, beatPx, beatsPerQuarter }: VocalLaneProps) {
+  const row = { ['--row' as string]: lane }
+  let content = null
+  if (!take) {
+    content = armed && (
+      <p className="vocal-lane-hint" style={row}>
+        <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" fill="var(--danger)" />
+        </svg>
+        {lane === 0 ? 'Record a vocal over the loop' : `Record vocal ${lane + 1} over the others`}
+      </p>
+    )
+  } else {
+    const pxPerSecond = (bpm / 60) * beatsPerQuarter * beatPx
+    const width = take.seconds * pxPerSecond - 6
+    // One bar every 4px, each as tall as the loudest moment it covers.
+    const count = Math.max(1, Math.floor((width - 4) / 4))
+    const per = take.peaks.length / count
+    const bars = Array.from({ length: count }, (_, i) => Math.max(...take.peaks.slice(Math.floor(i * per), Math.ceil((i + 1) * per)), 0))
+    content = (
+      <div
+        className={`vocal-take ${muted ? 'is-muted' : ''}`}
+        style={{ ...row, left: take.startBeat * beatPx, width }}
+        role="img"
+        aria-label={`Vocal ${lane + 1} waveform`}
+      >
+        {bars.map((b, i) => (
+          <span key={i} style={{ height: `${Math.max(6, b * 80)}%` }} />
+        ))}
+      </div>
+    )
+  }
+  return (
+    <>
+      <button
+        type="button"
+        className={`vocal-row ${armed ? 'is-armed' : ''}`}
+        style={row}
+        aria-pressed={armed}
+        aria-label={`Vocal ${lane + 1}${take ? '' : ', empty'}: record into this lane`}
+        title={take && take.bpm !== bpm ? `Vocal ${lane + 1}, recorded at ${take.bpm} BPM; it won't follow tempo changes` : `Vocal ${lane + 1}`}
+        disabled={locked}
+        onClick={onArm}
+      />
+      {content}
+    </>
   )
 }
