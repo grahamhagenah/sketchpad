@@ -53,6 +53,7 @@ export const LANES = 8
 /** How many lanes there were when each had a key of its own. */
 const LEGACY_LANES = 4
 
+// Named before the app was called Bounce; kept, so saved takes still load.
 const DB = 'sketchpad'
 /**
  * The takes of the sketch being worked on, as take ids by lane for each
@@ -283,7 +284,7 @@ export async function deleteSketchTakes(sketchId: string) {
 /** What to tell someone when the browser wouldn't store their work. */
 export function storageErrorMessage(error: unknown) {
   if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-    return 'Your browser is out of space for Sketchpad. Delete sketches you no longer need, then try again.'
+    return 'Your browser is out of space for Bounce. Delete sketches you no longer need, then try again.'
   }
   return `Your browser wouldn’t store it${error instanceof Error && error.message ? ` (${error.message})` : ''}.`
 }
@@ -291,7 +292,7 @@ export function storageErrorMessage(error: unknown) {
 let persistAsked = false
 
 /**
- * Asks the browser to keep Sketchpad's storage rather than clear it when space
+ * Asks the browser to keep Bounce's storage rather than clear it when space
  * runs low or the site goes unvisited for a while (Safari clears it after a
  * week). Asked once there's something worth keeping, since some browsers ask
  * the person.

@@ -3,7 +3,7 @@ import { useDismiss } from '../hooks/useDismiss'
 import { useStore } from '../store'
 import { PRESETS, WAVES, presetFor, type Sound } from '../audio/sound'
 import { audition } from '../audio/engine'
-import { ArpSettings } from './ArpPanel'
+import { ArpSettings, RhythmSettings } from './ArpPanel'
 
 // Brightness runs on a log scale, so the slider's travel matches what you hear.
 const MIN_HZ = 300
@@ -21,10 +21,10 @@ function preview() {
   audition(chord)
 }
 
-/** The chords' sound and the arpeggiator, as two tabs of one panel. A dot shows the arpeggiator is on. */
+/** The chords' sound, rhythm and arpeggiator, as three tabs of one panel. A dot shows the arpeggiator is on. */
 export function SoundButton() {
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState<'sound' | 'arp'>('sound')
+  const [tab, setTab] = useState<'sound' | 'rhythm' | 'arp'>('sound')
   const close = useCallback(() => setOpen(false), [])
   const ref = useRef<HTMLDivElement>(null)
   const arpOn = useStore((s) => s.arp.on)
@@ -35,11 +35,11 @@ export function SoundButton() {
       <button
         type="button"
         className={`icon-btn toggle-btn sound-btn ${arpOn ? 'has-arp' : ''}`}
-        aria-label={`Sound and arpeggiator${arpOn ? ', arpeggiator on' : ''}`}
+        aria-label={`Sound, rhythm and arpeggiator${arpOn ? ', arpeggiator on' : ''}`}
         aria-expanded={open}
         aria-controls="sound-panel"
         onClick={() => setOpen(!open)}
-        title={`Sound and arpeggiator${arpOn ? ' (arpeggiator on)' : ''}`}
+        title={`Sound, rhythm and arpeggiator${arpOn ? ' (arpeggiator on)' : ''}`}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
           <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" />
@@ -49,16 +49,19 @@ export function SoundButton() {
         </svg>
       </button>
       {open && (
-        <div className="menu sound-panel" id="sound-panel" role="group" aria-label="Sound and arpeggiator">
+        <div className="menu sound-panel" id="sound-panel" role="group" aria-label="Sound, rhythm and arpeggiator">
           <div className="panel-tabs" role="tablist">
             <button type="button" role="tab" aria-selected={tab === 'sound'} onClick={() => setTab('sound')}>
               Sound
+            </button>
+            <button type="button" role="tab" aria-selected={tab === 'rhythm'} onClick={() => setTab('rhythm')}>
+              Rhythm
             </button>
             <button type="button" role="tab" aria-selected={tab === 'arp'} onClick={() => setTab('arp')}>
               Arpeggiator{arpOn && <span className="tab-on" aria-label="on" />}
             </button>
           </div>
-          {tab === 'sound' ? <SoundSettings /> : <ArpSettings />}
+          {tab === 'sound' ? <SoundSettings /> : tab === 'rhythm' ? <RhythmSettings /> : <ArpSettings />}
         </div>
       )}
     </div>

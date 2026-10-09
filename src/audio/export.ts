@@ -3,17 +3,18 @@ import { keyLabel, keySignature } from '../music/theory'
 import { arrange } from './arrange'
 import { createInstruments, midiToHz } from './instruments'
 import { createKit, DRUM_NOTES, playDrum } from './drums'
+import { zip } from './zip'
 import { toAudioBuffer, type Take } from './take'
 import type { Playback } from '../song'
 
-type ExportSong = Pick<Playback, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'> & Partial<Pick<Playback, 'drums'>>
+type ExportSong = Pick<Playback, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'> & Partial<Pick<Playback, 'drums' | 'rhythm' | 'kicks'>>
 
 const PPQ = 480
 
-/** e.g. "night-drive-F#m-96bpm", or "sketchpad-F#m-96bpm" before the sketch has a title. */
+/** e.g. "night-drive-F#m-96bpm", or "bounce-F#m-96bpm" before the sketch has a title. */
 export function exportName(song: Pick<ExportSong, 'key' | 'mode' | 'bpm'> & { title?: string }) {
   const key = keyLabel(song.key, song.mode).replace('♯', '#').replace('♭', 'b')
-  const name = (song.title ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sketchpad'
+  const name = (song.title ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'bounce'
   return `${name}-${key}${song.mode === 'minor' ? 'm' : ''}-${song.bpm}bpm`
 }
 
@@ -91,7 +92,7 @@ export function songToMidi(song: ExportSong): Blob {
   ]
 
   const tracks = [
-    track('Sketchpad', conductor),
+    track('Bounce', conductor),
     track(song.arp.on ? 'Arpeggio' : 'Chords', notes(0, hits.filter((h) => h.pad.length).map((h) => ({ ...h, pitches: h.pad })))),
   ]
   if (song.sound.bass) {
@@ -110,49 +111,94 @@ export function songToMidi(song: ExportSong): Blob {
 
 // ---- WAV ----
 
+/** A take placed where it plays, and which vocal track it's on. */
+export type PlacedTake = Take & { track: number }
+
 /** The takes that play, each moved to where it plays and cut off at the end of its section. */
-export function placedTakes(song: Pick<Playback, 'bpm' | 'timeSig' | 'vocals'>, audioOf: (id: string) => Take | undefined): Take[] {
+export function placedTakes(song: Pick<Playback, 'bpm' | 'timeSig' | 'vocals'>, audioOf: (id: string) => Take | undefined): PlacedTake[] {
   const beatSeconds = (60 / song.bpm) * (4 / song.timeSig[1])
   return song.vocals.flatMap((vocal) => {
     const take = audioOf(vocal.id)
     if (!take) return []
     const room = Math.round((vocal.endBeat - vocal.startBeat) * beatSeconds * take.sampleRate)
     const samples = Number.isFinite(room) && room < take.samples.length ? take.samples.subarray(0, Math.max(0, room)) : take.samples
-    return [{ ...take, startBeat: vocal.startBeat, samples }]
+    return [{ ...take, startBeat: vocal.startBeat, samples, track: vocal.track }]
   })
 }
 
 const TAIL_SECONDS = 2.5
 
-/**
- * Renders the whole progression once, on the same sounds as playback, to a
- * 24-bit WAV, with any vocal takes given mixed in.
- */
-export async function songToWav(song: ExportSong, takes: Take[] = []): Promise<Blob> {
-  const quarterSeconds = 60 / song.bpm
-  const hits = arrange(song)
-  const takeStart = (take: Take) => take.startBeat * (4 / song.timeSig[1]) * quarterSeconds
-  const end = Math.max(
-    Math.max(0, ...hits.map((h) => h.start + h.dur)) * quarterSeconds,
-    ...takes.map((take) => takeStart(take) + take.samples.length / take.sampleRate),
-  )
-  const duration = end + TAIL_SECONDS
+/** Which parts of the song a render plays. */
+interface Parts {
+  pad: boolean
+  bass: boolean
+  drums: boolean
+  takes: Take[]
+}
 
+/** How long a render of the whole song runs, with time for the last notes to ring out. */
+function songSeconds(song: ExportSong, takes: Take[]) {
+  const quarterSeconds = 60 / song.bpm
+  const beatSeconds = quarterSeconds * (4 / song.timeSig[1])
+  const end = Math.max(
+    Math.max(0, ...arrange(song).map((h) => h.start + h.dur)) * quarterSeconds,
+    ...(song.drums ?? []).map((h) => h.beat * beatSeconds),
+    ...takes.map((take) => take.startBeat * beatSeconds + take.samples.length / take.sampleRate),
+  )
+  return end + TAIL_SECONDS
+}
+
+/** Renders the song, or some of its parts, on the same sounds as playback. */
+async function render(song: ExportSong, parts: Parts, duration: number) {
+  const quarterSeconds = 60 / song.bpm
+  const beatSeconds = quarterSeconds * (4 / song.timeSig[1])
+  const hits = arrange(song)
   const rendered = await Tone.Offline(async () => {
     const { pad, bass, reverb } = createInstruments(song.sound)
     await reverb.ready
     for (const h of hits) {
       const time = h.start * quarterSeconds
       const length = h.dur * quarterSeconds
-      if (h.pad.length) pad.triggerAttackRelease(h.pad.map(midiToHz), h.held ? length * 0.97 : length, time, h.velocity)
-      if (h.bass !== null) bass.triggerAttackRelease(midiToHz(h.bass), length * 0.97, time, 0.9)
+      if (parts.pad && h.pad.length) pad.triggerAttackRelease(h.pad.map(midiToHz), h.held ? length * 0.97 : length, time, h.velocity)
+      if (parts.bass && h.bass !== null) bass.triggerAttackRelease(midiToHz(h.bass), length * 0.97, time, 0.9)
     }
-    const kit = createKit()
-    for (const h of song.drums ?? []) playDrum(kit, h.piece, h.beat * (4 / song.timeSig[1]) * quarterSeconds, h.velocity)
-    for (const take of takes) new Tone.Player(toAudioBuffer(take)).toDestination().start(takeStart(take))
+    if (parts.drums) {
+      const kit = createKit()
+      for (const h of song.drums ?? []) playDrum(kit, h.piece, h.beat * beatSeconds, h.velocity)
+    }
+    for (const take of parts.takes) new Tone.Player(toAudioBuffer(take)).toDestination().start(take.startBeat * beatSeconds)
   }, duration, 2, 44100)
+  return rendered.get()!
+}
 
-  return encodeWav(rendered.get()!)
+/**
+ * Renders the whole song once, on the same sounds as playback, to a 24-bit
+ * WAV, with any vocal takes given mixed in.
+ */
+export async function songToWav(song: ExportSong, takes: Take[] = []): Promise<Blob> {
+  return encodeWav(await render(song, { pad: true, bass: song.sound.bass, drums: true, takes }, songSeconds(song, takes)))
+}
+
+/**
+ * Each track on its own, as a 24-bit WAV, all from the song's first beat and
+ * all the same length, so they line up when dropped at bar 1 in a DAW.
+ * Vocals are one file per vocal track, its takes from every section on it.
+ */
+export async function songToStems(song: ExportSong, takes: PlacedTake[], names: { chords: string; drums: string; vocal: (track: number) => string }) {
+  const duration = songSeconds(song, takes)
+  const none = { pad: false, bass: false, drums: false, takes: [] }
+  const stems: { name: string; parts: Parts }[] = [{ name: names.chords, parts: { ...none, pad: true } }]
+  if (song.sound.bass) stems.push({ name: 'Bass', parts: { ...none, bass: true } })
+  if (song.drums?.length) stems.push({ name: names.drums, parts: { ...none, drums: true } })
+  const tracks = [...new Set(takes.map((t) => t.track))].sort((a, b) => a - b)
+  for (const track of tracks) stems.push({ name: names.vocal(track), parts: { ...none, takes: takes.filter((t) => t.track === track) } })
+
+  const files = []
+  for (const [i, stem] of stems.entries()) {
+    const wav = encodeWav(await render(song, stem.parts, duration))
+    files.push({ name: `${String(i + 1).padStart(2, '0')} ${stem.name.replace(/[\\/:*?"<>|]/g, '-')}.wav`, data: wav })
+  }
+  return zip(files)
 }
 
 /**

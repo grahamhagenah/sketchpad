@@ -36,14 +36,17 @@ export function pulses([num, den]: TimeSig): number[] {
   return at
 }
 
+/** An eighth note, in beats: half a beat in x/4, a beat in x/8, two in x/16. */
+export const eighth = ([, den]: TimeSig) => (den === 4 ? 0.5 : den === 8 ? 1 : 2)
+
 /** One bar of a groove, as hits from the bar's start. */
 export function grooveBar(groove: GrooveId, timeSig: TimeSig): DrumHit[] {
-  const [num, den] = timeSig
+  const [num] = timeSig
   const felt = pulses(timeSig)
   const hits: DrumHit[] = []
   const hit = (beat: number, piece: DrumPiece, velocity: number) => hits.push({ beat, piece, velocity })
-  // Hats on the eighths: half a beat in x/4, every beat in x/8, every other one in x/16.
-  const hatStep = den === 4 ? 0.5 : den === 8 ? 1 : 2
+  // Hats on the eighths.
+  const hatStep = eighth(timeSig)
   const hats = (offbeatsOnly: boolean) => {
     for (let b = 0; b < num - 1e-6; b += hatStep) {
       const onPulse = felt.includes(b)
@@ -85,8 +88,9 @@ export function grooveHits(groove: GrooveId | null, timeSig: TimeSig, start: num
 export interface Kit {
   kick: Tone.MembraneSynth
   snare: Tone.NoiseSynth
-  hat: Tone.MetalSynth
+  hat: Tone.NoiseSynth
   snareTone: Tone.Filter
+  hatTone: Tone.Filter
   out: Tone.Volume
 }
 
@@ -97,10 +101,11 @@ export function createKit(): Kit {
   const snareTone = new Tone.Filter(1800, 'bandpass').connect(out)
   const snare = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.16, sustain: 0 } }).connect(snareTone)
   snare.volume.value = -4
-  const hat = new Tone.MetalSynth({ envelope: { attack: 0.001, decay: 0.05, release: 0.01 }, harmonicity: 5.1, modulationIndex: 32, resonance: 6000, octaves: 1.5 }).connect(out)
-  hat.frequency.value = 320
-  hat.volume.value = -22
-  return { kick, snare, hat, snareTone, out }
+  // Filtered noise rather than Tone's MetalSynth, which can't be struck twice in an offline render.
+  const hatTone = new Tone.Filter(7000, 'highpass').connect(out)
+  const hat = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.045, sustain: 0 } }).connect(hatTone)
+  hat.volume.value = -12
+  return { kick, snare, hat, snareTone, hatTone, out }
 }
 
 export function playDrum(kit: Kit, piece: DrumPiece, time: number, velocity: number) {

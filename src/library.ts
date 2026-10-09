@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { DEFAULT_RHYTHM } from './audio/arrange'
 import { sketchSignature, songOf, songState, useStore, type SavedSong, type SongData } from './store'
 import { engine, loadSongTakes } from './audio/engine'
 import { SKETCHES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage } from './audio/take'
@@ -31,7 +32,7 @@ export function isDirty(s = useStore.getState()) {
 export function reportStorageError(doing: string) {
   return (error: unknown) => {
     console.error(error)
-    window.alert(`Sketchpad couldn’t ${doing}. ${storageErrorMessage(error)}`)
+    window.alert(`Bounce couldn’t ${doing}. ${storageErrorMessage(error)}`)
   }
 }
 
@@ -77,7 +78,7 @@ export async function openSketch(id: string) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { sections, arrangement, activeSection, chords, loop, takes: _, vocalMuted, vocalSolo, vocalNames, vocalTracks, ...settings } = record.song
   // Settings a sketch was saved before having start as they would in a new one.
-  useStore.setState({ drumTrack: false, drumsMuted: false, drumsSolo: false, drumsName: null, ...settings, ...song })
+  useStore.setState({ drumTrack: false, drumsMuted: false, drumsSolo: false, drumsName: null, ...settings, rhythm: { ...DEFAULT_RHYTHM, ...settings.rhythm }, ...song })
   loadSongTakes(takes)
   useStore.getState().setSaved(id, sketchSignature(useStore.getState()))
   clearHistory()

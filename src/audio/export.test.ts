@@ -20,7 +20,7 @@ const u32 = (b: Uint8Array, at: number) => ((b[at] << 24) | (b[at + 1] << 16) | 
 describe('exportName', () => {
   it('names the file after the title, key and tempo', () => {
     expect(exportName({ ...song, title: 'Night Drive!' })).toBe('night-drive-F#m-96bpm')
-    expect(exportName({ ...song, key: 10, mode: 'major' })).toBe('sketchpad-Bb-96bpm')
+    expect(exportName({ ...song, key: 10, mode: 'major' })).toBe('bounce-Bb-96bpm')
   })
 })
 
@@ -43,7 +43,7 @@ describe('songToMidi', () => {
       at += 8 + length
     }
     expect(at).toBe(bytes.length)
-    expect(names).toEqual(['Sketchpad', 'Chords', 'Bass'])
+    expect(names).toEqual(['Bounce', 'Chords', 'Bass'])
   })
 
   it('adds the drums as a track on the drum channel', async () => {
@@ -61,5 +61,21 @@ describe('songToMidi', () => {
     // F♯ minor: three sharps, minor.
     const keySig = find([0xff, 0x59, 2])
     expect(bytes.slice(keySig + 3, keySig + 5)).toEqual([3, 1])
+  })
+})
+
+describe('zip', () => {
+  it('stores each file with its name and a matching checksum', async () => {
+    const { zip, crc32 } = await import('./zip')
+    const data = new TextEncoder().encode('hello')
+    const bytes = new Uint8Array(await (await zip([{ name: '01 Chords.wav', data: new Blob([data]) }])).arrayBuffer())
+    const view = new DataView(bytes.buffer)
+    expect(view.getUint32(0, true)).toBe(0x04034b50)
+    expect(view.getUint32(14, true)).toBe(crc32(data))
+    expect(String.fromCharCode(...bytes.slice(30, 43))).toBe('01 Chords.wav')
+    // The end record counts one file.
+    expect(view.getUint16(bytes.length - 12, true)).toBe(1)
+    // "hello" is a known checksum.
+    expect(crc32(data)).toBe(0x3610a686)
   })
 })

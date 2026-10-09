@@ -1,6 +1,6 @@
-# Sketchpad
+# Bounce
 
-A stripped-down chord sketchpad for writing song demos in the browser. Pick a key, mode, tempo and time signature, build a chord progression, and loop it — then take the idea into a full DAW.
+A stripped-down sketchpad for writing song demos in the browser. Pick a key, mode, tempo and time signature, build a chord progression, and loop it — then take the idea into a full DAW.
 
 ## Features
 

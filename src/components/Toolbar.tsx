@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
-import { sectionsNow, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
+import { chordsTrackName, drumsTrackName, sectionsNow, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { audition, deleteTake, engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
@@ -8,7 +8,8 @@ import { SoundButton } from './SoundPanel'
 import { ShortcutsButton } from './Shortcuts'
 import { Position } from './Position'
 import { SongTitle } from './SongTitle'
-import { download, exportName, placedTakes, songToMidi, songToWav, takeToWav } from '../audio/export'
+import { download, exportName, placedTakes, songToMidi, songToStems, songToWav, takeToWav } from '../audio/export'
+import { LANES } from '../audio/take'
 import { playbackOf } from '../song'
 
 /** The one bar for playback, song settings and editing the selected chord. */
@@ -255,7 +256,22 @@ function exported(s = useStore.getState()) {
   return song.chords.length ? song : playbackOf(s, 'section')
 }
 
-/** One Export button with a small menu to pick MIDI or WAV. */
+/** The song with every track playing, muted or not, for exports a DAW can mute tracks in itself. */
+function unmuted(s: ReturnType<typeof useStore.getState>) {
+  const quiet = Array(LANES).fill(false)
+  return {
+    ...s,
+    chordsMuted: false,
+    chordsSolo: false,
+    drumsMuted: false,
+    drumsSolo: false,
+    vocalMuted: quiet,
+    vocalSolo: quiet,
+    sections: s.sections.map((sec) => ({ ...sec, vocalMuted: quiet, vocalSolo: quiet })),
+  }
+}
+
+/** One Export button with a small menu to pick MIDI, WAV or stems. */
 function ExportButton() {
   const hasChords = useStore((s) => s.chords.length > 0 || playbackOf(s, 'song').chords.length > 0)
   const takes = useStore((s) => s.takes)
@@ -264,7 +280,7 @@ function ExportButton() {
   const hasTake = useStore((s) => sectionsNow(s).some((sec) => sec.takes.some(Boolean)))
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
-  const [rendering, setRendering] = useState(false)
+  const [rendering, setRendering] = useState<'wav' | 'stems' | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   useDismiss(open, close, ref)
@@ -272,20 +288,34 @@ function ExportButton() {
   const exportMidi = () => {
     const s = useStore.getState()
     // Every chord and drum hit, muted or not: in a DAW each track can be muted there.
-    const song = exported({ ...s, chordsMuted: false, chordsSolo: false, drumsMuted: false, drumsSolo: false, vocalSolo: s.vocalSolo.map(() => false) })
+    const song = exported(unmuted(s))
     download(songToMidi({ ...song, chords: song.chords.map((c) => ({ ...c, silent: false })) }), `${exportName(s)}.mid`)
     setOpen(false)
   }
   const exportWav = async () => {
     const s = useStore.getState()
-    setRendering(true)
+    setRendering('wav')
     try {
       // The mix is what you hear: muted and un-soloed tracks are left out.
       const song = exported()
       download(await songToWav(song, placedTakes(song, (id) => engine.takeAudio(id))), `${exportName(s)}.wav`)
       setOpen(false)
     } finally {
-      setRendering(false)
+      setRendering(null)
+    }
+  }
+  const exportStems = async () => {
+    const s = useStore.getState()
+    setRendering('stems')
+    try {
+      // Every track, muted or not, as with MIDI.
+      const song = exported(unmuted(s))
+      const takes = placedTakes(song, (id) => engine.takeAudio(id))
+      const names = { chords: chordsTrackName(s), drums: drumsTrackName(s), vocal: (track: number) => vocalTrackName(s, track) }
+      download(await songToStems(song, takes, names), `${exportName(s)}-stems.zip`)
+      setOpen(false)
+    } finally {
+      setRendering(null)
     }
   }
   const exportVocal = (lane: number) => {
@@ -314,18 +344,22 @@ function ExportButton() {
       </button>
       {open && (
         <div className="menu" id="export-menu" aria-label="Export as">
-          <button type="button" className="menu-item" onClick={exportMidi} disabled={rendering}>
+          <button type="button" className="menu-item" onClick={exportMidi} disabled={rendering !== null}>
             <span className="menu-item-title">MIDI</span>
-            <span className="menu-item-about">The whole song’s chords and bass on separate tracks, for a DAW</span>
+            <span className="menu-item-about">The whole song’s chords, bass and drums on separate tracks, for a DAW</span>
           </button>
-          <button type="button" className="menu-item" onClick={exportWav} disabled={rendering} aria-live="polite">
-            <span className="menu-item-title">{rendering ? 'Rendering…' : 'WAV'}</span>
+          <button type="button" className="menu-item" onClick={exportWav} disabled={rendering !== null} aria-live="polite">
+            <span className="menu-item-title">{rendering === 'wav' ? 'Rendering…' : 'WAV'}</span>
             <span className="menu-item-about">The whole song as 24-bit audio{hasTake ? ', with the vocals' : ''}</span>
+          </button>
+          <button type="button" className="menu-item" onClick={exportStems} disabled={rendering !== null} aria-live="polite">
+            <span className="menu-item-title">{rendering === 'stems' ? 'Rendering stems…' : 'Stems'}</span>
+            <span className="menu-item-about">Each track as its own WAV, all from bar 1, in a zip for Logic</span>
           </button>
           {takes.map(
             (t, lane) =>
               t && (
-                <button type="button" key={lane} className="menu-item" onClick={() => exportVocal(lane)} disabled={rendering}>
+                <button type="button" key={lane} className="menu-item" onClick={() => exportVocal(lane)} disabled={rendering !== null}>
                   <span className="menu-item-title">{vocalTrackName({ vocalNames }, lane)}</span>
                   <span className="menu-item-about">This take alone, lined up to the start of {sectionName}</span>
                 </button>

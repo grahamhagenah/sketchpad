@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ChordSpec, Mode } from './music/theory'
 import { DEFAULT_SOUND, type Sound } from './audio/sound'
-import { DEFAULT_ARP, type Arp } from './audio/arrange'
+import { DEFAULT_ARP, DEFAULT_RHYTHM, type Arp, type Rhythm } from './audio/arrange'
 import { LANES, type TakeInfo } from './audio/take'
 import type { GrooveId } from './audio/drums'
 
@@ -97,6 +97,7 @@ interface State extends SectionParts {
   loopOn: boolean
   sound: Sound
   arp: Arp
+  rhythm: Rhythm
   chordsMuted: boolean
   chordsSolo: boolean
   /** Whether the song has a drum track; each section picks its own groove for it. */
@@ -136,6 +137,7 @@ interface State extends SectionParts {
   toggleLoop: () => void
   setSound: (patch: Partial<Sound>) => void
   setArp: (patch: Partial<Arp>) => void
+  setRhythm: (patch: Partial<Rhythm>) => void
   setTake: (lane: number, take: TakeInfo | null) => void
   /** Moves the vocals in lanes `from` into lanes 0, 1, 2…, with their mute and solo. */
   renumberVocals: (from: number[]) => void
@@ -258,6 +260,7 @@ export function songOf(s: State) {
     loopOn: s.loopOn,
     sound: s.sound,
     arp: s.arp,
+    rhythm: s.rhythm,
     chordsMuted: s.chordsMuted,
     chordsSolo: s.chordsSolo,
     drumTrack: s.drumTrack,
@@ -361,6 +364,7 @@ export const useStore = create<State>()(
       loopOn: true,
       sound: DEFAULT_SOUND,
       arp: DEFAULT_ARP,
+      rhythm: DEFAULT_RHYTHM,
       chordsMuted: false,
       chordsSolo: false,
       drumTrack: false,
@@ -402,6 +406,7 @@ export const useStore = create<State>()(
       toggleLoop: () => set({ loopOn: !get().loopOn }),
       setSound: (patch) => set({ sound: { ...get().sound, ...patch } }),
       setArp: (patch) => set({ arp: { ...get().arp, ...patch } }),
+      setRhythm: (patch) => set({ rhythm: { ...get().rhythm, ...patch } }),
       setTake: (lane, take) => set({ takes: get().takes.map((t, i) => (i === lane ? take : t)) }),
       renumberVocals: (from) => {
         const { takes, vocalMuted, vocalSolo, vocalNames } = get()
@@ -418,7 +423,7 @@ export const useStore = create<State>()(
       },
       addVocalTrack: () => {
         const lane = get().vocalTracks
-        if (lane >= LANES) return
+        if (lane >= LANES || !get().chords.length) return
         set({ vocalTracks: lane + 1, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false, drumsTrackSelected: false })
       },
       setTitle: (title) => set({ title }),
@@ -431,7 +436,9 @@ export const useStore = create<State>()(
       toggleChordsMute: () => set({ chordsMuted: !get().chordsMuted }),
       toggleChordsSolo: () => set({ chordsSolo: !get().chordsSolo }),
       setDrums: (drums) => set({ drums }),
-      addDrumTrack: () => set({ drumTrack: true, drums: get().drums ?? 'backbeat' }),
+      addDrumTrack: () => {
+        if (get().chords.length) set({ drumTrack: true, drums: get().drums ?? 'backbeat' })
+      },
       removeDrumTrack: () => set({ drumTrack: false, drumsMuted: false, drumsSolo: false, drumsTrackSelected: false }),
       renameDrums: (name) => set({ drumsName: name.trim() || null }),
       toggleDrumsMute: () => set({ drumsMuted: !get().drumsMuted }),
@@ -608,12 +615,13 @@ export const useStore = create<State>()(
       },
     }),
     {
+      // Named before the app was called Bounce; kept, so saved work still loads.
       name: 'sketchpad-song',
       // Fill in settings saved before they existed, and give songs saved before sections one section.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SongData> & LegacySong
         if (!p.sections && !p.chords) return current
-        return { ...current, ...p, ...songState(p), sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp } }
+        return { ...current, ...p, ...songState(p), sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp }, rhythm: { ...DEFAULT_RHYTHM, ...p.rhythm } }
       },
       partialize: (s) => ({ ...songOf(s), view: s.view, zoom: s.zoom, sketchId: s.sketchId, savedSignature: s.savedSignature }),
     },

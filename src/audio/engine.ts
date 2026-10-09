@@ -349,6 +349,7 @@ const unsubscribe = useStore.subscribe((s, prev) => {
     s.metronome !== prev.metronome ||
     s.loopOn !== prev.loopOn ||
     s.arp !== prev.arp ||
+    s.rhythm !== prev.rhythm ||
     s.takes !== prev.takes ||
     s.vocalMuted !== prev.vocalMuted ||
     s.vocalSolo !== prev.vocalSolo ||
@@ -429,7 +430,7 @@ export async function toggleRecord() {
     stream = await openMic()
   } catch {
     setAudioSession('playback')
-    window.alert('Sketchpad needs the microphone to record. Allow it in your browser’s site settings, then try again.')
+    window.alert('Bounce needs the microphone to record. Allow it in your browser’s site settings, then try again.')
     return
   }
   // Record into the selected track, or else the first one without a take
@@ -502,7 +503,7 @@ const unsubscribeLanes = useStore.subscribe((s) => {
   storeLanes(lanes, (id) => engine.takeAudio(id)).catch((error) => {
     console.error(error)
     storedLanes = ''
-    window.alert(`Sketchpad couldn’t store your vocal tracks, so recent changes to them will be gone if the page reloads. ${storageErrorMessage(error)}`)
+    window.alert(`Bounce couldn’t store your vocal tracks, so recent changes to them will be gone if the page reloads. ${storageErrorMessage(error)}`)
   })
 })
 

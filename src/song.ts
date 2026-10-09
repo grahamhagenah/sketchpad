@@ -18,6 +18,8 @@ export interface VocalPlacement {
   endBeat: number
   /** Its lane in the open section, so recording into that lane can leave it out. */
   lane: number | null
+  /** Which vocal track it's on, in whichever section, for exporting each track on its own. */
+  track: number
 }
 
 /** Everything the engine and exports need to play: the open section, or the whole song. */
@@ -30,12 +32,17 @@ export interface Playback {
   loopOn: boolean
   sound: State['sound']
   arp: State['arp']
+  rhythm: State['rhythm']
   chords: PlayChord[]
   loop: LoopRegion | null
   vocals: VocalPlacement[]
   /** The drums, bar after bar under each section's chords. */
   drums: DrumHit[]
+  /** Where the drum track's kick plays, muted or not, for the bass to follow; none without a drum track. */
+  kicks?: number[]
 }
+
+const kicksOf = (hits: DrumHit[]) => hits.filter((h) => h.piece === 'kick').map((h) => h.beat)
 
 /** Where each place in the song starts and how long it is, in beats. */
 export function songSpans(s: Pick<State, 'arrangement' | 'sections' | 'activeSection' | 'chords'>) {
@@ -64,6 +71,7 @@ export function playbackOf(s: State, view = s.view): Playback {
     loopOn: s.loopOn,
     sound: s.sound,
     arp: s.arp,
+    rhythm: s.rhythm,
   }
   if (view === 'section') {
     const audible = audibleTracks(s)
@@ -72,8 +80,9 @@ export function playbackOf(s: State, view = s.view): Playback {
       chords: audible.chords ? s.chords : s.chords.map((c) => ({ ...c, silent: true })),
       loop: s.loop,
       drums: audible.drums && s.drumTrack ? grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords)) : [],
+      kicks: s.drumTrack ? kicksOf(grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords))) : undefined,
       vocals: s.takes.flatMap((t, lane) =>
-        t && audible.vocals[lane] ? [{ id: t.id, startBeat: t.startBeat, seconds: t.seconds, endBeat: Infinity, lane }] : [],
+        t && audible.vocals[lane] ? [{ id: t.id, startBeat: t.startBeat, seconds: t.seconds, endBeat: Infinity, lane, track: lane }] : [],
       ),
     }
   }
@@ -81,18 +90,21 @@ export function playbackOf(s: State, view = s.view): Playback {
   const chords: PlayChord[] = []
   const vocals: VocalPlacement[] = []
   const drums: DrumHit[] = []
+  const kicks: number[] = []
   for (const { entry, start, beats } of songSpans(s)) {
     const section = sections.get(entry.section)
     if (!section) continue
     const audible = audibleTracks({ ...section, chordsMuted: s.chordsMuted, chordsSolo: s.chordsSolo, drumsMuted: s.drumsMuted, drumsSolo: s.drumsSolo })
     // Each place gets its own chord ids, so a section that repeats stays distinct.
     chords.push(...section.chords.map((c) => ({ ...c, id: `${entry.id}:${c.id}`, silent: !audible.chords })))
-    if (audible.drums && s.drumTrack) drums.push(...grooveHits(section.drums, s.timeSig, start, beats))
+    const groove = grooveHits(section.drums, s.timeSig, start, beats)
+    if (audible.drums && s.drumTrack) drums.push(...groove)
+    kicks.push(...kicksOf(groove))
     section.takes.forEach((t, lane) => {
-      if (t && audible.vocals[lane]) vocals.push({ id: t.id, startBeat: start + t.startBeat, seconds: t.seconds, endBeat: start + beats, lane: null })
+      if (t && audible.vocals[lane]) vocals.push({ id: t.id, startBeat: start + t.startBeat, seconds: t.seconds, endBeat: start + beats, lane: null, track: lane })
     })
   }
-  return { ...base, chords, loop: null, vocals, drums }
+  return { ...base, chords, loop: null, vocals, drums, kicks: s.drumTrack ? kicks : undefined }
 }
 
 /** Each section's takes by lane, as ids, for storing. */

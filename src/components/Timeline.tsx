@@ -56,13 +56,17 @@ export function Timeline() {
   const { takes, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames, chordsTrackSelected } = useStore()
   const audible = audibleTracks(useStore())
   // The tracks added so far, plus the one a recording is adding.
-  const laneCount = Math.max(vocalTracks, recording === 'off' ? 0 : armedLane + 1)
+  // An empty section shows only its chords track and the + to start it; its other tracks come back with its chords.
+  const empty = totalBeats === 0
+  const laneCount = empty ? 0 : Math.max(vocalTracks, recording === 'off' ? 0 : armedLane + 1)
   // With chords but no vocal tracks, a row invites you to add one.
   // Under the last vocal track, a row to add another, while there's room for one.
-  const vocalHint = laneCount < LANES && recording === 'off'
+  // Not in an empty section, though: tracks go under chords, so they come once there are some.
+  const vocalHint = laneCount < LANES && recording === 'off' && !empty
   // And under that, one to add the drum track, until there is one.
-  const drumTrack = useStore((s) => s.drumTrack)
-  const drumHint = !drumTrack && recording === 'off'
+  const hasDrumTrack = useStore((s) => s.drumTrack)
+  const drumTrack = hasDrumTrack && !empty
+  const drumHint = !hasDrumTrack && recording === 'off' && !empty
   const rows = laneCount + (vocalHint ? 1 : 0) + (drumHint ? 1 : 0)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -213,7 +217,7 @@ export function Timeline() {
 
   return (
     <div className={`timeline-wrap ${rows ? 'has-vocals' : ''}`} style={{ ['--lanes' as string]: rows, ['--drum-rows' as string]: drumTrack ? 1 : 0 }}>
-      <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumHint={drumHint} />
+      <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumTrack={drumTrack} drumHint={drumHint} />
       <div className="timeline-scroll" ref={scrollRef}>
         <div
           className={`timeline ${chords.length ? '' : 'is-empty'} ${audible.chords ? '' : 'chords-silent'} ${chordsTrackSelected ? 'chords-selected' : ''}`}
@@ -301,7 +305,7 @@ export function Timeline() {
           </button>
           {adding && <AddChordMenu anchor={slotRef} onClose={closeAdding} />}
 
-          {drumTrack && totalBeats > 0 && <DrumLane beatPx={beatPx} beats={totalBeats} muted={!audible.drums} />}
+          {drumTrack && <DrumLane beatPx={beatPx} beats={totalBeats} muted={!audible.drums} />}
 
           {Array.from({ length: laneCount }, (_, lane) => (
             <VocalLane
@@ -539,7 +543,7 @@ function UnmuteAllButton() {
 }
 
 /** Track names with mute and solo, beside each track's row. */
-function TrackHeaders({ laneCount, vocalHint, drumHint }: { laneCount: number; vocalHint: boolean; drumHint: boolean }) {
+function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount: number; vocalHint: boolean; drumTrack: boolean; drumHint: boolean }) {
   const s = useStore()
   return (
     <div className="track-headers">
@@ -557,7 +561,7 @@ function TrackHeaders({ laneCount, vocalHint, drumHint }: { laneCount: number; v
         onRename={s.renameChords}
         onSelect={s.recording === 'off' && s.chords.length > 0 ? s.selectChordsTrack : undefined}
       />
-      {s.drumTrack && (
+      {drumTrack && (
         <TrackHeader
           className={`is-drums ${s.drumsTrackSelected ? 'is-selected' : ''}`}
           icon={<DrumIcon />}

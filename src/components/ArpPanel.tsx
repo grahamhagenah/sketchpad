@@ -1,8 +1,63 @@
 import { useStore } from '../store'
-import { ARP_PATTERNS, ARP_RATES } from '../audio/arrange'
+import { ARP_PATTERNS, ARP_RATES, CHORD_RHYTHMS } from '../audio/arrange'
 import { Slider } from './SoundPanel'
 
 const OCTAVES = [1, 2, 3] as const
+
+/** How the chords and bass are played: a tab of the sound panel. */
+export function RhythmSettings() {
+  const rhythm = useStore((s) => s.rhythm)
+  const setRhythm = useStore((s) => s.setRhythm)
+  const arpOn = useStore((s) => s.arp.on)
+  const drumTrack = useStore((s) => s.drumTrack)
+  const bassOn = useStore((s) => s.sound.bass)
+  const about = CHORD_RHYTHMS.find((r) => r.id === rhythm.chords)?.about
+
+  return (
+    <>
+      <div className="sound-section">
+        <span className="sound-heading">Chords</span>
+        <div className="sound-chips">
+          {CHORD_RHYTHMS.map((r) => (
+            <button
+              type="button"
+              key={r.id}
+              className="chip"
+              aria-pressed={rhythm.chords === r.id}
+              disabled={arpOn}
+              title={r.about}
+              onClick={() => setRhythm({ chords: r.id })}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <p className="rhythm-about">{arpOn ? 'The arpeggiator sets the chords’ rhythm while it’s on.' : about}</p>
+      </div>
+
+      <div className="sound-section">
+        <span className="sound-heading">Bass</span>
+        <div className="sound-chips">
+          <button type="button" className="chip" aria-pressed={rhythm.bass === 'held'} disabled={!bassOn} onClick={() => setRhythm({ bass: 'held' })}>
+            Held
+          </button>
+          <button type="button" className="chip" aria-pressed={rhythm.bass === 'kick'} disabled={!bassOn} onClick={() => setRhythm({ bass: 'kick' })}>
+            With the kick
+          </button>
+        </div>
+        <p className="rhythm-about">
+          {!bassOn
+            ? 'The bass note is off, in the Sound tab.'
+            : rhythm.bass === 'held'
+              ? 'One long note for each chord'
+              : drumTrack
+                ? 'Plays with the kick drum, and walks up into each new chord'
+                : 'Plays with the kick drum once there’s a drum track; held until then'}
+        </p>
+      </div>
+    </>
+  )
+}
 
 /** The arpeggiator's switch and settings, shown as a tab of the sound panel. */
 export function ArpSettings() {
