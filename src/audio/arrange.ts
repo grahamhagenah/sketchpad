@@ -47,7 +47,8 @@ interface ArrangeSong {
   key: number
   mode: Mode
   timeSig: TimeSig
-  chords: Chord[]
+  /** A silent chord keeps its place and its voicing, so the chords around it lead into each other as usual, but isn't played. */
+  chords: (Chord & { silent?: boolean })[]
   arp: Arp
 }
 
@@ -106,6 +107,7 @@ export function arrange(song: ArrangeSong, region?: LoopRegion): Hit[] {
     let start = beat
     let end = beat + c.beats
     beat = end
+    if (c.silent) return
     if (region) {
       start = Math.max(start, region.start)
       end = Math.min(end, region.end)

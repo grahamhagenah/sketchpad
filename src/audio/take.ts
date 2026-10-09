@@ -52,9 +52,13 @@ export function toAudioBuffer(take: Take) {
 export const LANES = 4
 
 const DB = 'sketchpad'
-/** Which take is in each lane of the sketch being worked on, by take id. */
+/**
+ * The takes of the sketch being worked on, as take ids by lane for each
+ * section, under LANES_KEY. (Before sections, each lane had a key of its own.)
+ */
 const STORE = 'takes'
-/** Saved sketches, and (kept apart so listing them stays quick) their takes' ids, by lane. */
+const LANES_KEY = 'lanes'
+/** Saved sketches, and (kept apart so listing them stays quick) their takes' ids, by section and lane. */
 export const SKETCHES = 'sketches'
 export const SKETCH_TAKES = 'sketch-takes'
 /**
@@ -184,6 +188,14 @@ function putAudio(tx: IDBTransaction, take: Take) {
   }
 }
 
+/** Every string in a stored value, however deeply it's nested in arrays and records: the take ids it holds. */
+function idsIn(value: unknown, into = new Set<unknown>()) {
+  if (typeof value === 'string') into.add(value)
+  else if (Array.isArray(value)) value.forEach((v) => idsIn(v, into))
+  else if (value && typeof value === 'object') Object.values(value).forEach((v) => idsIn(v, into))
+  return into
+}
+
 /** Deletes the audio of takes no lane or saved sketch holds any more. */
 function deleteUnused() {
   return write([STORE, SKETCH_TAKES, AUDIO], (tx) => {
@@ -193,61 +205,72 @@ function deleteUnused() {
     // Requests in a transaction run in order, so the others are done by now.
     const keys = audio.getAllKeys()
     keys.onsuccess = () => {
-      const used = new Set<unknown>([...lanes.result, ...sketches.result.flat()])
+      const used = idsIn([lanes.result, sketches.result])
       for (const id of keys.result) if (!used.has(id)) audio.delete(id)
     }
   })
 }
 
-async function loadAudio(ids: unknown[]): Promise<(Take | null)[]> {
-  return Promise.all(
-    ids.map(async (id) => {
-      if (typeof id !== 'string') return null
-      const stored = await idb<StoredTake | undefined>(AUDIO, 'readonly', (s) => s.get(id))
-      return stored ? fromStored(id, stored) : null
-    }),
+/** Take ids by lane, for each section. */
+export type LaneIds = Record<string, (string | null)[]>
+/** Takes by lane, for each section. */
+export type SectionTakes = Record<string, (Take | null)[]>
+
+/** Loads the audio of every take in `lanes`, once each however often it's used. */
+async function loadAudio(lanes: Record<string, unknown[]>): Promise<SectionTakes> {
+  const ids = [...idsIn(lanes)] as string[]
+  const stored = await Promise.all(ids.map((id) => idb<StoredTake | undefined>(AUDIO, 'readonly', (s) => s.get(id))))
+  const takes = new Map(ids.map((id, i) => [id, stored[i] ? fromStored(id, stored[i]) : null]))
+  return Object.fromEntries(
+    Object.entries(lanes).map(([section, ids]) => [section, ids.map((id) => (typeof id === 'string' ? (takes.get(id) ?? null) : null))]),
   )
 }
 
-export async function saveTake(lane: number, take: Take) {
-  await write([STORE, AUDIO], (tx) => {
-    putAudio(tx, take)
-    tx.objectStore(STORE).put(take.id, key(lane))
+/** Writes `lanes` under `key` in `store`, storing any audio of theirs that isn't stored yet. */
+async function writeLanes(store: string, key: string, lanes: LaneIds, audioOf: (id: string) => Take | undefined) {
+  await write([store, AUDIO], (tx) => {
+    for (const id of idsIn(lanes) as Set<string>) {
+      const take = audioOf(id)
+      if (take) putAudio(tx, take)
+    }
+    tx.objectStore(store).put(lanes, key)
   })
   await deleteUnused()
 }
 
-export async function deleteSavedTake(lane: number) {
-  await idb(STORE, 'readwrite', (s) => s.delete(key(lane)))
-  await deleteUnused()
-}
+/** Keeps which takes are in each section of the sketch being worked on. */
+export const storeLanes = (lanes: LaneIds, audioOf: (id: string) => Take | undefined) => writeLanes(STORE, LANES_KEY, lanes, audioOf)
 
-/** Every lane's take, oldest single-take saves included as lane 1. */
-export async function loadTakes(): Promise<(Take | null)[]> {
-  const ids = await Promise.all(Array.from({ length: LANES }, (_, lane) => idb<unknown>(STORE, 'readonly', (s) => s.get(key(lane)))))
-  const legacy = await idb<unknown>(STORE, 'readonly', (s) => s.get('vocal'))
-  if (typeof legacy === 'string') {
-    if (typeof ids[0] !== 'string') {
-      ids[0] = legacy
-      await idb(STORE, 'readwrite', (s) => s.put(legacy, key(0)))
-    }
-    await idb(STORE, 'readwrite', (s) => s.delete('vocal'))
-    await deleteUnused()
+/**
+ * The takes of the sketch being worked on, by section. Takes kept before
+ * sections, one lane to a key (and the oldest, a single take), go to `section`.
+ */
+export async function loadLanes(section: string): Promise<SectionTakes> {
+  const lanes = await idb<LaneIds | undefined>(STORE, 'readonly', (s) => s.get(LANES_KEY))
+  if (lanes) return loadAudio(lanes)
+  const legacy = await Promise.all(Array.from({ length: LANES }, (_, lane) => idb<unknown>(STORE, 'readonly', (s) => s.get(key(lane)))))
+  const oldest = await idb<unknown>(STORE, 'readonly', (s) => s.get('vocal'))
+  if (typeof oldest === 'string' && typeof legacy[0] !== 'string') legacy[0] = oldest
+  const ids = legacy.map((id) => (typeof id === 'string' ? id : null))
+  if (ids.some(Boolean)) {
+    await write([STORE], (tx) => {
+      const store = tx.objectStore(STORE)
+      store.put({ [section]: ids }, LANES_KEY)
+      for (let lane = 0; lane < LANES; lane++) store.delete(key(lane))
+      store.delete('vocal')
+    })
   }
-  return loadAudio(ids)
+  return loadAudio({ [section]: ids })
 }
 
 /** Keeps a saved sketch's takes, sharing audio already stored. */
-export async function saveSketchTakes(sketchId: string, takes: readonly (Take | null)[]) {
-  await write([SKETCH_TAKES, AUDIO], (tx) => {
-    for (const take of takes) if (take) putAudio(tx, take)
-    tx.objectStore(SKETCH_TAKES).put(takes.map((take) => take?.id ?? null), sketchId)
-  })
-  await deleteUnused()
-}
+export const saveSketchTakes = (sketchId: string, lanes: LaneIds, audioOf: (id: string) => Take | undefined) =>
+  writeLanes(SKETCH_TAKES, sketchId, lanes, audioOf)
 
-export async function loadSketchTakes(sketchId: string) {
-  return loadAudio((await idb<unknown[] | undefined>(SKETCH_TAKES, 'readonly', (s) => s.get(sketchId))) ?? [])
+/** A saved sketch's takes by section; a sketch saved before sections had one list of lanes, which goes to `section`. */
+export async function loadSketchTakes(sketchId: string, section: string): Promise<SectionTakes> {
+  const stored = await idb<LaneIds | unknown[] | undefined>(SKETCH_TAKES, 'readonly', (s) => s.get(sketchId))
+  return loadAudio(Array.isArray(stored) ? { [section]: stored } : (stored ?? {}))
 }
 
 export async function deleteSketchTakes(sketchId: string) {

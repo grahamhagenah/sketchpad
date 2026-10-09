@@ -1,29 +1,12 @@
 import * as Tone from 'tone'
-import { audibleTracks, useStore, loopRange, type Chord, type LoopRegion, type TimeSig } from '../store'
-import { bassNote, chordOf, voiceChord, type Mode } from '../music/theory'
-import { arrange, type Arp, type Hit } from './arrange'
+import { useStore, loopRange, type Chord } from '../store'
+import { bassNote, chordOf, voiceChord } from '../music/theory'
+import { arrange, type Hit } from './arrange'
 import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
 import type { Sound } from './sound'
 import { openMic, outputLatency, startCapture, type Capture } from './recorder'
-import { LANES, deleteSavedTake, keepStorage, loadTakes, quantize, saveTake, storageErrorMessage, takeInfo, toAudioBuffer, type Take, type TakeInfo } from './take'
-
-export interface Song {
-  key: number
-  mode: Mode
-  bpm: number
-  timeSig: TimeSig
-  chords: Chord[]
-  loop: LoopRegion | null
-  metronome: boolean
-  loopOn: boolean
-  sound: Sound
-  arp: Arp
-  takes: (TakeInfo | null)[]
-  vocalMuted: boolean[]
-  vocalSolo: boolean[]
-  chordsMuted: boolean
-  chordsSolo: boolean
-}
+import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take } from './take'
+import { playbackOf, takeIdsBySection, type Playback } from '../song'
 
 interface HitEvent extends Hit {
   time: string
@@ -59,8 +42,9 @@ class Engine {
   private chordPart: Tone.Part<HitEvent> | null = null
   private clickPart: Tone.Part<ClickEvent> | null = null
   private vocalParts: Tone.Part<VocalEvent>[] = []
-  private vocals: (Tone.Player | null)[] = Array(LANES).fill(null)
-  private takes: (Take | null)[] = Array(LANES).fill(null)
+  /** Every take's audio this visit, by id, and a player for each once audio has started. */
+  private audio = new Map<string, Take>()
+  private players = new Map<string, Tone.Player>()
   private recording: Recording | null = null
   private ticksPerBeat = 192
   private loopStartTicks = 0
@@ -86,11 +70,21 @@ class Engine {
     }).toDestination()
     this.click.volume.value = -12
     this.ready = true
-    this.vocals = this.takes.map((take) => (take ? new Tone.Player(toAudioBuffer(take)).toDestination() : null))
   }
 
-  /** Rebuilds the loop from the song. Safe to call while playing. */
-  sync(song: Song) {
+  /** The player for a take, made the first time it's needed. */
+  private player(id: string) {
+    let player = this.players.get(id)
+    const take = this.audio.get(id)
+    if (!player && take && this.ready) {
+      player = new Tone.Player(toAudioBuffer(take)).toDestination()
+      this.players.set(id, player)
+    }
+    return player ?? null
+  }
+
+  /** Rebuilds the loop from what plays. Safe to call while playing. */
+  sync(song: Playback) {
     if (!this.ready) return
     const t = Tone.getTransport()
     const [num, den] = song.timeSig
@@ -107,10 +101,7 @@ class Engine {
 
     // Only what sits inside the loop is scheduled; a chord that crosses the
     // loop's edge is cut to it, so it still sounds when the loop comes round.
-    const audible = audibleTracks(song)
-    const events: HitEvent[] = audible.chords
-      ? arrange(song, region).map((h) => ({ ...h, time: `${Math.round(h.start * t.PPQ)}i` }))
-      : []
+    const events: HitEvent[] = arrange(song, region).map((h) => ({ ...h, time: `${Math.round(h.start * t.PPQ)}i` }))
 
     this.chordEvents = events
     this.chordPart?.dispose()
@@ -126,11 +117,11 @@ class Engine {
     this.quartersPerBeat = quartersPerBeat
     this.secondsPerQuarter = secondsPerQuarter
     this.region = region
-    song.takes.forEach((info, lane) => {
-      const player = this.vocals[lane]
-      if (!player || !info || !audible.vocals[lane] || this.recording?.lane === lane) return
-      const takeStart = info.startBeat * quartersPerBeat
-      const takeEnd = takeStart + info.seconds / secondsPerQuarter
+    song.vocals.forEach((vocal) => {
+      const player = this.player(vocal.id)
+      if (!player || (this.recording && this.recording.lane === vocal.lane)) return
+      const takeStart = vocal.startBeat * quartersPerBeat
+      const takeEnd = Math.min(takeStart + vocal.seconds / secondsPerQuarter, vocal.endBeat * quartersPerBeat)
       const from = Math.max(takeStart, region.start * quartersPerBeat)
       const to = Math.min(takeEnd, region.end * quartersPerBeat)
       if (to <= from) return
@@ -176,7 +167,7 @@ class Engine {
   }
 
   /** Plays from `fromBeat`, or from the start of the loop when that's outside it. */
-  async play(song: Song, fromBeat = 0) {
+  async play(song: Playback, fromBeat = 0) {
     await Tone.start()
     this.setup()
     this.sync(song)
@@ -205,7 +196,8 @@ class Engine {
     this.chordPart?.dispose()
     this.clickPart?.dispose()
     this.vocalParts.forEach((part) => part.dispose())
-    this.vocals.forEach((player) => player?.dispose())
+    this.players.forEach((player) => player.dispose())
+    this.players.clear()
     if (this.ready) {
       Object.values(this.instruments).forEach((node) => node.dispose())
       this.click.dispose()
@@ -218,19 +210,17 @@ class Engine {
     Tone.getTransport().stop()
     this.pad.releaseAll()
     this.bass.triggerRelease()
-    this.vocals.forEach((player) => player?.stop())
+    this.players.forEach((player) => player.stop())
   }
 
-  /** Puts a take in a lane for playback, or empties the lane. */
-  setTake(lane: number, take: Take | null) {
-    this.takes[lane] = take
-    this.vocals[lane]?.dispose()
-    this.vocals[lane] = take && this.ready ? new Tone.Player(toAudioBuffer(take)).toDestination() : null
+  /** Keeps a take's audio, for playing and storing. */
+  addTake(take: Take) {
+    this.audio.set(take.id, take)
   }
 
-  /** Each lane's audio, for exporting. */
-  get allTakes(): readonly (Take | null)[] {
-    return this.takes
+  /** A take's audio, for exporting and storing. */
+  takeAudio(id: string) {
+    return this.audio.get(id)
   }
 
   get isRecording() {
@@ -247,12 +237,12 @@ class Engine {
    * on the record button, then the progression plays from the loop's start
    * while the mic records. Resolves once the count-in has started.
    */
-  async record(song: Song, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void }) {
+  async record(song: Playback, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void }) {
     await Tone.start()
     this.setup()
     const t = Tone.getTransport()
     t.stop()
-    this.vocals.forEach((player) => player?.stop())
+    this.players.forEach((player) => player.stop())
     const capture = await startCapture(stream)
 
     const [num, den] = song.timeSig
@@ -316,7 +306,7 @@ class Engine {
     if (this.ready) applySound(this.instruments, sound)
   }
 
-  async audition(song: Song, chord: Chord) {
+  async audition(song: Pick<Playback, 'key' | 'mode'>, chord: Chord) {
     await Tone.start()
     this.setup()
     const info = chordOf(song.key, song.mode, chord)
@@ -346,9 +336,13 @@ const unsubscribe = useStore.subscribe((s, prev) => {
     s.vocalMuted !== prev.vocalMuted ||
     s.vocalSolo !== prev.vocalSolo ||
     s.chordsMuted !== prev.chordsMuted ||
-    s.chordsSolo !== prev.chordsSolo
+    s.chordsSolo !== prev.chordsSolo ||
+    s.sections !== prev.sections ||
+    s.arrangement !== prev.arrangement ||
+    s.activeSection !== prev.activeSection ||
+    s.view !== prev.view
   ) {
-    engine.sync(s)
+    engine.sync(playbackOf(s))
   }
 })
 
@@ -382,7 +376,7 @@ export async function togglePlay() {
     engine.stop()
     s.setPlaying(false)
   } else {
-    await engine.play(s, s.playhead)
+    await engine.play(playbackOf(s), s.playhead)
     s.setPlaying(true)
   }
 }
@@ -394,15 +388,16 @@ export async function seek(beat: number) {
   s.setPlayhead(Math.max(0, beat))
   if (s.playing) {
     engine.stop()
-    await engine.play(useStore.getState(), beat)
+    await engine.play(playbackOf(useStore.getState()), beat)
   }
 }
 
-/** Starts recording a vocal over the progression, or stops one in progress. */
+/** Starts recording a vocal over the open section, or stops one in progress. */
 export async function toggleRecord() {
   const s = useStore.getState()
   if (s.recording !== 'off') return stopRecording()
-  if (!s.chords.length) return
+  // Vocals belong to a section, so they're recorded in one, not over the whole song.
+  if (!s.chords.length || s.view !== 'section') return
   if (s.playing) {
     engine.stop()
     s.setPlaying(false)
@@ -423,7 +418,7 @@ export async function toggleRecord() {
   const lane = s.selectedVocal ?? (free === -1 ? s.armedLane : free)
   s.setArmedLane(lane)
   s.setRecording('count-in')
-  await engine.record(useStore.getState(), stream, lane, {
+  await engine.record(playbackOf(useStore.getState()), stream, lane, {
     count: (n) => useStore.getState().setCountIn(n),
     rolling: () => {
       useStore.getState().setRecording('on')
@@ -440,67 +435,70 @@ async function stopRecording() {
   s.setPlaying(false)
   if (result?.take) {
     const { lane, take } = result
-    engine.setTake(lane, take)
+    keepStorage()
+    // The audio first, so it's there to store when the lane changes.
+    engine.addTake(take)
     s.setTake(lane, takeInfo(take))
     s.showVocalTracks(lane + 1)
-    keepStorage()
-    try {
-      await saveTake(lane, take)
-    } catch (error) {
-      console.error(error)
-      window.alert(`This take plays now, but Sketchpad couldn’t store it, so it will be gone if the page reloads. ${storageErrorMessage(error)}`)
-    }
-  }
-}
-
-/** Deletes a vocal track and its take; the tracks after it move up, so they stay numbered 1, 2, 3… */
-export async function deleteTake(lane: number) {
-  const tracks = Math.max(useStore.getState().vocalTracks, takeCount(engine.allTakes))
-  try {
-    await renumberTakes(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane))
-  } catch (error) {
-    console.error(error)
-    window.alert(`The track is deleted, but Sketchpad couldn’t store the change, so it may come back if the page reloads. ${storageErrorMessage(error)}`)
-  }
-}
-
-/** Swaps in a whole set of takes, as when opening a saved sketch. */
-export async function replaceTakes(takes: (Take | null)[]) {
-  const s = useStore.getState()
-  for (let lane = 0; lane < LANES; lane++) {
-    const take = takes[lane] ?? null
-    engine.setTake(lane, take)
-    s.setTake(lane, take ? takeInfo(take) : null)
-    if (take) await saveTake(lane, take)
-    else await deleteSavedTake(lane)
   }
 }
 
 /** Lanes up to and including the last one with a take. */
-const takeCount = (takes: readonly (Take | null)[]) => takes.reduce((n, t, lane) => (t ? lane + 1 : n), 0)
+const takeCount = (takes: readonly unknown[]) => takes.reduce<number>((n, t, lane) => (t ? lane + 1 : n), 0)
 
-/** Puts the takes from lanes `from` into lanes 0, 1, 2…, clearing the rest. */
-async function renumberTakes(from: number[]) {
-  const old = engine.allTakes.slice()
-  const moved = Array.from({ length: LANES }, (_, lane) => (lane < from.length ? old[from[lane]] : null))
-  moved.forEach((take, lane) => engine.setTake(lane, take))
-  useStore.getState().renumberVocals(from)
-  for (let lane = 0; lane < LANES; lane++) {
-    const take = moved[lane]
-    if (!take) await deleteSavedTake(lane)
-    else if (from[lane] !== lane) await saveTake(lane, take)
+/** Deletes a vocal track and its take; the tracks after it move up, so they stay numbered 1, 2, 3… */
+export async function deleteTake(lane: number) {
+  const s = useStore.getState()
+  const tracks = Math.max(s.vocalTracks, takeCount(s.takes))
+  s.renumberVocals(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane))
+}
+
+/** Puts a whole song's takes in its sections, as when opening a saved sketch. */
+export function loadSongTakes(takes: SectionTakes) {
+  const s = useStore.getState()
+  const known = new Set(s.sections.map((sec) => sec.id))
+  for (const [section, lanes] of Object.entries(takes)) {
+    if (!known.has(section)) continue
+    lanes.forEach((take) => take && engine.addTake(take))
+    s.setSectionTakes(
+      section,
+      lanes.map((take) => (take ? takeInfo(take) : null)),
+    )
   }
 }
 
-// Bring back the takes from the last visit.
-void loadTakes().then((takes) => {
-  takes.forEach((take, lane) => {
-    if (!take) return
-    engine.setTake(lane, take)
-    useStore.getState().setTake(lane, takeInfo(take))
+// Store each section's takes whenever they change: after recording,
+// deleting a track or a section, or opening a sketch. Not until the last
+// visit's takes are back, so an early change can't store an empty song over them.
+let lanesLoaded = false
+let storedLanes = ''
+const unsubscribeLanes = useStore.subscribe((s) => {
+  if (!lanesLoaded) return
+  const lanes = takeIdsBySection(s)
+  const key = JSON.stringify(lanes)
+  if (key === storedLanes) return
+  storedLanes = key
+  storeLanes(lanes, (id) => engine.takeAudio(id)).catch((error) => {
+    console.error(error)
+    storedLanes = ''
+    window.alert(`Sketchpad couldn’t store your vocal tracks, so recent changes to them will be gone if the page reloads. ${storageErrorMessage(error)}`)
   })
-  useStore.getState().showVocalTracks(takeCount(takes))
 })
+
+// Bring back the takes from the last visit. Takes kept before sections go to the open section.
+void loadLanes(useStore.getState().activeSection)
+  .then((takes) => {
+    const known = new Set(useStore.getState().sections.map((sec) => sec.id))
+    // If the song itself was lost (cleared site data, say) the takes still go somewhere they can be heard.
+    const stray = Object.entries(takes).find(([section, lanes]) => !known.has(section) && lanes.some(Boolean))
+    if (stray && !Object.keys(takes).some((section) => known.has(section))) takes = { [useStore.getState().activeSection]: stray[1] }
+    loadSongTakes(takes)
+    storedLanes = JSON.stringify(takeIdsBySection(useStore.getState()))
+  })
+  .catch((error) => console.error(error))
+  .finally(() => {
+    lanesLoaded = true
+  })
 
 export function audition(chord: Chord) {
   const s = useStore.getState()
@@ -511,6 +509,7 @@ export function audition(chord: Chord) {
 // lives on; without this, the old copy's scheduled chords keep playing too.
 import.meta.hot?.dispose(() => {
   unsubscribe()
+  unsubscribeLanes()
   engine.dispose()
   useStore.getState().setPlaying(false)
   useStore.getState().setRecording('off')

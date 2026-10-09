@@ -4,6 +4,7 @@ import { deleteTake, seek, togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
 import { Palette } from './components/Palette'
+import { SectionBar, SongView } from './components/Sections'
 import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
 
@@ -27,10 +28,14 @@ function useShortcuts() {
       if (e.metaKey || e.ctrlKey) return
       const s = useStore.getState()
       const sel = s.chords.find((c) => c.id === s.selectedId)
+      // In the song view the keys that edit a section's chords and tracks do nothing; its blocks take their own.
+      const editing = s.view === 'section'
 
       if (e.code === 'Space') {
         e.preventDefault()
         void togglePlay()
+      } else if (!editing && !['m', 'l', 'a', 'Enter', 'Home', '-', '_', '=', '+'].includes(e.key)) {
+        return
       } else if (/^[1-7]$/.test(e.key)) {
         s.addChord(Number(e.key) - 1)
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -84,15 +89,18 @@ function useShortcuts() {
 
 export default function App() {
   useShortcuts()
+  const view = useStore((s) => s.view)
 
   return (
     <div className="app">
       <main>
-        <section className="panel editor" aria-label="Progression">
+        <section className="panel editor" aria-label={view === 'song' ? 'Song' : 'Section'}>
           <Toolbar />
-          <Timeline />
+          <SectionBar />
+          {view === 'song' ? <SongView /> : <Timeline />}
         </section>
-        <Palette />
+        {/* Chords are picked for a section, so the palette shows while one is open. */}
+        {view === 'section' && <Palette />}
       </main>
     </div>
   )

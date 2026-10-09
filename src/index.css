@@ -631,6 +631,158 @@ main > .panel {
 .progression.is-confirming .progression-name { color: var(--accent); }
 .progression-numerals { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
 
+/* Sections: tabs for the song and each of its sections, above the editor. */
+.section-bar { display: flex; align-items: center; min-width: 0; margin-top: -2px; }
+.section-tabs { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; padding: 2px; scrollbar-width: none; }
+.section-tabs::-webkit-scrollbar { display: none; }
+.section-tabs-divider { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line-strong); }
+.section-tab-wrap { flex: none; display: flex; align-items: center; border-radius: 8px; }
+.section-tab-wrap.is-open { background: color-mix(in srgb, var(--section) 16%, var(--raised)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--section) 55%, transparent); }
+.section-tab {
+  flex: none;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.section-tab svg { width: 15px; height: 15px; }
+.section-tab[aria-selected='true'] { color: var(--text); }
+.section-tab.is-song[aria-selected='true'] { background: var(--raised); box-shadow: inset 0 0 0 1px var(--line-strong); }
+/* A section that isn't in the song yet. */
+.section-tab.is-unused { font-style: italic; }
+.section-tab.is-unused .section-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--section); }
+.section-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--section); }
+.section-tab-wrap.is-open .section-tab { padding-right: 4px; }
+.section-more,
+.section-add { width: 28px; min-height: 28px; height: 28px; border-color: transparent; background: none; color: var(--muted); }
+.section-more svg, .section-add svg { width: 16px; height: 16px; }
+.section-rename {
+  width: auto;
+  height: 30px;
+  margin: 0 2px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+}
+.section-rename:focus-visible { outline: none; }
+@media (hover: hover) {
+  .section-tab:not(:disabled):not([aria-selected='true']):hover { color: var(--text); background: rgb(255 255 255 / 0.04); }
+  .section-more:not(:disabled):hover, .section-add:not(:disabled):hover { color: var(--text); background: rgb(255 255 255 / 0.06); border-color: transparent; }
+}
+.section-menu { width: 280px; z-index: 30; }
+.menu-item.menu-item-row { flex-direction: row; align-items: center; gap: 10px; padding-block: 8px; }
+.menu-item.menu-item-row .menu-item-about { margin-left: auto; }
+.menu-label { margin: 6px 12px 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.menu-item.is-danger .menu-item-title { color: var(--danger); }
+
+/* The song: each place a section plays, in order, sized to its length. */
+.song-view { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.song-scroll { overflow-x: auto; padding-bottom: 6px; }
+.song-lane { position: relative; min-width: 100%; height: 126px; }
+.song-ruler { position: absolute; top: 0; left: 0; height: 18px; cursor: pointer; }
+.song-ruler span {
+  position: absolute;
+  top: 0;
+  padding-left: 4px;
+  border-left: 1px solid var(--line-strong);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.song-block {
+  position: absolute;
+  top: 26px;
+  height: 92px;
+  margin-left: 2px;
+  display: flex;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--section) 13%, var(--raised));
+  border: 1px solid color-mix(in srgb, var(--section) 40%, var(--line));
+  border-top: 3px solid var(--section);
+  touch-action: pan-x;
+  transition: left 0.16s ease, background 0.08s, border-color 0.08s;
+}
+.song-block.is-empty { border-style: dashed; border-top-style: solid; border-top-color: color-mix(in srgb, var(--section) 45%, transparent); background: color-mix(in srgb, var(--section) 6%, var(--panel)); }
+.song-block.is-playing { background: color-mix(in srgb, var(--section) 30%, var(--raised)); border-color: var(--section); }
+.song-block.is-dragging { z-index: 4; transition: none; box-shadow: 0 10px 28px rgb(0 0 0 / 0.5); opacity: 0.92; }
+.song-block-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 10px 10px 8px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: grab;
+}
+.song-block.is-dragging .song-block-body { cursor: grabbing; }
+.song-block-body:focus-visible { outline: none; }
+.song-block:has(.song-block-body:focus-visible) { box-shadow: inset 0 0 0 2px var(--accent); }
+.song-block-name { display: flex; align-items: center; gap: 6px; max-width: 100%; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; }
+.song-block-shared { font-size: 12px; font-weight: 400; color: var(--muted); }
+.song-block-mic { flex: none; color: var(--muted); }
+/* The chords, each at its place in the section, from the block's left edge. */
+.song-block-chords {
+  position: relative;
+  align-self: stretch;
+  height: 22px;
+  margin: 0 -10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 85%, transparent);
+}
+.song-chord {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  border-left: 1px solid color-mix(in srgb, var(--section) 35%, transparent);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.song-chord:first-child { border-left: 0; padding-left: 10px; }
+.song-block.is-empty .song-block-chords { margin: 0; color: var(--muted); font-family: inherit; font-style: italic; line-height: 22px; }
+.song-block-bars { margin-top: auto; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+.song-block-more { position: absolute; top: 6px; right: 4px; width: 26px; height: 26px; min-height: 0; border: 0; background: none; color: var(--muted); }
+.song-block-more svg { width: 15px; height: 15px; }
+@media (hover: hover) {
+  .song-block:not(:hover):not(:focus-within) .song-block-more:not([aria-expanded='true']) { opacity: 0; }
+  .song-block-more:hover { color: var(--text); background: rgb(255 255 255 / 0.06); }
+  .song-block:not(.is-playing):hover { border-color: color-mix(in srgb, var(--section) 70%, var(--line)); }
+}
+.song-add { position: absolute; top: 26px; margin-left: 6px; }
+.song-add-btn {
+  width: 76px;
+  height: 92px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--muted);
+  font-size: 22px;
+}
+.song-add-btn:hover, .song-add-btn[aria-expanded='true'] { border-color: var(--accent); color: var(--accent); }
+.song-empty { position: absolute; top: 56px; left: 96px; margin: 0; font-size: 14px; color: var(--muted); }
+.song-playhead { top: 0; height: 118px; }
+.song-hint { min-height: 1em; }
+
 /* Menu */
 .menu-anchor { position: relative; }
 .menu {
