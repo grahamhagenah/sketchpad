@@ -7,6 +7,7 @@ import { SectionBar, SongView } from './components/Sections'
 import { StatusBar } from './components/StatusBar'
 import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
+import { colorHex, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR } from './colors'
 
 function useShortcuts() {
   useEffect(() => {
@@ -94,9 +95,12 @@ function useShortcuts() {
 export default function App() {
   useShortcuts()
   const view = useStore((s) => s.view)
+  // The chords' and drums' colours, as chosen, for everything drawn in them.
+  const chordsColor = useStore((s) => s.chordsColor) ?? DEFAULT_CHORDS_COLOR
+  const drumsColor = useStore((s) => s.drumsColor) ?? DEFAULT_DRUMS_COLOR
 
   return (
-    <div className="app">
+    <div className="app" style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
       <main>
         <section className="panel editor" aria-label={view === 'song' ? 'Song' : 'Section'}>
           <Toolbar />

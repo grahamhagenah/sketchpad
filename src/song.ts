@@ -63,6 +63,18 @@ export function songSpans(s: Pick<State, 'arrangement' | 'sections' | 'activeSec
   })
 }
 
+/** Where a beat of the song falls in the open section, if it's playing there (in the place it's playing); otherwise null. */
+export function sectionBeatOf(s: Pick<State, 'arrangement' | 'sections' | 'activeSection' | 'chords'>, songBeat: number) {
+  const span = songSpans(s).find((sp) => sp.beats && songBeat >= sp.start && songBeat < sp.start + sp.beats)
+  return span && span.entry.section === s.activeSection ? songBeat - span.start : null
+}
+
+/** Where a beat of the open section falls in the song: in the first place it plays, or null if it isn't in the song. */
+export function songBeatOf(s: Pick<State, 'arrangement' | 'sections' | 'activeSection' | 'chords'>, sectionBeat: number) {
+  const span = songSpans(s).find((sp) => sp.entry.section === s.activeSection)
+  return span ? span.start + sectionBeat : null
+}
+
 /**
  * What plays: in the section view, the open section with its loop; in the
  * song view, each section in turn, with the vocals and the mute and solo of

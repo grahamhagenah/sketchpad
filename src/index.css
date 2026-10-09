@@ -2,6 +2,8 @@
   --bg: #07080a;
   --panel: #0e1013;
   --raised: #1a1d22;
+  /* The top bar: between the editor and the buttons on it. */
+  --toolbar-bg: #15181c;
   --line: #262a30;
   --line-strong: #3f454e;
   --text: #f8f9fa;
@@ -11,20 +13,14 @@
   --danger: #ff8a7a;
   --record: #ff5a5f;
   /*
-   * Track colours, vivid as in Logic: chords green, drums yellow, and each
-   * vocal track its own. Regions are filled with their track's colour and
-   * drawn on in --on-track; a selected one gets a white ring.
+   * Track colours, as in Logic: chords blue and drums yellow to start with,
+   * each vocal track its own, and any of them changeable to another from the
+   * palette in colors.ts (the app sets these two from the song). Regions are
+   * filled with their track's colour and drawn on in --on-track; a selected
+   * one gets a white ring.
    */
-  --track-chords: #3ddc6a;
-  --track-drums: #ffc83d;
-  --vocal-1: #3d9bff;
-  --vocal-2: #b06cff;
-  --vocal-3: #ff8a3d;
-  --vocal-4: #ff5fa8;
-  --vocal-5: #2fd6e8;
-  --vocal-6: #ff5c5c;
-  --vocal-7: #b5e63c;
-  --vocal-8: #7c86ff;
+  --track-chords: #86a8ff;
+  --track-drums: #ffd166;
   --on-track: #0a0c10;
   --radius: 12px;
   color-scheme: dark;
@@ -66,9 +62,10 @@ main > .panel { flex: 1; padding-bottom: 0 !important; }
 /* The bands' full-bleed edges reach past the window; don't let them make the page scroll sideways. */
 .app { overflow-x: clip; }
 main > .panel {
+  --pad-top: 16px;
   border-width: 0;
   border-radius: 0;
-  padding: 16px var(--gutter);
+  padding: var(--pad-top) var(--gutter);
 }
 
 /* Toolbar: three zones (the sketch, the transport and display, then editing and export) on one row.
@@ -79,7 +76,10 @@ main > .panel {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 20px;
-  padding-bottom: 14px;
+  /* A band a step lighter than the editor, edge to edge and up to the top of the window. */
+  margin: calc(-1 * var(--pad-top)) calc(-1 * var(--gutter)) 0;
+  padding: var(--pad-top) var(--gutter) 14px;
+  background: var(--toolbar-bg);
 }
 .toolbar-zone { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .toolbar-end { margin-left: auto; gap: 8px; }
@@ -121,20 +121,29 @@ main > .panel {
 
 /* Cycle, metronome and sound: joined into one unit like the transport. No overflow clip, since the sound panel opens from it. */
 /*
- * The joined units (transport, display, modes, the selected chord) have no
- * borders: each part is a filled tile, set apart from the next by a slim
- * gap the bar's background shows through, and by fills for its state.
+ * The joined units (transport, display, modes, the selected chord): each is
+ * one piece with a faint edge round it, its parts split by hairlines, and
+ * each part's state shown in its fill.
  */
-:root { --tile: var(--raised); --tile-hover: color-mix(in srgb, var(--text) 9%, var(--raised)); --tile-gap: 2px; }
-.toolbar-modes {
-  gap: var(--tile-gap);
-  height: var(--control-h);
+:root {
+  --tile: var(--raised);
+  --tile-hover: color-mix(in srgb, var(--text) 9%, var(--raised));
+  /* A faint edge, so a unit reads as buttons against the bar. */
+  --tile-edge: color-mix(in srgb, var(--text) 13%, transparent);
 }
-.toolbar-modes .icon-btn { width: 40px; height: var(--control-h); border-radius: 0; background: var(--tile); color: var(--text); }
+.transport,
+.toolbar-modes,
+.selection { border: 1px solid var(--tile-edge); border-radius: 8px; background: var(--tile); }
+.toolbar .transport > * + *,
+.toolbar .toolbar-modes > * + *,
+.toolbar .selection > * + * { border-left: 1px solid var(--tile-edge); }
+.toolbar-modes { gap: 0; height: var(--control-h); }
+.toolbar-modes .icon-btn { width: 40px; height: calc(var(--control-h) - 2px); border-radius: 0; background: var(--tile); color: var(--text); }
+/* No overflow clip on the modes, since the sound panel opens from them; their end buttons take the corners instead. */
 .toolbar-modes > :first-child,
-.toolbar-modes > :first-child .icon-btn { border-radius: 8px 0 0 8px; }
+.toolbar-modes > :first-child .icon-btn { border-radius: 7px 0 0 7px; }
 .toolbar-modes > :last-child,
-.toolbar-modes > :last-child .icon-btn { border-radius: 0 8px 8px 0; }
+.toolbar-modes > :last-child .icon-btn { border-radius: 0 7px 7px 0; }
 .toolbar-modes .icon-btn:not(:disabled):hover { background: var(--tile-hover); }
 .toolbar-modes .toggle-btn[aria-pressed='true'] { color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--tile)); }
 .toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 26%, var(--tile)); }
@@ -144,9 +153,7 @@ main > .panel {
 .selection {
   display: inline-flex;
   align-items: stretch;
-  gap: var(--tile-gap);
   height: var(--control-h);
-  border-radius: 8px;
   overflow: hidden;
 }
 .selection select,
@@ -185,7 +192,7 @@ main > .panel {
 .selection button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Transport: start, play and record joined in one group. */
-.transport { display: inline-flex; gap: var(--tile-gap); height: var(--control-h); border-radius: 8px; overflow: hidden; }
+.transport { display: inline-flex; height: var(--control-h); overflow: hidden; }
 .transport > button {
   width: 40px;
   height: 100%;
@@ -219,7 +226,9 @@ main > .panel {
 }
 
 /* The display: where you are, and the song's tempo, meter and key, read like a DAW's LCD. */
-.lcd { display: inline-flex; gap: var(--tile-gap); height: var(--control-h); border-radius: 8px; overflow: hidden; }
+/* One black screen with its readouts split by hairlines, not gaps, and the same faint edge as the buttons. */
+.lcd { display: inline-flex; height: var(--control-h); border: 1px solid var(--tile-edge); border-radius: 8px; overflow: hidden; background: #000; }
+.lcd-cell + .lcd-cell { border-left: 1px solid var(--line); }
 .lcd-cell {
   display: flex;
   flex-direction: column;
@@ -349,9 +358,10 @@ main > .panel {
   flex: 1 0 auto;
   min-width: 100%;
   min-height: calc(var(--vocal-top) - var(--gap) / 2 - 4px + var(--lanes) * (var(--vocal-h) + var(--gap)));
+  /* A line down from each bar; the beats are only notches along the foot of the bar numbers, so the tracks stay clear. */
   background:
     repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat,
-    repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--beat)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat;
+    repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--beat)) 0 calc(var(--grid-top) - 5px) / 100% 5px no-repeat;
 }
 .ruler { position: absolute; top: 0; left: 0; right: 0; height: var(--ruler-h); cursor: pointer; }
 .ruler span { pointer-events: none; }
@@ -669,6 +679,36 @@ main > .panel {
 .track-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; color: var(--muted); }
 .track-header.is-selected .track-title { color: var(--accent); }
 .track-icon { flex: none; color: var(--track, inherit); }
+/* The icon is the colour picker: a small button, ringed in its colour when hovered. */
+.track-color {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  display: inline-grid;
+  place-items: center;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.track-color:hover, .track-color[aria-expanded='true'] { background: color-mix(in srgb, var(--track) 18%, transparent); }
+/* The palette: a row of round swatches, the current one ringed. */
+.swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; padding: 4px 12px 10px; }
+.swatch {
+  aspect-ratio: 1;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--swatch);
+  cursor: pointer;
+  transition: transform 0.08s;
+}
+.swatch:hover { transform: scale(1.12); }
+.swatch[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--swatch); }
 .track-name {
   flex: 1;
   min-width: 0;
@@ -939,9 +979,22 @@ main > .panel {
 /* A section that isn't in the song yet. */
 .section-tab.is-unused { font-style: italic; }
 /* A square button, inset from the tab's edge so its hover has room around it. */
-.section-more,
-.section-more-space { flex: none; width: 26px; height: 26px; margin: 0 6px 0 -6px; }
-.section-more { min-height: 0; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); }
+.section-settings {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--tile-edge);
+  border-radius: 7px;
+  background: var(--raised);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.section-settings:hover, .section-settings[aria-expanded='true'] { color: var(--text); border-color: var(--muted); }
+.section-settings svg { width: 15px; height: 15px; }
 .section-add {
   flex: none;
   height: 28px;
@@ -956,7 +1009,7 @@ main > .panel {
   font-weight: 500;
   color: var(--muted);
 }
-.section-more svg, .section-add svg { width: 16px; height: 16px; }
+.section-add svg { width: 16px; height: 16px; }
 .section-rename {
   width: auto;
   height: 30px;
@@ -973,7 +1026,7 @@ main > .panel {
   .section-tab-wrap:not(.is-open):hover,
   .section-tab.is-song:not([aria-selected='true']):hover { background: rgb(255 255 255 / 0.04); }
   .section-tab:not(:disabled):not([aria-selected='true']):hover { color: var(--text); }
-  .section-more:not(:disabled):hover, .section-add:not(:disabled):hover { color: var(--text); background: rgb(255 255 255 / 0.06); border-color: transparent; }
+  .section-add:not(:disabled):hover { color: var(--text); background: rgb(255 255 255 / 0.06); border-color: transparent; }
 }
 .section-menu { width: 280px; z-index: 30; }
 .menu-item.menu-item-row { flex-direction: row; align-items: center; gap: 10px; padding-block: 8px; }
@@ -986,8 +1039,7 @@ main > .panel {
  * bottom in order, with its name and a bar as long as it is. The detail is
  * in the section itself.
  */
-/* --song-head, the name column's width, is set by the view: narrower on a phone. */
-.song-view { --song-head: 180px; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding-top: 4px; }
+.song-view { --song-head: 136px; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding-top: 4px; }
 .song-scroll { flex: 1; min-height: 0; overflow: auto; padding-bottom: 12px; }
 .song-sheet { position: relative; min-width: 100%; }
 .song-row {
@@ -999,8 +1051,14 @@ main > .panel {
   touch-action: pan-y;
   transition: top 0.16s ease, background 0.08s;
 }
-.song-row.is-playing { background: rgb(255 255 255 / 0.05); }
-.song-row.is-dragging { z-index: 4; transition: none; background: var(--raised); box-shadow: 0 8px 22px rgb(0 0 0 / 0.5); }
+.song-row.is-playing { background: color-mix(in srgb, var(--text) 6%, transparent); }
+/* Picked up: lifted off the sheet, lighter, with a white ring like a selected region. */
+.song-row.is-dragging {
+  z-index: 4;
+  transition: none;
+  background: color-mix(in srgb, var(--text) 10%, var(--raised));
+  box-shadow: inset 0 0 0 2px var(--text), 0 12px 28px rgb(0 0 0 / 0.6);
+}
 .song-row-body {
   flex: 1;
   min-width: 0;
@@ -1021,37 +1079,26 @@ main > .panel {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 14px 0 8px;
+  padding: 0 10px 0 8px;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
 }
 .song-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* Its length in bars, after the name. */
-.song-row-meta { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 400; color: var(--muted); }
-/* The key picker, a row of the section menu. */
-.menu-key { cursor: default; }
-.menu-key select {
-  margin-left: auto;
-  min-height: 30px;
-  padding: 0 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  background: var(--raised);
-  color: var(--text);
-  font-size: 13px;
-}
-/* The section's length, to scale with the others, in its colour. */
-.song-row-track { flex: 1; min-width: 0; display: flex; align-items: center; }
-.song-row-bar {
-  position: relative;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--raised);
-  overflow: hidden;
-  transition: background 0.08s;
-}
-.song-row.is-playing .song-row-bar { background: color-mix(in srgb, var(--text) 16%, var(--raised)); }
+/*
+ * The section's tracks in miniature, as long as it is, all in greys: its
+ * chords in a bar, then faint ticks for the drums' kicks and snares, and a
+ * faint strip where its vocals are.
+ */
+/* The chords' bar in the middle of every row, level with its name; the drums' ticks just under it, the vocals just over it. */
+.song-row-track { position: relative; flex: none; align-self: stretch; }
+.song-row-bar,
+.song-row-drums,
+.song-row-vocals { position: absolute; left: 0; right: 0; overflow: hidden; }
+.song-row-bar { top: calc(50% - 13px); height: 26px; border-radius: 6px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--tile-edge); }
+.song-row.is-playing .song-row-bar { background: color-mix(in srgb, var(--text) 12%, var(--raised)); }
+.song-row-drums { top: calc(50% + 17px); height: 6px; }
+.song-row-vocals { bottom: calc(50% + 17px); height: 5px; }
 /* Each chord a segment of the bar, its name inside, split from the next by a thin line. */
 .song-chord {
   position: absolute;
@@ -1068,29 +1115,51 @@ main > .panel {
   overflow: hidden;
 }
 .song-chord:first-child { border-left: 0; }
-.song-row-grip { flex: none; margin-left: -2px; color: var(--muted); opacity: 0.5; cursor: grab; }
-.song-row:hover .song-row-grip, .song-row.is-dragging .song-row-grip { opacity: 1; }
+/* A kick a full tick, a snare a shorter one. */
+.song-drum { position: absolute; bottom: 0; width: 2px; height: 100%; border-radius: 1px; background: var(--muted); opacity: 0.55; }
+.song-drum.is-snare { height: 60%; top: 20%; bottom: auto; opacity: 0.35; }
+.song-take { position: absolute; border-radius: 2px; background: var(--muted); opacity: 0.45; }
 /* An empty section: just its name, with a dashed stub to show there's nothing to play yet. */
-.song-row.is-empty .song-row-bar { width: 40px; height: 14px; background: none; border: 1.5px dashed var(--line-strong); }
+.song-row.is-empty .song-row-bar { top: calc(50% - 7px); width: 40px; height: 14px; background: none; box-shadow: none; border: 1.5px dashed var(--line-strong); }
+/* The key picker, a row of the section menu. */
+.menu-key { cursor: default; }
+.menu-key select {
+  margin-left: auto;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--text);
+  font-size: 13px;
+}
+.song-row-grip { flex: none; width: 8px; margin-left: -2px; color: var(--muted); opacity: 0.2; cursor: grab; transition: opacity 0.1s; }
+.song-row:hover .song-row-grip { opacity: 0.5; }
+.song-row.is-dragging .song-row-grip { opacity: 0.8; }
 .song-row-more { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); z-index: 2; width: 26px; height: 26px; min-height: 0; border: 0; background: none; color: var(--muted); }
 .song-row-more svg { width: 15px; height: 15px; }
 @media (hover: hover) {
   .song-row:not(:hover):not(:focus-within) .song-row-more:not([aria-expanded='true']) { opacity: 0; }
   .song-row-more:hover { color: var(--text); background: rgb(255 255 255 / 0.06); }
-  .song-row:not(.is-playing):not(.is-dragging):hover { background: rgb(255 255 255 / 0.03); }
+  .song-row:not(.is-playing):not(.is-dragging):hover { background: color-mix(in srgb, var(--text) 6%, transparent); box-shadow: inset 0 0 0 1px var(--tile-edge); }
 }
-.song-add { position: absolute; left: 0; }
+/* A small button under the names, like the ones that add tracks. */
+.song-add { position: absolute; left: 4px; padding-top: 4px; }
 .song-add-btn {
-  width: 100%;
-  height: 40px;
-  border: 1.5px dashed var(--line-strong);
-  border-radius: var(--radius);
-  background: none;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--raised);
+  font-size: 12px;
+  font-weight: 500;
   color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
 }
-.song-add-btn:hover, .song-add-btn[aria-expanded='true'] { border-color: var(--accent); color: var(--accent); }
+.song-add-btn svg { width: 14px; height: 14px; }
+.song-add-btn:hover, .song-add-btn[aria-expanded='true'] { color: var(--text); border-color: var(--muted); }
 /* The playhead runs along the row being played, from the start of the grid. */
 .song-playhead {
   position: absolute;
@@ -1335,15 +1404,15 @@ main > .panel {
 .shortcuts-menu dd { margin: 0; }
 
 @media (max-width: 640px) {
-  .song-row-head { padding-left: 12px; }
   .app { padding: 0 0 32px; }
   .panel { padding: 14px; }
   .app { --gutter: 12px; }
-  main > .panel { padding-block: 12px; }
+  main > .panel { --pad-top: 12px; padding-bottom: 12px; }
   .tempo { width: 3ch; }
   .song-title { width: auto; flex: 1; min-width: 0; }
   .song-bar { flex: 1; }
-  .section-bar-end { display: none; }
+  /* No zoom on a phone; the section's settings stay. */
+  .section-bar-end .icon-btn { display: none; }
   /* Icon and name on one line, mute and solo under it. */
   .track-headers { width: 64px; }
   .track-header { flex-wrap: wrap; align-content: center; row-gap: 2px; }

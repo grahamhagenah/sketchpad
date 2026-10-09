@@ -5,6 +5,7 @@ import { DEFAULT_SOUND, type Sound } from './audio/sound'
 import { DEFAULT_ARP, DEFAULT_RHYTHM, type Arp, type Rhythm } from './audio/arrange'
 import { LANES, type TakeInfo } from './audio/take'
 import type { GrooveId } from './audio/drums'
+import { DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR, freshColor, vocalColorId, type ColorId } from './colors'
 import { newId } from './id'
 
 export type TimeSig = [number, number]
@@ -68,6 +69,8 @@ export interface SectionParts {
   vocalNames: (string | null)[]
   /** Each vocal track's level, in dB from its usual one. */
   vocalVolume: number[]
+  /** Colours given to the vocal tracks; null keeps the one its lane takes by default. */
+  vocalColors: (ColorId | null)[]
   /** How many vocal tracks show, empty ones included. */
   vocalTracks: number
   /** The drum groove the section plays, or none. */
@@ -118,6 +121,9 @@ interface State extends SectionParts {
   /** The chords' and drums' levels, in dB from their usual ones. */
   chordsVolume: number
   drumsVolume: number
+  /** The chords' and drums' colours, or null for their usual ones. */
+  chordsColor: ColorId | null
+  drumsColor: ColorId | null
   /** The sketch's name; empty until you give it one. */
   title: string
   /** Which saved sketch this is, once it's been saved. */
@@ -141,6 +147,8 @@ interface State extends SectionParts {
   /** How late recordings arrive on this device, in seconds, once measured; kept with the device, not the song. */
   latency: number | null
   playing: boolean
+  /** What's playing: the whole song or the open section, as it was when play started; it carries on while you look elsewhere. */
+  playingView: 'section' | 'song'
   /** Where playback starts next, in beats; it stays where you paused. */
   playhead: number
   zoom: number
@@ -188,6 +196,9 @@ interface State extends SectionParts {
   setChordsVolume: (db: number) => void
   setDrumsVolume: (db: number) => void
   setVocalVolume: (lane: number, db: number) => void
+  setChordsColor: (color: ColorId) => void
+  setDrumsColor: (color: ColorId) => void
+  setVocalColor: (lane: number, color: ColorId) => void
   /** Unmutes every track and clears every solo, so everything plays. */
   unmuteAll: () => void
   setArmedLane: (lane: number) => void
@@ -239,6 +250,15 @@ export const chordsTrackName = (s: Pick<State, 'chordsName'>) => s.chordsName ??
 /** The key a section plays in: its own, or the song's. */
 export const keyOf = (s: Pick<State, 'key' | 'mode'> & Pick<SectionParts, 'sectionKey'>): SectionKey => s.sectionKey ?? { key: s.key, mode: s.mode }
 
+/** The colours the open section's tracks have now, for a new track to keep clear of. */
+function colorsInUse(s: Pick<State, 'chordsColor' | 'drumsColor' | 'drumTrack' | 'vocalColors' | 'vocalTracks'>): ColorId[] {
+  return [
+    s.chordsColor ?? DEFAULT_CHORDS_COLOR,
+    ...(s.drumTrack ? [s.drumsColor ?? DEFAULT_DRUMS_COLOR] : []),
+    ...Array.from({ length: s.vocalTracks }, (_, lane) => vocalColorId(s.vocalColors, lane)),
+  ]
+}
+
 export const drumsTrackName = (s: Pick<State, 'drumsName'>) => s.drumsName ?? 'Drums'
 export const vocalTrackName = (s: Pick<State, 'vocalNames'>, lane: number) => s.vocalNames[lane] ?? `Vocal ${lane + 1}`
 
@@ -251,6 +271,7 @@ const partsOf = (p: SectionParts): SectionParts => ({
   vocalSolo: p.vocalSolo,
   vocalNames: p.vocalNames,
   vocalVolume: p.vocalVolume,
+  vocalColors: p.vocalColors,
   vocalTracks: p.vocalTracks,
   drums: p.drums,
   sectionKey: p.sectionKey,
@@ -264,6 +285,7 @@ export const emptyParts = (): SectionParts => ({
   vocalSolo: Array(LANES).fill(false),
   vocalNames: Array(LANES).fill(null),
   vocalVolume: Array(LANES).fill(0),
+  vocalColors: Array(LANES).fill(null),
   vocalTracks: 0,
   drums: null,
   sectionKey: null,
@@ -302,6 +324,8 @@ export function songOf(s: State) {
     drumsSolo: s.drumsSolo,
     chordsVolume: s.chordsVolume,
     drumsVolume: s.drumsVolume,
+    chordsColor: s.chordsColor,
+    drumsColor: s.drumsColor,
     title: s.title,
     chordsName: s.chordsName,
     drumsName: s.drumsName,
@@ -324,6 +348,7 @@ function lanesOf(p: LegacySong) {
     vocalSolo: Array.from({ length: LANES }, (_, i) => !!p.vocalSolo?.[i]),
     vocalNames: Array.from({ length: LANES }, (_, i) => p.vocalNames?.[i] ?? null),
     vocalVolume: Array.from({ length: LANES }, (_, i) => p.vocalVolume?.[i] ?? 0),
+    vocalColors: Array.from({ length: LANES }, (_, i) => p.vocalColors?.[i] ?? null),
   }
 }
 
@@ -425,6 +450,8 @@ export const useStore = create<State>()(
       drumsSolo: false,
       chordsVolume: 0,
       drumsVolume: 0,
+      chordsColor: null,
+      drumsColor: null,
       title: '',
       sketchId: null,
       savedSignature: null,
@@ -437,6 +464,7 @@ export const useStore = create<State>()(
       countIn: null,
       latency: null,
       playing: false,
+      playingView: 'section',
       playhead: 0,
       zoom: 1,
 
@@ -465,7 +493,7 @@ export const useStore = create<State>()(
       setRhythm: (patch) => set({ rhythm: { ...get().rhythm, ...patch } }),
       setTake: (lane, take) => set({ takes: get().takes.map((t, i) => (i === lane ? take : t)) }),
       renumberVocals: (from) => {
-        const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume } = get()
+        const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalColors } = get()
         const pick = <T,>(list: T[], empty: T) => list.map((_, lane) => (lane < from.length ? list[from[lane]] : empty))
         // Nothing stays selected; the next recording goes in the first free lane.
         set({
@@ -474,20 +502,33 @@ export const useStore = create<State>()(
           vocalSolo: pick(vocalSolo, false),
           vocalNames: pick(vocalNames, null),
           vocalVolume: pick(vocalVolume, 0),
+          vocalColors: pick(vocalColors, null),
           vocalTracks: from.length,
           selectedVocal: null,
         })
       },
       addVocalTrack: () => {
-        const lane = get().vocalTracks
-        if (lane >= LANES || !get().chords.length) return
-        set({ vocalTracks: lane + 1, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false, drumsTrackSelected: false })
+        const s = get()
+        const lane = s.vocalTracks
+        if (lane >= LANES || !s.chords.length) return
+        // A colour of its own, at random, from those no other track has.
+        const vocalColors = s.vocalColors.map((c, i) => (i === lane ? freshColor(colorsInUse(s)) : c))
+        set({ vocalTracks: lane + 1, vocalColors, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false, drumsTrackSelected: false })
       },
       setTitle: (title) => set({ title }),
       setSaved: (sketchId, savedSignature) => set({ sketchId, savedSignature }),
       renameChords: (name) => set({ chordsName: name.trim() || null }),
       renameVocal: (lane, name) => set({ vocalNames: get().vocalNames.map((n, i) => (i === lane ? name.trim() || null : n)) }),
-      showVocalTracks: (count) => set({ vocalTracks: Math.max(get().vocalTracks, Math.min(count, LANES)) }),
+      showVocalTracks: (count) => {
+        const s = get()
+        const vocalTracks = Math.max(s.vocalTracks, Math.min(count, LANES))
+        // Tracks a recording brings in get colours of their own, as added ones do.
+        const vocalColors = [...s.vocalColors]
+        for (let lane = s.vocalTracks; lane < vocalTracks; lane++) {
+          vocalColors[lane] ??= freshColor(colorsInUse({ ...s, vocalColors, vocalTracks: lane }))
+        }
+        set({ vocalTracks, vocalColors })
+      },
       toggleVocalMute: (lane) => set({ vocalMuted: get().vocalMuted.map((m, i) => (i === lane ? !m : m)) }),
       toggleVocalSolo: (lane) => set({ vocalSolo: get().vocalSolo.map((m, i) => (i === lane ? !m : m)) }),
       toggleChordsMute: () => set({ chordsMuted: !get().chordsMuted }),
@@ -511,7 +552,8 @@ export const useStore = create<State>()(
         return copy
       },
       addDrumTrack: () => {
-        if (get().chords.length) set({ drumTrack: true, drums: get().drums ?? 'backbeat' })
+        const s = get()
+        if (s.chords.length) set({ drumTrack: true, drums: s.drums ?? 'backbeat', drumsColor: freshColor(colorsInUse(s)) })
       },
       removeDrumTrack: () => set({ drumTrack: false, drumsMuted: false, drumsSolo: false, drumsTrackSelected: false }),
       renameDrums: (name) => set({ drumsName: name.trim() || null }),
@@ -519,6 +561,9 @@ export const useStore = create<State>()(
       toggleDrumsSolo: () => set({ drumsSolo: !get().drumsSolo }),
       setChordsVolume: (chordsVolume) => set({ chordsVolume }),
       setDrumsVolume: (drumsVolume) => set({ drumsVolume }),
+      setChordsColor: (chordsColor) => set({ chordsColor }),
+      setDrumsColor: (drumsColor) => set({ drumsColor }),
+      setVocalColor: (lane, color) => set({ vocalColors: get().vocalColors.map((c, i) => (i === lane ? color : c)) }),
       setVocalVolume: (lane, db) => set({ vocalVolume: get().vocalVolume.map((v, i) => (i === lane ? db : v)) }),
       unmuteAll: () =>
         set({ chordsMuted: false, chordsSolo: false, drumsMuted: false, drumsSolo: false, vocalMuted: Array(LANES).fill(false), vocalSolo: Array(LANES).fill(false) }),

@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { engine } from '../audio/engine'
-import { songSpans } from '../song'
+import { songBeatOf, songSpans } from '../song'
+import { grooveHits } from '../audio/drums'
 import { Icon, ZoomButtons } from './Toolbar'
 
 
@@ -124,7 +125,12 @@ export function SectionBar() {
   const recording = useStore((s) => s.recording !== 'off')
   const { openSection, setView, addSection } = useStore()
   const inSong = new Set(arrangement.map((entry) => entry.section))
+  // In the order they first play in the song; those not in it yet come last, as they were made.
+  const firstPlays = new Map<string, number>()
+  arrangement.forEach((entry, i) => firstPlays.has(entry.section) || firstPlays.set(entry.section, i))
+  const ordered = [...sections].sort((x, y) => (firstPlays.get(x.id) ?? Infinity) - (firstPlays.get(y.id) ?? Infinity))
   const [renaming, setRenaming] = useState<string | null>(null)
+  const open = view === 'section' ? sections.find((sec) => sec.id === activeSection) : undefined
 
   return (
     <nav className="section-bar" aria-label="Song sections">
@@ -141,10 +147,10 @@ export function SectionBar() {
           <Icon d="M4 6h4v12H4zM10 6h4v12h-4zM16 6h4v12h-4z" />
           Song
         </button>
-        {sections.map((sec) => {
-          const open = view === 'section' && sec.id === activeSection
+        {ordered.map((sec) => {
+          const isOpen = view === 'section' && sec.id === activeSection
           return (
-            <div key={sec.id} className={`section-tab-wrap ${open ? 'is-open' : ''}`}>
+            <div key={sec.id} className={`section-tab-wrap ${isOpen ? 'is-open' : ''}`}>
               {renaming === sec.id ? (
                 <RenameField section={sec} onDone={() => setRenaming(null)} />
               ) : (
@@ -152,20 +158,14 @@ export function SectionBar() {
                   type="button"
                   role="tab"
                   className={`section-tab ${inSong.has(sec.id) ? '' : 'is-unused'}`}
-                  aria-selected={open}
-                  disabled={recording && !open}
+                  aria-selected={isOpen}
+                  disabled={recording && !isOpen}
                   onClick={() => openSection(sec.id)}
                   onDoubleClick={() => setRenaming(sec.id)}
                   title={inSong.has(sec.id) ? `Edit ${sec.name} (double-click to rename)` : `${sec.name} isn’t in the song yet; add it in the song view`}
                 >
                   {sec.name}
                 </button>
-              )}
-              {open && renaming !== sec.id ? (
-                <SectionMenu section={sec} onRename={() => setRenaming(sec.id)} />
-              ) : (
-                // The menu button's room, kept on every tab so opening one doesn't shift the rest.
-                renaming !== sec.id && <span className="section-more-space" aria-hidden="true" />
               )}
             </div>
           )
@@ -182,8 +182,10 @@ export function SectionBar() {
           Section
         </MenuButton>
       </div>
-      {/* Zoom works on whichever view is showing, so it sits with the views. */}
       <div className="section-bar-end">
+        {/* The open section's settings: its key, copies, renaming and deleting. */}
+        {open && <SectionMenu section={open} onRename={() => setRenaming(open.id)} />}
+        {/* Zoom works on whichever view is showing, so it sits with the views. */}
         <ZoomButtons />
       </div>
     </nav>
@@ -221,7 +223,7 @@ function RenameField({ section, onDone }: { section: Section; onDone: () => void
   )
 }
 
-/** Rename, duplicate or delete the open section. */
+/** The open section's settings, from a button at the end of the tab strip: its key, copies, renaming and deleting. */
 function SectionMenu({ section, onRename }: { section: Section; onRename: () => void }) {
   const { duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useStore()
   const songKey = useStore((s) => s.key)
@@ -233,7 +235,7 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
   const recording = useStore((s) => s.recording !== 'off')
   const [confirming, setConfirming] = useState(false)
   return (
-    <MenuButton label={`${section.name} options`} className="section-more icon-btn" menu={(close) => (
+    <MenuButton label={`${section.name} settings`} title={`${section.name} settings: key, copies, rename, delete`} className="section-settings" align="right" menu={(close) => (
       <>
         <button type="button" className="menu-item" onClick={() => { onRename(); close() }}>
           <span className="menu-item-title">Rename</span>
@@ -326,13 +328,14 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
         </button>
       </>
     )}>
-      <Icon d="M6 12h.01M12 12h.01M18 12h.01" />
+      <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      Section
     </MenuButton>
   )
 }
 
-/** Each place in the song is a slim row this tall, with this gap under it. */
-const ROW_H = 40
+/** Each place in the song is a row this tall, with this gap under it: room for its chords, and a strip each for its drums and vocals. */
+const ROW_H = 58
 const ROW_GAP = 6
 const rowTop = (i: number) => i * (ROW_H + ROW_GAP)
 
@@ -359,25 +362,29 @@ function rowAt(spans: ReturnType<typeof songSpans>, beat: number) {
 }
 
 /**
- * The whole song from above: each place a section plays is a slim row, in
- * order from the top, with its name and a bar as long as it is. The detail
- * (chords, drums, vocals) is in the section itself: click a row to open it.
+ * The whole song from above: each place a section plays is a row, in order
+ * from the top, with its name and a miniature of its tracks, to scale: its
+ * chords, its drums' kicks and snares, and where its vocals are. Click a row
+ * to open the section.
  * Drag a row (or ⌥↑ ⌥↓) to reorder; play to hear the song through, the
  * playhead running along each row in turn.
  */
 export function SongView() {
   const state = useStore()
-  const { key, mode, timeSig, zoom, playing, playhead, arrangement, openSection, addToSong, addSection, moveInSong } = state
+  const { key, mode, timeSig, zoom, playing, playhead, arrangement, openSection, addToSong, addSection, moveInSong, drumTrack, bpm } = state
   // Worked out here rather than in a selector, since they're new arrays each time.
   const sections = sectionsNow(state)
   const spans = songSpans(state)
-  const [num] = timeSig
+  const [num, den] = timeSig
+  // A take's length in beats at the song's tempo.
+  const takeBeats = (seconds: number) => seconds * (bpm / 60) * (den / 4)
   const total = spans.reduce((n, span) => n + span.beats, 0)
   // The longest section's bar fills the width beside the names (at normal zoom), and the others are to scale.
   const longest = Math.max(4 * num, ...spans.map((span) => span.beats))
   const scrollRef = useRef<HTMLDivElement>(null)
   const sheetWidth = useWidth(scrollRef)
-  const headPx = sheetWidth && sheetWidth < 640 ? 140 : 190
+  // Just room for the names, so the chords start close to them.
+  const headPx = sheetWidth && sheetWidth < 640 ? 112 : 136
   // Room is left at the end of each row for its menu button.
   const beatPx = (sheetWidth ? (sheetWidth - headPx - 44) / longest : 8) * zoom
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
@@ -402,7 +409,11 @@ export function SongView() {
     }
     let raf = 0
     const frame = () => {
-      const beat = engine.position()
+      const raw = engine.position()
+      const st = useStore.getState()
+      // A section playing on its own shows in the first place it plays in the song.
+      const beat = raw === null ? null : st.playingView === 'section' ? songBeatOf(st, raw) : raw
+      if (playheadRef.current) playheadRef.current.style.visibility = raw !== null && beat === null ? 'hidden' : ''
       if (beat !== null) {
         placePlayhead(playheadRef.current, beat)
         const { i } = rowAt(spansRef.current, beat)
@@ -529,12 +540,10 @@ export function SongView() {
                       {[2, 8, 14].flatMap((y) => [2, 8].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" fill="currentColor" />))}
                     </svg>
                     <span className="song-row-title">{section.name}</span>
-                    <span className="song-row-meta">{beats ? bars(beats) : '–'}</span>
                   </span>
-                  {/* The section's length, to scale with the others. */}
-                  {/* The section's chords, each as long as it plays, to scale with the other sections. */}
-                  <span className="song-row-track">
-                    <span className="song-row-bar" style={{ width: beats ? beats * beatPx : undefined }}>
+                  {/* The section's tracks in miniature, to scale with the other sections. */}
+                  <span className="song-row-track" style={{ width: beats ? beats * beatPx : undefined }}>
+                    <span className="song-row-bar">
                       {section.chords.map((c, i) => {
                         const at = section.chords.slice(0, i).reduce((n, prev) => n + prev.beats, 0)
                         return (
@@ -544,6 +553,35 @@ export function SongView() {
                         )
                       })}
                     </span>
+                    {/* The drums' kicks and snares, so a row shows at a glance it has a beat. */}
+                    {drumTrack && section.drums && beats > 0 && (
+                      <span className="song-row-drums" aria-label="Drums">
+                        {grooveHits(section.drums, timeSig, 0, beats)
+                          .filter((h) => h.piece !== 'hat')
+                          .map((h, i) => (
+                            // Inset from the bar's ends, so the first and last ticks sit under it.
+                            <span key={i} className={`song-drum is-${h.piece}`} style={{ left: `calc(6px + (100% - 14px) * ${h.beat / beats})` }} />
+                          ))}
+                      </span>
+                    )}
+                    {/* Where each vocal take sits and how long it runs; several share the strip. */}
+                    {beats > 0 && section.takes.some(Boolean) && (
+                      <span className="song-row-vocals" aria-label="Vocals">
+                        {section.takes.map((t, lane) => {
+                          if (!t) return null
+                          const used = section.takes.filter(Boolean).length
+                          const slot = section.takes.slice(0, lane).filter(Boolean).length
+                          const length = Math.min(takeBeats(t.seconds), beats - t.startBeat)
+                          return (
+                            <span
+                              key={lane}
+                              className="song-take"
+                              style={{ left: t.startBeat * beatPx, width: Math.max(2, length * beatPx), top: `${(slot / used) * 100}%`, height: `${100 / used}%` }}
+                            />
+                          )
+                        })}
+                      </span>
+                    )}
                   </span>
                 </button>
                 <BlockMenu entryId={entry.id} section={section} index={index} count={spans.length} shared={(uses.get(section.id) ?? 0) > 1} />
@@ -551,8 +589,7 @@ export function SongView() {
             )
           })}
 
-          {/* As wide as the view, even when zooming in makes the rows scroll sideways. */}
-          <div className="song-add" style={{ top: rowTop(spans.length), width: sheetWidth || undefined }}>
+          <div className="song-add" style={{ top: rowTop(spans.length) }}>
             <MenuButton label="Add to the song" title="Add a section to the end of the song" className="song-add-btn" menu={(close) => (
               <>
                 {sections.map((sec) => (
@@ -566,9 +603,11 @@ export function SongView() {
                 <NewSectionItems onPick={(name) => { addSection(name); close() }} />
               </>
             )}>
-              <span aria-hidden="true">+</span> {spans.length ? 'Add a section' : 'The song is empty: add its first section'}
+              <Icon d="M12 5v14M5 12h14" />
+              {spans.length ? 'Section' : 'Add the song’s first section'}
             </MenuButton>
           </div>
+
 
           {total > 0 && (playing || playhead > 0) && (
             <div

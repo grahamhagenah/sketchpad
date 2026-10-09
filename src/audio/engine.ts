@@ -8,7 +8,7 @@ import type { Sound } from './sound'
 import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
 import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take } from './take'
-import { playbackOf, takeIdsBySection, type Playback } from '../song'
+import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 
 interface HitEvent extends Hit {
   time: string
@@ -381,10 +381,10 @@ const unsubscribe = useStore.subscribe((s, prev) => {
     s.drumsSolo !== prev.drumsSolo ||
     s.sections !== prev.sections ||
     s.arrangement !== prev.arrangement ||
-    s.activeSection !== prev.activeSection ||
-    s.view !== prev.view
+    s.activeSection !== prev.activeSection
   ) {
-    engine.sync(playbackOf(s))
+    // What was started keeps playing, whichever view is open now.
+    engine.sync(playbackOf(s, s.playingView))
   }
 })
 
@@ -414,10 +414,14 @@ export async function togglePlay() {
   if (s.recording !== 'off') {
     await stopRecording()
   } else if (s.playing) {
-    s.setPlayhead(engine.position() ?? s.playhead)
+    // Paused where it got to, as a beat of the view that's open, which may not be what was playing.
+    const at = engine.position() ?? s.playhead
+    const here = s.playingView === s.view ? at : s.view === 'section' ? sectionBeatOf(s, at) : songBeatOf(s, at)
+    s.setPlayhead(here ?? 0)
     engine.stop()
     s.setPlaying(false)
   } else {
+    useStore.setState({ playingView: s.view })
     await engine.play(playbackOf(s), s.playhead)
     s.setPlaying(true)
   }
@@ -429,6 +433,8 @@ export async function seek(beat: number) {
   if (s.recording !== 'off') return
   s.setPlayhead(Math.max(0, beat))
   if (s.playing) {
+    // Moving the playhead plays from there in the view it was moved in.
+    useStore.setState({ playingView: s.view })
     engine.stop()
     await engine.play(playbackOf(useStore.getState()), beat)
   }
@@ -463,6 +469,8 @@ export async function toggleRecord() {
   await engine.record(playbackOf(useStore.getState()), stream, lane, {
     count: (n) => useStore.getState().setCountIn(n),
     rolling: () => {
+      // A recording plays the open section.
+      useStore.setState({ playingView: 'section' })
       useStore.getState().setRecording('on')
       useStore.getState().setPlaying(true)
     },

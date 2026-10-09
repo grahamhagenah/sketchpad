@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { songState, useStore } from './store'
-import { playbackOf, songSpans, takeIdsBySection } from './song'
+import { playbackOf, sectionBeatOf, songBeatOf, songSpans, takeIdsBySection } from './song'
 import { undo, redo, clearHistory } from './history'
 import { LANES } from './audio/take'
 
@@ -148,5 +148,18 @@ describe('a section in its own key', () => {
     get().setSectionKey(id('Chorus'), { key: 5, mode: 'major' })
     undo()
     expect(get().sectionKey).toBeNull()
+  })
+})
+
+describe('following the song from a section', () => {
+  it('finds where the song is in the open section, only while it plays there', () => {
+    // The open section is the chorus, at beats 16–24 of the song.
+    expect(sectionBeatOf(get(), 18)).toBe(2)
+    expect(sectionBeatOf(get(), 4)).toBeNull()
+    expect(sectionBeatOf(get(), 30)).toBeNull()
+  })
+
+  it('places a beat of the open section in the song', () => {
+    expect(songBeatOf(get(), 3)).toBe(19)
   })
 })

@@ -2,12 +2,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { audibleTracks, chordsTrackName, drumsTrackName, keyOf, useStore, vocalTrackName, type Chord } from '../store'
 import { chordOf } from '../music/theory'
 import { audition, engine, seek } from '../audio/engine'
+import { sectionBeatOf } from '../song'
 import { LANES } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
 import type { TakeInfo } from '../audio/take'
 import { GROOVES, grooveHits, grooveLabel } from '../audio/drums'
 import { MenuButton } from './Sections'
+import { PALETTE, vocalColor, vocalColorId, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR, type ColorId } from '../colors'
 
 interface Drag {
   id: string
@@ -55,7 +57,7 @@ export function Timeline() {
   const playheadRef = useRef<HTMLDivElement>(null)
   const playhead = useStore((s) => s.playhead)
   const recordingRef = useRef<HTMLDivElement>(null)
-  const { takes, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames, chordsTrackSelected } = useStore()
+  const { takes, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames, vocalColors, chordsTrackSelected } = useStore()
   const audible = audibleTracks(useStore())
   // The tracks added so far, plus the one a recording is adding.
   // An empty section shows only its chords track and the + to start it; its other tracks come back with its chords.
@@ -185,7 +187,12 @@ export function Timeline() {
     // Where a smooth scroll is heading, so it isn't restarted every frame.
     let target: number | null = null
     const frame = () => {
-      const pos = engine.position()
+      const raw = engine.position()
+      const st = useStore.getState()
+      // While the whole song plays, this section's playhead waits until the song comes round to it.
+      const pos = raw === null ? null : st.playingView === 'song' ? sectionBeatOf(st, raw) : raw
+      if (playheadRef.current) playheadRef.current.style.visibility = raw !== null && pos === null ? 'hidden' : ''
+      if (raw !== null && pos === null) setActiveId(null)
       if (pos !== null && playheadRef.current) {
         const x = pos * beatPx
         playheadRef.current.style.transform = `translateX(${x}px)`
@@ -318,6 +325,7 @@ export function Timeline() {
             <VocalLane
               key={lane}
               lane={lane}
+              color={vocalColor(vocalColors, lane)}
               name={vocalTrackName({ vocalNames }, lane)}
               take={takes[lane]}
               muted={!audible.vocals[lane]}
@@ -330,7 +338,7 @@ export function Timeline() {
             />
           ))}
           {recording === 'on' && (
-            <div className="vocal-recording" ref={recordingRef} style={{ ['--row' as string]: armedLane, ['--track' as string]: vocalColor(armedLane) }} aria-hidden="true" />
+            <div className="vocal-recording" ref={recordingRef} style={{ ['--row' as string]: armedLane, ['--track' as string]: vocalColor(vocalColors, armedLane) }} aria-hidden="true" />
           )}
 
           {chords.length > 0 && (playing || playhead > 0) && (
@@ -408,14 +416,13 @@ interface VocalLaneProps {
   beatPx: number
   /** Beats per quarter note: 1 in x/4, 2 in x/8. */
   beatsPerQuarter: number
+  /** The track's colour, as Logic gives each track its own. */
+  color: string
 }
 
-/** Each vocal track's colour, as Logic gives each track its own; they go round again after eight. */
-const vocalColor = (lane: number) => `var(--vocal-${(lane % 8) + 1})`
-
 /** One vocal track: click it to select it (to record into, or delete); its take is drawn at the beat it starts on. */
-function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, beatPx, beatsPerQuarter }: VocalLaneProps) {
-  const row = { ['--row' as string]: lane, ['--track' as string]: vocalColor(lane) }
+function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, beatPx, beatsPerQuarter, color }: VocalLaneProps) {
+  const row = { ['--row' as string]: lane, ['--track' as string]: color }
   let content = null
   if (take) {
     const pxPerSecond = (bpm / 60) * beatsPerQuarter * beatPx
@@ -563,6 +570,8 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
       <TrackHeader
         className={`is-chords ${s.chordsTrackSelected ? 'is-selected' : ''}`}
         icon={<KeysIcon />}
+        color={s.chordsColor ?? DEFAULT_CHORDS_COLOR}
+        onColor={s.setChordsColor}
         name={chordsTrackName(s)}
         muted={s.chordsMuted}
         solo={s.chordsSolo}
@@ -577,6 +586,8 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
         <TrackHeader
           className={`is-drums ${s.drumsTrackSelected ? 'is-selected' : ''}`}
           icon={<DrumIcon />}
+          color={s.drumsColor ?? DEFAULT_DRUMS_COLOR}
+          onColor={s.setDrumsColor}
           name={drumsTrackName(s)}
           muted={s.drumsMuted}
           solo={s.drumsSolo}
@@ -593,7 +604,9 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
           key={lane}
           className={`is-vocal ${s.selectedVocal === lane ? 'is-selected' : ''}`}
           icon={<MicIcon />}
-          style={{ ['--row' as string]: lane, ['--track' as string]: vocalColor(lane) }}
+          color={vocalColorId(s.vocalColors, lane)}
+          onColor={(c) => s.setVocalColor(lane, c)}
+          style={{ ['--row' as string]: lane, ['--track' as string]: vocalColor(s.vocalColors, lane) }}
           name={vocalTrackName(s, lane)}
           muted={s.vocalMuted[lane]}
           solo={s.vocalSolo[lane]}
@@ -639,6 +652,9 @@ interface TrackHeaderProps {
   onRename: (name: string) => void
   /** The track's level in dB from its usual one, and setting it. */
   volume: number
+  /** The track's colour, and choosing another from the palette. */
+  color: ColorId
+  onColor: (color: ColorId) => void
   onVolume: (db: number) => void
   /** Clicking the header (other than mute and solo) selects the track. */
   onSelect?: () => void
@@ -648,7 +664,7 @@ const MIN_DB = -30
 const MAX_DB = 6
 const dbLabel = (db: number) => `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)} dB`
 
-function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo, onRename, volume, onVolume, onSelect }: TrackHeaderProps) {
+function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo, onRename, volume, onVolume, color, onColor, onSelect }: TrackHeaderProps) {
   const [editing, setEditing] = useState(false)
   // A double tap or double click; timed by hand, since phones don't reliably send dblclick.
   const lastTap = useRef(0)
@@ -659,11 +675,42 @@ function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo
       role="group"
       aria-label={name}
       onClick={(e) => {
-        if (!(e.target as HTMLElement).closest('.track-btn, input')) onSelect?.()
+        // Clicks from the colour menu reach here too (it's rendered elsewhere on the page, but within this in React); they don't select.
+        if (!e.currentTarget.contains(e.target as Node)) return
+        if (!(e.target as HTMLElement).closest('.track-btn, .track-color, input')) onSelect?.()
       }}
     >
       <span className="track-title">
-        {icon}
+        {/* The track's icon, in its colour: click it to pick another colour. */}
+        <MenuButton
+          label={`${name} colour`}
+          title="Change the track's colour"
+          className="track-color"
+          menu={(close) => (
+            <>
+              <p className="menu-label">{name} colour</p>
+              <div className="swatches">
+                {PALETTE.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="swatch"
+                    style={{ ['--swatch' as string]: c.hex }}
+                    aria-pressed={c.id === color}
+                    aria-label={c.label}
+                    title={c.label}
+                    onClick={() => {
+                      onColor(c.id)
+                      close()
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        >
+          {icon}
+        </MenuButton>
         {editing ? (
           <input
             className="track-name-input"

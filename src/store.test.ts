@@ -252,3 +252,18 @@ describe('the starter song', () => {
     expect(s.chords).toBe(s.sections[0].chords)
   })
 })
+
+describe('track colours', () => {
+  beforeEach(() => {
+    useStore.setState({ ...songState({ chords: [] }), recording: 'off', chordsColor: null, drumsColor: null, drumTrack: false })
+    useStore.getState().loadProgression([0, 4], false)
+  })
+
+  it('gives each new track a colour no other track has', () => {
+    const s = () => useStore.getState()
+    s().addDrumTrack()
+    for (let i = 0; i < 8; i++) s().addVocalTrack()
+    const colors = [s().chordsColor ?? 'blue', s().drumsColor, ...s().vocalColors]
+    expect(new Set(colors).size).toBe(colors.length)
+  })
+})
