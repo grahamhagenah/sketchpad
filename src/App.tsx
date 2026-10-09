@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useStore } from './store'
-import { chordInfo } from './music/theory'
 import { togglePlay } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
@@ -50,17 +49,13 @@ function useShortcuts() {
 
 export default function App() {
   useShortcuts()
-  const { chords, key, mode } = useStore()
-  const summary = chords.map((c) => chordInfo(key, mode, c.degree, c.seventh).name).join(' · ')
+  const chords = useStore((s) => s.chords)
 
   return (
     <div className="app">
-      <Toolbar />
       <main>
-        <section className="panel" aria-labelledby="progression-title">
-          <h2 id="progression-title">
-            Progression {summary && <span className="muted">· {summary}</span>}
-          </h2>
+        <section className="panel editor" aria-label="Progression">
+          <Toolbar />
           {chords.length ? (
             <Timeline />
           ) : (

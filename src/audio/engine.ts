@@ -1,8 +1,9 @@
 import * as Tone from 'tone'
 import { useStore, loopRange, type Chord, type LoopRegion, type TimeSig } from '../store'
-import { bassNote, chordInfo, voiceChord, type Mode } from '../music/theory'
+import { bassNote, chordInfo, voiceChord, voiceProgression, type Mode } from '../music/theory'
+import { createInstruments, midiToHz } from './instruments'
 
-interface Song {
+export interface Song {
   key: number
   mode: Mode
   bpm: number
@@ -25,8 +26,6 @@ interface ClickEvent {
   accent: boolean
 }
 
-const midiToHz = (m: number) => Tone.Frequency(m, 'midi').toFrequency()
-
 class Engine {
   private ready = false
   private pad!: Tone.PolySynth
@@ -42,34 +41,15 @@ class Engine {
 
   private setup() {
     if (this.ready) return
-    const reverb = new Tone.Reverb({ decay: 2.4, wet: 0.18 }).toDestination()
-    const filter = new Tone.Filter(2200, 'lowpass').connect(reverb)
-    this.pad = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'fatsawtooth', count: 3, spread: 18 },
-      envelope: { attack: 0.015, decay: 0.4, sustain: 0.55, release: 0.9 },
-    }).connect(filter)
-    this.pad.volume.value = -17
-    this.bass = new Tone.MonoSynth({
-      oscillator: { type: 'triangle' },
-      filterEnvelope: { baseFrequency: 180, octaves: 2.5, attack: 0.01, decay: 0.3, sustain: 0.4 },
-      envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.4 },
-    }).toDestination()
-    this.bass.volume.value = -9
+    const { pad, bass } = createInstruments()
+    this.pad = pad
+    this.bass = bass
     this.click = new Tone.Synth({
       oscillator: { type: 'sine' },
       envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 },
     }).toDestination()
     this.click.volume.value = -12
     this.ready = true
-  }
-
-  private voicings(song: Song) {
-    let prev: number[] | null = null
-    return song.chords.map((c) => {
-      const info = chordInfo(song.key, song.mode, c.degree, c.seventh)
-      prev = voiceChord(info.pcs, prev)
-      return { notes: prev, bass: bassNote(info.rootPc) }
-    })
   }
 
   /** Rebuilds the loop from the song. Safe to call while playing. */
@@ -81,7 +61,7 @@ class Engine {
     t.timeSignature = song.timeSig
     this.ticksPerBeat = (t.PPQ * 4) / den
 
-    const voiced = this.voicings(song)
+    const voiced = voiceProgression(song.key, song.mode, song.chords)
     let beat = 0
     const spans = song.chords.map((c) => {
       const span = { start: beat, end: beat + c.beats }

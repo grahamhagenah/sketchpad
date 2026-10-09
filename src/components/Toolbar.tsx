@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useStore, TIME_SIGS, MIN_BPM, MAX_BPM, type Chord } from '../store'
 import { chordInfo, keyLabel, type Mode } from '../music/theory'
 import { audition, togglePlay } from '../audio/engine'
+import { download, exportName, songToMidi, songToWav } from '../audio/export'
 
 /** The one bar for playback, song settings and editing the selected chord. */
 export function Toolbar() {
@@ -101,7 +102,120 @@ export function Toolbar() {
           <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
         </button>
       </div>
+
+      <div className="toolbar-group">
+        <ExportButton />
+        <ClearButton />
+      </div>
     </div>
+  )
+}
+
+/** One Export button with a small menu to pick MIDI or WAV. */
+function ExportButton() {
+  const hasChords = useStore((s) => s.chords.length > 0)
+  const [open, setOpen] = useState(false)
+  const [rendering, setRendering] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setOpen(false)
+      }
+    }
+    window.addEventListener('pointerdown', onPointer)
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      window.removeEventListener('pointerdown', onPointer)
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [open])
+
+  const exportMidi = () => {
+    const s = useStore.getState()
+    download(songToMidi(s), `${exportName(s)}.mid`)
+    setOpen(false)
+  }
+  const exportWav = async () => {
+    const s = useStore.getState()
+    setRendering(true)
+    try {
+      download(await songToWav(s), `${exportName(s)}.wav`)
+      setOpen(false)
+    } finally {
+      setRendering(false)
+    }
+  }
+
+  return (
+    <div className="menu-anchor" ref={ref}>
+      <button
+        type="button"
+        className="chip export-btn"
+        disabled={!hasChords}
+        aria-expanded={open}
+        aria-controls="export-menu"
+        onClick={() => setOpen(!open)}
+        title="Download the progression"
+      >
+        <Icon d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+        Export
+      </button>
+      {open && (
+        <div className="menu" id="export-menu" aria-label="Export as">
+          <button type="button" className="menu-item" onClick={exportMidi} disabled={rendering}>
+            <span className="menu-item-title">MIDI</span>
+            <span className="menu-item-about">Chords and bass on separate tracks, for a DAW</span>
+          </button>
+          <button type="button" className="menu-item" onClick={exportWav} disabled={rendering} aria-live="polite">
+            <span className="menu-item-title">{rendering ? 'Rendering…' : 'WAV'}</span>
+            <span className="menu-item-about">24-bit audio, played through once</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Clears the timeline; asks once more inline rather than with a dialog. */
+function ClearButton() {
+  const hasChords = useStore((s) => s.chords.length > 0)
+  const [confirming, setConfirming] = useState(false)
+
+  useEffect(() => {
+    if (!confirming) return
+    const t = setTimeout(() => setConfirming(false), 3000)
+    return () => clearTimeout(t)
+  }, [confirming])
+
+  const clear = () => {
+    if (!confirming) {
+      setConfirming(true)
+      return
+    }
+    setConfirming(false)
+    const s = useStore.getState()
+    if (s.playing) void togglePlay()
+    s.clearChords()
+  }
+
+  return (
+    <button
+      type="button"
+      className={`chip clear-btn ${confirming ? 'is-confirming' : ''}`}
+      disabled={!hasChords}
+      onClick={clear}
+      onBlur={() => setConfirming(false)}
+      title="Remove every chord from the timeline"
+    >
+      {confirming ? 'Clear all?' : 'Clear'}
+    </button>
   )
 }
 

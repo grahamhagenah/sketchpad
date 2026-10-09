@@ -106,3 +106,26 @@ export function voiceChord(pcs: number[], prev: number[] | null): number[] {
 export function bassNote(rootPc: number) {
   return 36 + rootPc
 }
+
+/** MIDI notes for each chord of a progression, each voiced to lead smoothly from the last. */
+export function voiceProgression(key: number, mode: Mode, chords: { degree: number; seventh: boolean }[]) {
+  let prev: number[] | null = null
+  return chords.map((c) => {
+    const info = chordInfo(key, mode, c.degree, c.seventh)
+    prev = voiceChord(info.pcs, prev)
+    return { notes: prev, bass: bassNote(info.rootPc) }
+  })
+}
+
+/** Sharps (positive) or flats (negative) in a key's signature. */
+export function keySignature(key: number, mode: Mode) {
+  const majorTonic = mode === 'major' ? key : (key + 3) % 12
+  const fifths = (majorTonic * 7) % 12
+  return fifths <= 6 ? fifths : fifths - 12
+}
+
+export const FUNCTIONS: { id: string; label: string; about: string; degrees: number[] }[] = [
+  { id: 'tonic', label: 'Tonic', about: 'Stable and at rest. Progressions tend to start and end here.', degrees: [0, 2, 5] },
+  { id: 'predominant', label: 'Predominant', about: 'Moves away from the tonic and sets up the dominant.', degrees: [1, 3] },
+  { id: 'dominant', label: 'Dominant', about: 'Builds tension that wants to resolve to the tonic.', degrees: [4, 6] },
+]

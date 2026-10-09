@@ -64,6 +64,7 @@ interface State extends Song {
   duplicateChord: (id: string) => void
   moveChord: (id: string, dir: -1 | 1) => void
   reorderChord: (id: string, toIndex: number) => void
+  clearChords: () => void
   select: (id: string | null) => void
   selectRelative: (dir: -1 | 1) => void
 }
@@ -132,6 +133,7 @@ export const useStore = create<State>()(
         next.splice(i + 1, 0, copy)
         set({ chords: next, selectedId: copy.id })
       },
+      clearChords: () => set({ chords: [], selectedId: null, loop: null }),
       reorderChord: (id, toIndex) => {
         const chords = get().chords
         const chord = chords.find((c) => c.id === id)
