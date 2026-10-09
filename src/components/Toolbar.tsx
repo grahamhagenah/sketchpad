@@ -39,7 +39,7 @@ export function Toolbar() {
         <div className="toolbar-group">
           <button
             type="button"
-            className={`play ${playing ? 'is-playing' : ''}`}
+            className={`transport-btn play ${playing ? 'is-playing' : ''}`}
             onClick={togglePlay}
             aria-label={playing ? 'Pause' : 'Play'}
             title="Play / pause (Space)"
@@ -299,8 +299,8 @@ function ExportButton() {
 }
 
 /**
- * A dot when idle; during the count-in it counts down the beats left;
- * while recording it's solid white with a stop square.
+ * A red dot when idle; during the count-in it counts down the beats left;
+ * while recording it's solid red with a stop square.
  */
 function RecordButton() {
   const recording = useStore((s) => s.recording)
@@ -310,7 +310,7 @@ function RecordButton() {
   return (
     <button
       type="button"
-      className={`icon-btn record-btn is-${recording}`}
+      className={`transport-btn record-btn is-${recording}`}
       aria-label={label}
       aria-pressed={recording !== 'off'}
       title={recording === 'off' ? 'Record a vocal over the loop (R). Headphones help keep the chords out of the take.' : label}

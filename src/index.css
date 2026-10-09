@@ -9,6 +9,7 @@
   --accent: #5ad8c8;
   --on-accent: #052421;
   --danger: #ff8a7a;
+  --record: #ff5a5f;
   --radius: 12px;
   color-scheme: dark;
   font-family: 'DM Sans', system-ui, sans-serif;
@@ -64,17 +65,41 @@ main > .panel {
 .toolbar-group + .toolbar-group { border-left: 1px solid var(--line-strong); }
 .toolbar-end { margin-left: auto; padding-right: 0; }
 .toolbar-group + .toolbar-end { border-left: 0; }
-.play {
+/* Play and record: a matched pair of round buttons, set apart from the toggles beside them. */
+.transport-btn {
   width: 36px;
   height: 36px;
+  padding: 0;
   border-radius: 50%;
-  border: 0;
-  background: var(--accent);
-  color: var(--on-accent);
+  border: 1px solid transparent;
   display: grid;
   place-items: center;
+  transition: background-color 120ms, border-color 120ms, color 120ms, transform 80ms;
 }
-.play.is-playing { background: var(--text); }
+.transport-btn:not(:disabled):active { transform: scale(0.93); }
+.play { background: var(--accent); color: var(--on-accent); }
+.play.is-playing { background: var(--text); color: var(--bg); }
+.record-btn { background: var(--raised); border-color: var(--line-strong); color: var(--record); }
+.record-btn.is-count-in { background: color-mix(in srgb, var(--record) 14%, var(--raised)); border-color: var(--record); }
+.record-btn.is-on { background: var(--record); border-color: var(--record); color: #fff; animation: recording 1.6s ease-out infinite; }
+/* Only where there's a pointer to hover with, so a tap doesn't leave a button looking hovered. */
+@media (hover: hover) {
+  .play:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 80%, #fff); }
+  .play.is-playing:not(:disabled):hover { background: #fff; }
+  .record-btn:not(:disabled):hover { background: color-mix(in srgb, var(--record) 10%, var(--raised)); border-color: var(--record); }
+  .record-btn.is-count-in:not(:disabled):hover { background: color-mix(in srgb, var(--record) 24%, var(--raised)); }
+  .record-btn.is-on:not(:disabled):hover { background: color-mix(in srgb, var(--record) 82%, #000); border-color: transparent; }
+}
+/* A ring that keeps spreading from the button while it records. */
+@keyframes recording {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--record) 55%, transparent); }
+  to { box-shadow: 0 0 0 9px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .transport-btn { transition: none; }
+  .transport-btn:not(:disabled):active { transform: none; }
+  .record-btn.is-on { animation: none; }
+}
 .toolbar select,
 .tempo-field,
 .icon-btn,
@@ -114,8 +139,6 @@ main > .panel {
 .chip:not(:disabled):hover { border-color: var(--muted); }
 .icon-btn.danger:not(:disabled):hover { color: var(--danger); border-color: var(--danger); }
 .chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.record-btn.is-count-in { border-color: var(--text); }
-.record-btn.is-on { background: var(--text); border-color: var(--text); color: var(--bg); }
 .position {
   min-width: 64px;
   height: 32px;
@@ -130,7 +153,7 @@ main > .panel {
   white-space: nowrap;
 }
 .position span { margin-left: 4px; font-size: 12px; color: var(--muted); }
-.record-count { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; line-height: 1; }
+.record-count { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; line-height: 1; color: var(--text); }
 .toolbar-label { display: inline-flex; align-items: center; gap: 6px; padding-right: 2px; font-size: 13px; color: var(--muted); }
 .toolbar-label.is-off { opacity: 0.5; }
 .toggle-btn[aria-pressed='true'] { color: var(--accent); border-color: var(--accent); }
