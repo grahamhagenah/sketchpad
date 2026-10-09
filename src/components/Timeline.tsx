@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
-import { useStore, type Chord } from '../store'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { audibleTracks, chordsTrackName, useStore, vocalTrackName, type Chord } from '../store'
 import { chordInfo } from '../music/theory'
-import { audition, engine } from '../audio/engine'
+import { audition, engine, seek } from '../audio/engine'
+import { LANES } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import type { TakeInfo } from '../audio/take'
 
@@ -38,7 +39,8 @@ export function Timeline() {
   const { select, updateChord, addChord, reorderChord } = useStore()
   const [num, den] = timeSig
   // Shorter beat units get narrower columns, so a bar stays a sensible width.
-  const beatPx = den === 16 ? 20 : den === 8 ? 30 : 44
+  const zoom = useStore((s) => s.zoom)
+  const beatPx = (den === 16 ? 20 : den === 8 ? 30 : 44) * zoom
   const barPx = num * beatPx
 
   const totalBeats = chords.reduce((sum, c) => sum + c.beats, 0)
@@ -46,14 +48,24 @@ export function Timeline() {
   const width = Math.max(bars * barPx, totalBeats * beatPx) + barPx
 
   const playheadRef = useRef<HTMLDivElement>(null)
+  const playhead = useStore((s) => s.playhead)
   const recordingRef = useRef<HTMLDivElement>(null)
-  const { takes, vocalMuted, recording, bpm, armedLane, setArmedLane } = useStore()
-  // Lanes with takes, plus one free lane to record a new take into.
-  const lastTake = takes.reduce((last, t, i) => (t ? i : last), -1)
-  const laneCount = Math.min(takes.length, Math.max(lastTake + 2, armedLane + 1))
+  const { takes, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames } = useStore()
+  const audible = audibleTracks(useStore())
+  // The tracks added so far, plus the one a recording is adding.
+  const laneCount = Math.max(vocalTracks, recording === 'off' ? 0 : armedLane + 1)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
+  // The + slot moves whenever the progression's length changes. When it slides
+  // under a still pointer it shouldn't light up as if picked, so its hover
+  // waits until the pointer moves over it at its new place.
+  const [slotAt, setSlotAt] = useState(totalBeats)
+  const [slotMoved, setSlotMoved] = useState(false)
+  if (slotAt !== totalBeats) {
+    setSlotAt(totalBeats)
+    setSlotMoved(true)
+  }
 
   const [drag, setDrag] = useState<Drag | null>(null)
   const suppressClick = useRef(false)
@@ -71,15 +83,32 @@ export function Timeline() {
 
   // A press is followed on the window rather than the chord, so a fast drag
   // that outruns the chord, or a re-render under the pointer, can't lose it.
+  // On a touch screen a swipe scrolls the timeline, so a chord only picks up
+  // for dragging after you hold it still for a moment.
   const startPress = (c: Chord, e: PointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0) return
     suppressClick.current = false
     const x = e.clientX
     let dx = 0
     let moved = false
+    const touch = e.pointerType === 'touch'
+    let held = !touch
+    const hold = touch
+      ? setTimeout(() => {
+          held = true
+          select(c.id)
+          navigator.vibrate?.(10)
+        }, 350)
+      : undefined
+    // Once held, keep the page from scrolling under the drag.
+    const stopScroll = (ev: TouchEvent) => held && ev.preventDefault()
 
     const onMove = (ev: globalThis.PointerEvent) => {
       dx = ev.clientX - x
+      if (!held) {
+        if (Math.abs(dx) > 8 || Math.abs(ev.clientY - e.clientY) > 8) finish(false)
+        return
+      }
       if (!moved && Math.abs(dx) < 5) return
       if (!moved) {
         moved = true
@@ -87,10 +116,12 @@ export function Timeline() {
       }
       setDrag({ id: c.id, dx })
     }
-    const finish = (commit: boolean) => {
+    function finish(commit: boolean) {
+      clearTimeout(hold)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onCancel)
+      window.removeEventListener('touchmove', stopScroll)
       if (!moved) return
       suppressClick.current = true
       if (commit) {
@@ -104,11 +135,24 @@ export function Timeline() {
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onCancel)
+    if (touch) window.addEventListener('touchmove', stopScroll, { passive: false })
   }
 
+  // Zoom around the middle of the view, so what you were looking at stays put.
+  const lastBeatPx = useRef(beatPx)
+  useLayoutEffect(() => {
+    const view = scrollRef.current
+    const ratio = beatPx / lastBeatPx.current
+    lastBeatPx.current = beatPx
+    if (!view || ratio === 1) return
+    const mid = view.scrollLeft + view.clientWidth / 2
+    view.scrollLeft = mid * ratio - view.clientWidth / 2
+  }, [beatPx])
+
   useEffect(() => {
-    // A recording starts where the loop does, which is where the playhead first lands.
-    if (recording === 'on') recordStart.current = engine.position() ?? 0
+    // Where the take will start, from the recording itself: the playhead may
+    // already be a little past it, or not moving yet, when this runs.
+    if (recording === 'on') recordStart.current = engine.recordingStartBeat
   }, [recording])
 
   useEffect(() => {
@@ -155,96 +199,114 @@ export function Timeline() {
   }, [playing, beatPx])
 
   return (
-    <div className="timeline-scroll" ref={scrollRef}>
-      <div
-        className={`timeline ${chords.length ? '' : 'is-empty'}`}
-        style={{
-          width,
-          ['--lanes' as string]: laneCount,
-          ['--beat' as string]: `${beatPx}px`,
-          ['--bar' as string]: `${barPx}px`,
-        }}
-        onPointerDown={(e) => {
-          if (e.target === e.currentTarget) select(null)
-        }}
-      >
-        {chords.length > 0 && (
-          <div className="ruler" aria-hidden="true">
-            {Array.from({ length: bars + 1 }, (_, i) => (
-              <span key={i} style={{ left: i * barPx }}>
-                {i + 1}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {loopOn && totalBeats > 0 && <LoopLane beatPx={beatPx} total={totalBeats} perBar={num} />}
-
-        {chords.length === 0 && (
-          <p className="timeline-empty" style={{ left: barPx + 16 }}>
-            <span>Pick a chord below, or press 1–7, to start a progression.</span>
-          </p>
-        )}
-
-        {chords.map((c) => {
-          const isDragged = c.id === drag?.id
-          return (
-            <ChordBlock
-              key={c.id}
-              chord={c}
-              left={lefts.get(c.id) ?? 0}
-              beatPx={beatPx}
-              name={chordInfo(key, mode, c.degree, c.seventh).name}
-              roman={chordInfo(key, mode, c.degree, c.seventh).roman}
-              selected={c.id === selectedId}
-              active={c.id === activeId}
-              dragging={isDragged}
-              onPress={(e) => startPress(c, e)}
-              onSelect={() => {
-                if (suppressClick.current) {
-                  suppressClick.current = false
-                  return
-                }
-                select(c.id)
-                audition(c)
-              }}
-              onResize={(beats) => updateChord(c.id, { beats })}
-            />
-          )
-        })}
-
-        <button
-          type="button"
-          className="add-slot"
-          style={{ left: totalBeats * beatPx, width: barPx - 6 }}
-          onClick={() => {
-            select(chords[chords.length - 1]?.id ?? null)
-            addChord(0)
+    <div className="timeline-wrap" style={{ ['--lanes' as string]: laneCount }}>
+      <TrackHeaders laneCount={laneCount} />
+      <div className="timeline-scroll" ref={scrollRef}>
+        <div
+          className={`timeline ${chords.length ? '' : 'is-empty'} ${audible.chords ? '' : 'chords-silent'}`}
+          style={{
+            width,
+            ['--beat' as string]: `${beatPx}px`,
+            ['--bar' as string]: `${barPx}px`,
           }}
-          aria-label="Add a bar"
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) select(null)
+          }}
         >
-          +
-        </button>
+          {chords.length > 0 && (
+            <div
+              className="ruler"
+              title="Click to move the playhead"
+              onPointerDown={(e) => {
+                // To the nearest beat.
+                const x = e.clientX - e.currentTarget.getBoundingClientRect().left
+                void seek(Math.min(totalBeats, Math.max(0, Math.round(x / beatPx))))
+              }}
+            >
+              {Array.from({ length: bars + 1 }, (_, i) => (
+                <span key={i} style={{ left: i * barPx }}>
+                  {i + 1}
+                </span>
+              ))}
+            </div>
+          )}
 
-        {Array.from({ length: laneCount }, (_, lane) => (
-          <VocalLane
-            key={lane}
-            lane={lane}
-            take={takes[lane]}
-            muted={vocalMuted[lane]}
-            armed={lane === armedLane}
-            locked={recording !== 'off'}
-            onArm={() => setArmedLane(lane)}
-            bpm={bpm}
-            beatPx={beatPx}
-            beatsPerQuarter={den / 4}
-          />
-        ))}
-        {recording === 'on' && (
-          <div className="vocal-recording" ref={recordingRef} style={{ ['--row' as string]: armedLane }} aria-hidden="true" />
-        )}
+          {loopOn && totalBeats > 0 && <LoopLane beatPx={beatPx} total={totalBeats} perBar={num} />}
 
-        {playing && <div className="playhead" ref={playheadRef} aria-hidden="true" />}
+          {chords.length === 0 && (
+            <p className="timeline-empty" style={{ left: barPx + 16 }}>
+              <span>Pick a chord below, or press 1–7, to start a progression.</span>
+            </p>
+          )}
+
+          {chords.map((c) => {
+            const isDragged = c.id === drag?.id
+            return (
+              <ChordBlock
+                key={c.id}
+                chord={c}
+                left={lefts.get(c.id) ?? 0}
+                beatPx={beatPx}
+                name={chordInfo(key, mode, c.degree, c.seventh).name}
+                roman={chordInfo(key, mode, c.degree, c.seventh).roman}
+                selected={c.id === selectedId}
+                active={c.id === activeId}
+                dragging={isDragged}
+                onPress={(e) => startPress(c, e)}
+                onSelect={() => {
+                  if (suppressClick.current) {
+                    suppressClick.current = false
+                    return
+                  }
+                  select(c.id)
+                  audition(c)
+                }}
+                onResize={(beats) => updateChord(c.id, { beats })}
+              />
+            )
+          })}
+
+          <button
+            type="button"
+            className={`add-slot ${slotMoved ? 'is-moved' : ''}`}
+            style={{ left: totalBeats * beatPx, width: barPx - 6 }}
+            onPointerMove={() => slotMoved && setSlotMoved(false)}
+            // A click shouldn't leave focus here, or the keys that follow
+            // (⌫ especially) draw a focus ring that looks like a selected chord.
+            onPointerDown={(e) => e.preventDefault()}
+            onClick={() => {
+              select(chords[chords.length - 1]?.id ?? null)
+              addChord(0)
+            }}
+            aria-label="Add a bar"
+          >
+            +
+          </button>
+
+          {Array.from({ length: laneCount }, (_, lane) => (
+            <VocalLane
+              key={lane}
+              lane={lane}
+              name={vocalTrackName({ vocalNames }, lane)}
+              take={takes[lane]}
+              muted={!audible.vocals[lane]}
+              locked={recording !== 'off'}
+              selected={lane === selectedVocal}
+              onSelect={() => selectVocal(lane)}
+              bpm={bpm}
+              beatPx={beatPx}
+              beatsPerQuarter={den / 4}
+            />
+          ))}
+          {recording === 'on' && (
+            <div className="vocal-recording" ref={recordingRef} style={{ ['--row' as string]: armedLane }} aria-hidden="true" />
+          )}
+
+          {chords.length > 0 && (playing || playhead > 0) && (
+            // While playing, the animation frame moves it; paused, it marks where play resumes.
+            <div className="playhead" ref={playheadRef} style={{ transform: `translateX(${playhead * beatPx}px)` }} aria-hidden="true" />
+          )}
+        </div>
       </div>
     </div>
   )
@@ -303,33 +365,25 @@ function ChordBlock({ chord, left, beatPx, name, roman, selected, active, draggi
 
 interface VocalLaneProps {
   lane: number
+  name: string
   take: TakeInfo | null
   muted: boolean
-  /** The lane recording goes into. */
-  armed: boolean
-  /** True while recording, when the armed lane can't change. */
+  /** True while recording, when the selection can't change. */
   locked: boolean
-  onArm: () => void
+  /** Its take is selected, for deleting or recording over. */
+  selected: boolean
+  onSelect: () => void
   bpm: number
   beatPx: number
   /** Beats per quarter note: 1 in x/4, 2 in x/8. */
   beatsPerQuarter: number
 }
 
-/** One vocal lane: click it to record into it; its take is drawn at the beat it starts on. */
-function VocalLane({ lane, take, muted, armed, locked, onArm, bpm, beatPx, beatsPerQuarter }: VocalLaneProps) {
+/** One vocal track: click it to select it (to record into, or delete); its take is drawn at the beat it starts on. */
+function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, beatPx, beatsPerQuarter }: VocalLaneProps) {
   const row = { ['--row' as string]: lane }
   let content = null
-  if (!take) {
-    content = armed && (
-      <p className="vocal-lane-hint" style={row}>
-        <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="8" fill="var(--danger)" />
-        </svg>
-        {lane === 0 ? 'Record a vocal over the loop' : `Record vocal ${lane + 1} over the others`}
-      </p>
-    )
-  } else {
+  if (take) {
     const pxPerSecond = (bpm / 60) * beatsPerQuarter * beatPx
     const width = take.seconds * pxPerSecond - 6
     // One bar every 4px, each as tall as the loudest moment it covers.
@@ -338,10 +392,10 @@ function VocalLane({ lane, take, muted, armed, locked, onArm, bpm, beatPx, beats
     const bars = Array.from({ length: count }, (_, i) => Math.max(...take.peaks.slice(Math.floor(i * per), Math.ceil((i + 1) * per)), 0))
     content = (
       <div
-        className={`vocal-take ${muted ? 'is-muted' : ''}`}
+        className={`vocal-take ${muted ? 'is-muted' : ''} ${selected ? 'is-selected' : ''}`}
         style={{ ...row, left: take.startBeat * beatPx, width }}
         role="img"
-        aria-label={`Vocal ${lane + 1} waveform`}
+        aria-label={`${name} waveform`}
       >
         {bars.map((b, i) => (
           <span key={i} style={{ height: `${Math.max(6, b * 80)}%` }} />
@@ -353,15 +407,118 @@ function VocalLane({ lane, take, muted, armed, locked, onArm, bpm, beatPx, beats
     <>
       <button
         type="button"
-        className={`vocal-row ${armed ? 'is-armed' : ''}`}
+        className={`vocal-row ${take ? '' : 'is-empty'} ${selected ? 'is-selected' : ''}`}
         style={row}
-        aria-pressed={armed}
-        aria-label={`Vocal ${lane + 1}${take ? '' : ', empty'}: record into this lane`}
-        title={take && take.bpm !== bpm ? `Vocal ${lane + 1}, recorded at ${take.bpm} BPM; it won't follow tempo changes` : `Vocal ${lane + 1}`}
+        aria-pressed={selected}
+        aria-label={take ? `${name}: select` : `${name}, empty: select to record into it`}
+        title={take && take.bpm !== bpm ? `${name}, recorded at ${take.bpm} BPM; it won't follow tempo changes` : name}
         disabled={locked}
-        onClick={onArm}
+        onClick={onSelect}
       />
       {content}
     </>
+  )
+}
+
+/** Track names with mute and solo, beside each track's row, and a button to add a vocal track. */
+function TrackHeaders({ laneCount }: { laneCount: number }) {
+  const s = useStore()
+  const full = s.vocalTracks >= LANES
+  return (
+    <div className="track-headers">
+      <button
+        type="button"
+        className="add-track"
+        aria-label="Add a vocal track"
+        onClick={s.addVocalTrack}
+        disabled={full || s.recording !== 'off'}
+        title={full ? `Up to ${LANES} vocal tracks` : 'Add a vocal track to record into'}
+      >
+        + Track
+      </button>
+      <TrackHeader
+        className="is-chords"
+        name={chordsTrackName(s)}
+        muted={s.chordsMuted}
+        solo={s.chordsSolo}
+        onMute={s.toggleChordsMute}
+        onSolo={s.toggleChordsSolo}
+        onRename={s.renameChords}
+      />
+      {Array.from({ length: laneCount }, (_, lane) => (
+        <TrackHeader
+          key={lane}
+          className={`is-vocal ${s.selectedVocal === lane ? 'is-selected' : ''}`}
+          style={{ ['--row' as string]: lane }}
+          name={vocalTrackName(s, lane)}
+          muted={s.vocalMuted[lane]}
+          solo={s.vocalSolo[lane]}
+          onMute={() => s.toggleVocalMute(lane)}
+          onSolo={() => s.toggleVocalSolo(lane)}
+          onRename={(name) => s.renameVocal(lane, name)}
+        />
+      ))}
+    </div>
+  )
+}
+
+interface TrackHeaderProps {
+  name: string
+  className: string
+  style?: CSSProperties
+  muted: boolean
+  solo: boolean
+  onMute: () => void
+  onSolo: () => void
+  /** An empty name puts the usual one back. */
+  onRename: (name: string) => void
+}
+
+function TrackHeader({ name, className, style, muted, solo, onMute, onSolo, onRename }: TrackHeaderProps) {
+  const [editing, setEditing] = useState(false)
+  // A double tap or double click; timed by hand, since phones don't reliably send dblclick.
+  const lastTap = useRef(0)
+  return (
+    <div className={`track-header ${className}`} style={style} role="group" aria-label={name}>
+      {editing ? (
+        <input
+          className="track-name-input"
+          defaultValue={name}
+          aria-label="Track name"
+          maxLength={24}
+          autoFocus
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={(e) => {
+            onRename(e.currentTarget.value)
+            setEditing(false)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') {
+              e.currentTarget.value = name
+              e.currentTarget.blur()
+            }
+          }}
+        />
+      ) : (
+        <button
+          type="button"
+          className="track-name"
+          title="Double-click to rename"
+          onClick={(e) => {
+            if (e.timeStamp - lastTap.current < 400) setEditing(true)
+            lastTap.current = e.timeStamp
+          }}
+        >
+          {name}
+        </button>
+      )}
+      <button type="button" className="track-btn is-mute" aria-pressed={muted} aria-label={`Mute ${name}`} title="Mute" onClick={onMute}>
+        M
+      </button>
+      <button type="button" className="track-btn is-solo" aria-pressed={solo} aria-label={`Solo ${name}`} title="Solo" onClick={onSolo}>
+        S
+      </button>
+    </div>
   )
 }

@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { useStore, loopRange, type Chord, type LoopRegion, type TimeSig } from '../store'
+import { audibleTracks, useStore, loopRange, type Chord, type LoopRegion, type TimeSig } from '../store'
 import { bassNote, chordInfo, voiceChord, type Mode } from '../music/theory'
 import { arrange, type Arp, type Hit } from './arrange'
 import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
@@ -20,6 +20,9 @@ export interface Song {
   arp: Arp
   takes: (TakeInfo | null)[]
   vocalMuted: boolean[]
+  vocalSolo: boolean[]
+  chordsMuted: boolean
+  chordsSolo: boolean
 }
 
 interface HitEvent extends Hit {
@@ -40,8 +43,6 @@ interface Recording {
   startBeat: number
   bpm: number
   lane: number
-  /** Plays the count-in; thrown away if the recording is cancelled during it. */
-  countClick: Tone.Synth
 }
 
 interface ClickEvent {
@@ -63,12 +64,19 @@ class Engine {
   private recording: Recording | null = null
   private ticksPerBeat = 192
   private loopStartTicks = 0
+  /** The region in beats, and what plays in it, kept for starting part-way through. */
+  private region = { start: 0, end: 0 }
+  private chordEvents: HitEvent[] = []
+  private vocalSpans: { player: Tone.Player; from: number; to: number; offset: number }[] = []
+  private quartersPerBeat = 1
+  private secondsPerQuarter = 0.5
   private endEvent: number | null = null
   /** Called when a play-through without looping reaches the end. */
   onEnd: (() => void) | null = null
 
   private setup() {
     if (this.ready) return
+    setAudioSession('playback')
     this.instruments = createInstruments(useStore.getState().sound)
     this.pad = this.instruments.pad
     this.bass = this.instruments.bass
@@ -99,29 +107,34 @@ class Engine {
 
     // Only what sits inside the loop is scheduled; a chord that crosses the
     // loop's edge is cut to it, so it still sounds when the loop comes round.
-    const events: HitEvent[] = arrange(song, region).map((h) => ({ ...h, time: `${Math.round(h.start * t.PPQ)}i` }))
+    const audible = audibleTracks(song)
+    const events: HitEvent[] = audible.chords
+      ? arrange(song, region).map((h) => ({ ...h, time: `${Math.round(h.start * t.PPQ)}i` }))
+      : []
 
+    this.chordEvents = events
     this.chordPart?.dispose()
-    this.chordPart = new Tone.Part<HitEvent>((time, ev) => {
-      const length = Tone.Ticks(Math.round(ev.dur * t.PPQ)).toSeconds()
-      if (ev.pad.length) this.pad.triggerAttackRelease(ev.pad.map(midiToHz), ev.held ? length * 0.97 : length, time, ev.velocity)
-      if (ev.bass !== null) this.bass.triggerAttackRelease(midiToHz(ev.bass), length * 0.97, time, 0.9)
-    }, events).start(0)
+    this.chordPart = new Tone.Part<HitEvent>((time, ev) => this.playHit(ev, ev.dur, time), events).start(0)
 
     // Each vocal starts wherever the loop enters it, every time round. The
     // lane being recorded into stays quiet; the others play along.
     this.vocalParts.forEach((part) => part.dispose())
     this.vocalParts = []
+    this.vocalSpans = []
     const quartersPerBeat = 4 / den
     const secondsPerQuarter = 60 / song.bpm
+    this.quartersPerBeat = quartersPerBeat
+    this.secondsPerQuarter = secondsPerQuarter
+    this.region = region
     song.takes.forEach((info, lane) => {
       const player = this.vocals[lane]
-      if (!player || !info || song.vocalMuted[lane] || this.recording?.lane === lane) return
+      if (!player || !info || !audible.vocals[lane] || this.recording?.lane === lane) return
       const takeStart = info.startBeat * quartersPerBeat
       const takeEnd = takeStart + info.seconds / secondsPerQuarter
       const from = Math.max(takeStart, region.start * quartersPerBeat)
       const to = Math.min(takeEnd, region.end * quartersPerBeat)
       if (to <= from) return
+      this.vocalSpans.push({ player, from, to, offset: (from - takeStart) * secondsPerQuarter })
       this.vocalParts.push(
         new Tone.Part<VocalEvent>(
           (time, ev) => player.start(time, ev.offset, ev.duration),
@@ -156,13 +169,32 @@ class Engine {
     if (t.ticks < this.loopStartTicks || t.ticks >= loopEndTicks) t.ticks = this.loopStartTicks
   }
 
-  async play(song: Song) {
+  private playHit(ev: Hit, quarters: number, time: number) {
+    const length = quarters * this.secondsPerQuarter
+    if (ev.pad.length) this.pad.triggerAttackRelease(ev.pad.map(midiToHz), ev.held ? length * 0.97 : length, time, ev.velocity)
+    if (ev.bass !== null) this.bass.triggerAttackRelease(midiToHz(ev.bass), length * 0.97, time, 0.9)
+  }
+
+  /** Plays from `fromBeat`, or from the start of the loop when that's outside it. */
+  async play(song: Song, fromBeat = 0) {
     await Tone.start()
     this.setup()
     this.sync(song)
     const t = Tone.getTransport()
     t.stop()
-    t.start('+0.05', `${this.loopStartTicks}i`)
+    const { start, end } = this.region
+    const beat = fromBeat >= start && fromBeat < end ? fromBeat : start
+    const time = Tone.now() + 0.05
+    t.start(time, `${Math.round(beat * this.ticksPerBeat)}i`)
+    // Starting part-way through, sound what's already under way: the rest of
+    // the chord (or arp note) and of any take.
+    const q = beat * this.quartersPerBeat
+    for (const ev of this.chordEvents) {
+      if (ev.start < q && q < ev.start + ev.dur) this.playHit(ev, ev.start + ev.dur - q, time)
+    }
+    for (const v of this.vocalSpans) {
+      if (v.from < q && q < v.to) v.player.start(time, v.offset + (q - v.from) * this.secondsPerQuarter, (v.to - q) * this.secondsPerQuarter)
+    }
   }
 
   /** Tears everything down, so a reloaded copy of this module starts clean. */
@@ -205,10 +237,15 @@ class Engine {
     return this.recording !== null
   }
 
+  /** The beat the take being recorded will start on, the same beat its take is drawn from. */
+  get recordingStartBeat() {
+    return this.recording?.startBeat ?? 0
+  }
+
   /**
-   * Records over the loop (or the whole song) once: a bar of clicks to count
-   * in, then the progression plays from the loop's start while the mic records,
-   * with the click on. Resolves once the count-in has started.
+   * Records over the loop (or the whole song) once: a silent bar counted down
+   * on the record button, then the progression plays from the loop's start
+   * while the mic records. Resolves once the count-in has started.
    */
   async record(song: Song, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void }) {
     await Tone.start()
@@ -223,18 +260,13 @@ class Engine {
     const region = song.loopOn ? loopRange(song.loop, total) : { start: 0, end: total }
     const beatSeconds = (60 / song.bpm) * (4 / den)
 
-    const countClick = new Tone.Synth({
-      oscillator: { type: 'sine' },
-      envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 },
-    }).toDestination()
-    countClick.volume.value = -12
-    const rec: Recording = { capture, alignTime: 0, startBeat: region.start, bpm: song.bpm, lane, countClick }
+    const rec: Recording = { capture, alignTime: 0, startBeat: region.start, bpm: song.bpm, lane }
     this.recording = rec
     // Run fn when the audio clock reaches time, if this recording is still going.
     // A plain timer, unlike Tone's Draw, never skips a callback that runs late.
     const at = (time: number, fn: () => void) =>
       setTimeout(() => this.recording === rec && fn(), Math.max(0, (time - Tone.immediate()) * 1000))
-    // Play the region once, with the click, the other lanes, and not this lane's old take.
+    // Play the region once, with the other lanes and not this lane's old take.
     this.sync({ ...song, loopOn: true, loop: region })
     t.loop = false
     if (this.endEvent !== null) t.clear(this.endEvent)
@@ -245,8 +277,7 @@ class Engine {
     const countIn = Tone.now() + 0.1
     for (let b = 0; b < num; b++) {
       const time = countIn + b * beatSeconds
-      countClick.triggerAttackRelease(b === 0 ? 'C6' : 'G5', 0.03, time, b === 0 ? 1 : 0.6)
-      // The button counts down in time with the clicks you hear.
+      // A silent count-in: the button counts down the beats.
       at(time, () => on.count(num - b))
     }
     const startAt = countIn + num * beatSeconds
@@ -264,7 +295,6 @@ class Engine {
     this.recording = null
     // Stopping now also cancels a transport start still waiting on the count-in.
     this.stop()
-    rec.countClick.dispose()
     const { startTime, samples } = await rec.capture.stop()
     const sampleRate = Tone.getContext().sampleRate
     const skip = Math.round((rec.alignTime - startTime) * sampleRate)
@@ -313,7 +343,10 @@ const unsubscribe = useStore.subscribe((s, prev) => {
     s.loopOn !== prev.loopOn ||
     s.arp !== prev.arp ||
     s.takes !== prev.takes ||
-    s.vocalMuted !== prev.vocalMuted
+    s.vocalMuted !== prev.vocalMuted ||
+    s.vocalSolo !== prev.vocalSolo ||
+    s.chordsMuted !== prev.chordsMuted ||
+    s.chordsSolo !== prev.chordsSolo
   ) {
     engine.sync(s)
   }
@@ -325,7 +358,19 @@ engine.onEnd = () => {
     return
   }
   engine.stop()
+  // Played through to the end: the next play starts over.
+  useStore.getState().setPlayhead(0)
   useStore.getState().setPlaying(false)
+}
+
+/** Plays from the playhead, or pauses and leaves the playhead where it stopped. */
+/**
+ * On iPhones, web audio counts as ringer sound and goes quiet with the silent
+ * switch; calling it playback, like a music app, keeps it audible.
+ */
+function setAudioSession(type: 'playback' | 'play-and-record') {
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
+  if (session) session.type = type
 }
 
 export async function togglePlay() {
@@ -333,11 +378,23 @@ export async function togglePlay() {
   if (s.recording !== 'off') {
     await stopRecording()
   } else if (s.playing) {
+    s.setPlayhead(engine.position() ?? s.playhead)
     engine.stop()
     s.setPlaying(false)
   } else {
-    await engine.play(s)
+    await engine.play(s, s.playhead)
     s.setPlaying(true)
+  }
+}
+
+/** Moves the playhead; playback carries on from there. */
+export async function seek(beat: number) {
+  const s = useStore.getState()
+  if (s.recording !== 'off') return
+  s.setPlayhead(Math.max(0, beat))
+  if (s.playing) {
+    engine.stop()
+    await engine.play(useStore.getState(), beat)
   }
 }
 
@@ -352,13 +409,21 @@ export async function toggleRecord() {
   }
   let stream: MediaStream
   try {
+    setAudioSession('play-and-record')
     stream = await openMic()
   } catch {
+    setAudioSession('playback')
     window.alert('Sketchpad needs the microphone to record. Allow it in your browser’s site settings, then try again.')
     return
   }
+  // Record into the selected track, or else the first one without a take
+  // (adding a track if need be). With every lane full and none selected, the
+  // last take selected is replaced.
+  const free = s.takes.indexOf(null)
+  const lane = s.selectedVocal ?? (free === -1 ? s.armedLane : free)
+  s.setArmedLane(lane)
   s.setRecording('count-in')
-  await engine.record(useStore.getState(), stream, s.armedLane, {
+  await engine.record(useStore.getState(), stream, lane, {
     count: (n) => useStore.getState().setCountIn(n),
     rolling: () => {
       useStore.getState().setRecording('on')
@@ -369,6 +434,7 @@ export async function toggleRecord() {
 
 async function stopRecording() {
   const result = await engine.finishRecording()
+  setAudioSession('playback')
   const s = useStore.getState()
   s.setRecording('off')
   s.setPlaying(false)
@@ -376,14 +442,31 @@ async function stopRecording() {
     const { lane, take } = result
     engine.setTake(lane, take)
     s.setTake(lane, takeInfo(take))
+    s.showVocalTracks(lane + 1)
     await saveTake(lane, take)
   }
 }
 
+/** Deletes a vocal track and its take; the tracks after it move up, so they stay numbered 1, 2, 3… */
 export async function deleteTake(lane: number) {
-  engine.setTake(lane, null)
-  useStore.getState().setTake(lane, null)
-  await deleteSavedTake(lane)
+  const tracks = Math.max(useStore.getState().vocalTracks, takeCount(engine.allTakes))
+  await renumberTakes(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane))
+}
+
+/** Lanes up to and including the last one with a take. */
+const takeCount = (takes: readonly (Take | null)[]) => takes.reduce((n, t, lane) => (t ? lane + 1 : n), 0)
+
+/** Puts the takes from lanes `from` into lanes 0, 1, 2…, clearing the rest. */
+async function renumberTakes(from: number[]) {
+  const old = engine.allTakes.slice()
+  const moved = Array.from({ length: LANES }, (_, lane) => (lane < from.length ? old[from[lane]] : null))
+  moved.forEach((take, lane) => engine.setTake(lane, take))
+  useStore.getState().renumberVocals(from)
+  for (let lane = 0; lane < LANES; lane++) {
+    const take = moved[lane]
+    if (!take) await deleteSavedTake(lane)
+    else if (from[lane] !== lane) await saveTake(lane, take)
+  }
 }
 
 // Bring back the takes from the last visit.
@@ -393,6 +476,7 @@ void loadTakes().then((takes) => {
     engine.setTake(lane, take)
     useStore.getState().setTake(lane, takeInfo(take))
   })
+  useStore.getState().showVocalTracks(takeCount(takes))
 })
 
 export function audition(chord: Chord) {

@@ -54,7 +54,6 @@ main { display: flex; flex-direction: column; gap: 16px; }
   border-bottom: 1px solid var(--line);
 }
 .toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 0; }
-.toolbar-row + .toolbar-row { padding-top: 10px; border-top: 1px solid var(--line); }
 .toolbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 14px; }
 .toolbar-group:first-child { padding-left: 0; }
 .toolbar-group + .toolbar-group { border-left: 1px solid var(--line-strong); }
@@ -110,10 +109,8 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .chip:not(:disabled):hover { border-color: var(--muted); }
 .icon-btn.danger:not(:disabled):hover { color: var(--danger); border-color: var(--danger); }
 .chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.clear-btn.is-confirming { background: var(--danger); border-color: var(--danger); color: var(--bg); }
-.record-btn { color: var(--danger); }
-.record-btn.is-count-in { border-color: var(--danger); }
-.record-btn.is-on { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+.record-btn.is-count-in { border-color: var(--text); }
+.record-btn.is-on { background: var(--text); border-color: var(--text); color: var(--bg); }
 .record-count { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; line-height: 1; }
 .toolbar-label { display: inline-flex; align-items: center; gap: 6px; padding-right: 2px; font-size: 13px; color: var(--muted); }
 .toolbar-label.is-off { opacity: 0.5; }
@@ -139,21 +136,27 @@ main { display: flex; flex-direction: column; gap: 16px; }
 }
 
 /* Timeline */
-.timeline-scroll { overflow-x: auto; padding-bottom: 6px; }
-.timeline {
-  position: relative;
+.timeline-wrap {
+  /* Row positions, shared by the track headers and the timeline beside them. */
   --lane: 16px;
-  --chord-h: 112px;
+  --chord-h: 48px;
   --vocal-top: calc(var(--lane) + 26px + var(--chord-h) + 8px);
   --vocal-h: 44px;
-  min-width: 100%;
   --lanes: 1;
-  height: calc(var(--vocal-top) + var(--lanes) * (var(--vocal-h) + 6px));
+  display: flex;
+  min-width: 0;
+}
+.timeline-scroll { flex: 1; min-width: 0; overflow-x: auto; padding-bottom: 6px; }
+.timeline {
+  position: relative;
+  min-width: 100%;
+  height: calc(var(--lane) + 26px + var(--chord-h) + 6px + var(--lanes) * (var(--vocal-h) + 8px));
   background:
     repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 calc(var(--lane) + 20px) / 100% calc(100% - var(--lane) - 20px) no-repeat,
     repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--beat)) 0 calc(var(--lane) + 20px) / 100% calc(100% - var(--lane) - 20px) no-repeat;
 }
-.ruler { position: absolute; top: var(--lane); left: 0; right: 0; height: 20px; pointer-events: none; }
+.ruler { position: absolute; top: var(--lane); left: 0; right: 0; height: 20px; cursor: pointer; }
+.ruler span { pointer-events: none; }
 .ruler span {
   position: absolute;
   top: 2px;
@@ -186,18 +189,22 @@ main { display: flex; flex-direction: column; gap: 16px; }
   height: 100%;
   border: 0;
   background: none;
-  padding: 10px 12px;
+  padding: 0 10px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 2px;
   text-align: left;
   overflow: hidden;
   cursor: grab;
-  touch-action: none;
+  /* Swipes scroll the timeline; a held chord drags (see the timeline's press handling). */
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
-.chord-name { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
-.chord-roman { font-family: 'DM Mono', monospace; font-size: 12px; opacity: 0.75; white-space: nowrap; }
+.chord-name { font-size: 17px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
+.chord-roman { font-family: 'DM Mono', monospace; font-size: 11px; line-height: 1; opacity: 0.75; white-space: nowrap; }
 .resize {
   position: absolute;
   top: 0;
@@ -229,9 +236,9 @@ main { display: flex; flex-direction: column; gap: 16px; }
   border: 1.5px dashed var(--line-strong);
   background: var(--panel);
   color: var(--muted);
-  font-size: 24px;
+  font-size: 20px;
 }
-.add-slot:hover { border-color: var(--muted); color: var(--text); }
+.add-slot:not(.is-moved):hover { border-color: var(--muted); color: var(--text); }
 .playhead {
   position: absolute;
   top: 0;
@@ -260,8 +267,8 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .timeline.is-empty { background: none; }
 
 /* Vocal lanes: each item sets --row to its lane. */
-.vocal-row, .vocal-lane-hint, .vocal-take, .vocal-recording {
-  top: calc(var(--vocal-top) + var(--row, 0) * (var(--vocal-h) + 6px));
+.vocal-row, .vocal-take, .vocal-recording, .track-header.is-vocal {
+  top: calc(var(--vocal-top) + var(--row, 0) * (var(--vocal-h) + 8px));
 }
 .vocal-row {
   position: absolute;
@@ -275,26 +282,77 @@ main { display: flex; flex-direction: column; gap: 16px; }
   cursor: pointer;
 }
 .vocal-row:not(:disabled):hover { background: rgb(255 255 255 / 0.03); }
-.vocal-row.is-armed { background: rgb(255 255 255 / 0.04); }
 .vocal-row:disabled { cursor: default; }
+.vocal-row.is-empty { border: 1px dashed var(--line); }
+.vocal-row.is-empty.is-selected { border-color: var(--accent); }
 
-.vocal-lane-hint {
+/* Track names beside the rows: plain text, with mute and solo as small letters. */
+.track-headers { position: relative; flex: none; width: 96px; margin-right: 10px; }
+.add-track {
   position: absolute;
-  height: var(--vocal-h);
-  left: 3px;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1.5px dashed var(--line-strong);
-  background: var(--panel);
-  font-size: 13px;
+  top: calc(var(--lane) - 2px);
+  left: 0;
+  height: 24px;
+  padding: 0 8px 0 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
-  pointer-events: none;
 }
+.add-track:not(:disabled):hover { color: var(--text); }
+.add-track:disabled { opacity: 0.4; }
+.track-header { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 2px; }
+.track-header.is-chords { top: calc(var(--lane) + 26px); height: var(--chord-h); }
+.track-header.is-vocal { height: var(--vocal-h); }
+.track-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+.track-name-input {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  margin-left: -6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+.track-name-input:focus-visible { outline: none; border-color: var(--accent); }
+.track-header.is-selected .track-name { color: var(--accent); }
+.track-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+.track-btn:hover { color: var(--text); }
+.track-btn.is-mute[aria-pressed='true'] { background: var(--raised); color: var(--text); }
+.track-btn.is-solo[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+
 .vocal-take {
   position: absolute;
   height: var(--vocal-h);
@@ -306,20 +364,23 @@ main { display: flex; flex-direction: column; gap: 16px; }
   pointer-events: none;
 }
 .vocal-take.is-muted { opacity: 0.35; }
+.vocal-take.is-selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .vocal-take { display: flex; align-items: center; gap: 2px; padding: 0 3px; }
 .vocal-take span { flex: none; width: 2px; border-radius: 1px; background: var(--accent); }
 .vocal-recording {
   position: absolute;
-  top: var(--vocal-top);
   height: var(--vocal-h);
   left: 0;
   width: 0;
   margin-left: 3px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--danger) 30%, transparent);
-  border: 1px solid var(--danger);
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  border: 1px solid var(--text);
   pointer-events: none;
 }
+
+/* Track headers: a column beside the timeline, one per track. */
+.timeline.chords-silent .chord { opacity: 0.4; }
 
 /* Loop */
 .loop-lane {
@@ -582,9 +643,43 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .info-numerals { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 400; color: var(--muted); }
 .info-foot { margin: 0; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); }
 
-.shortcuts { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 12px; color: var(--muted); }
-.shortcuts span { display: inline-flex; align-items: center; gap: 3px; }
+/* Touch screens: no keyboard to list shortcuts for, and handles big enough for a finger. */
+@media (hover: none) and (pointer: coarse) {
+  .shortcuts-anchor { display: none; }
+  .resize { width: 24px; right: -12px; }
+  .resize::after { left: 10px; }
+  .loop-handle { width: 24px; }
+  .loop-handle.is-start { left: -12px; }
+  .loop-handle.is-end { right: -12px; }
+  .loop-handle::after { left: 11px; }
+}
+.shortcuts-menu { width: 300px; padding: 14px 16px; }
+.shortcuts-menu dl { margin: 0; display: grid; gap: 8px; }
+.shortcuts-menu dl div { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.shortcuts-menu dt { display: inline-flex; align-items: center; gap: 3px; min-width: 76px; color: var(--muted); }
+.shortcuts-menu dd { margin: 0; }
 
 @media (max-width: 640px) {
-  .app { padding: 12px 16px 32px; }
+  .app { padding: 12px 12px 32px; }
+  .panel { padding: 14px; }
+  .toolbar-row { gap: 8px; }
+  .toolbar-group { gap: 4px; }
+  .tempo { width: 3ch; }
+  /* Name on one line, mute and solo under it. */
+  .track-headers { width: 64px; margin-right: 6px; }
+  .track-header { flex-wrap: wrap; align-content: center; row-gap: 2px; }
+  .track-name, .track-name-input { flex-basis: 100%; }
+  .track-name-input { margin-left: 0; height: 22px; }
+  /* Menus and panels open as a sheet along the bottom, inside the screen. */
+  .menu,
+  .sound-panel {
+    position: fixed;
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    max-height: 75vh;
+    overflow-y: auto;
+  }
 }

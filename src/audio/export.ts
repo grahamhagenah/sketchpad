@@ -108,9 +108,9 @@ const TAIL_SECONDS = 2.5
  * Renders the whole progression once, on the same sounds as playback, to a
  * 24-bit WAV, with any vocal takes given mixed in.
  */
-export async function songToWav(song: ExportSong, takes: Take[] = []): Promise<Blob> {
+export async function songToWav(song: ExportSong, takes: Take[] = [], withChords = true): Promise<Blob> {
   const quarterSeconds = 60 / song.bpm
-  const hits = arrange(song)
+  const hits = withChords ? arrange(song) : []
   const takeStart = (take: Take) => take.startBeat * (4 / song.timeSig[1]) * quarterSeconds
   const end = Math.max(
     Math.max(0, ...hits.map((h) => h.start + h.dur)) * quarterSeconds,

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
-import { useStore, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, type Chord } from '../store'
+import { audibleTracks, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
 import { chordInfo, keyLabel, type Mode } from '../music/theory'
 import { audition, deleteTake, engine, togglePlay, toggleRecord } from '../audio/engine'
 import { SoundButton } from './SoundPanel'
 import { ArpButton } from './ArpPanel'
+import { ShortcutsButton } from './Shortcuts'
 import { download, exportName, songToMidi, songToWav, takeToWav } from '../audio/export'
 
 /** The one bar for playback, song settings and editing the selected chord. */
@@ -13,6 +14,10 @@ export function Toolbar() {
   const { setKey, setMode, setTimeSig, toggleMetronome, toggleLoop } = useStore()
   const { updateChord, removeChord, duplicateChord } = useStore()
   const chord = chords.find((c) => c.id === selectedId)
+  const selectedVocal = useStore((s) => s.selectedVocal)
+  const vocalNames = useStore((s) => s.vocalNames)
+  const recording = useStore((s) => s.recording)
+  const vocalSelected = selectedVocal !== null && recording === 'off'
 
   const editChord = (c: Chord, patch: Partial<Omit<Chord, 'id'>>) => {
     updateChord(c.id, patch)
@@ -27,10 +32,10 @@ export function Toolbar() {
             type="button"
             className={`play ${playing ? 'is-playing' : ''}`}
             onClick={togglePlay}
-            aria-label={playing ? 'Stop' : 'Play'}
-            title="Play / stop (Space)"
+            aria-label={playing ? 'Pause' : 'Play'}
+            title="Play / pause (Space)"
           >
-            {playing ? <StopIcon /> : <PlayIcon />}
+            {playing ? <PauseIcon /> : <PlayIcon />}
           </button>
           <RecordButton />
           <IconToggle label="Metronome (M)" pressed={metronome} onClick={toggleMetronome}>
@@ -76,11 +81,7 @@ export function Toolbar() {
           </select>
           <TempoField />
         </div>
-        <div className="toolbar-group toolbar-end">
-          <ExportButton />
-        </div>
-      </div>
-      <div className="toolbar-row" role="toolbar" aria-label="Edit">
+
         <div className="toolbar-group" aria-label="Selected chord" role="group">
           <select
             aria-label="Selected chord"
@@ -113,16 +114,40 @@ export function Toolbar() {
           <button type="button" className="icon-btn" aria-label="Duplicate" title="Duplicate (D)" disabled={!chord} onClick={() => chord && duplicateChord(chord.id)}>
             <Icon d="M9 9h10v10H9zM5 15V5h10" />
           </button>
-          <button type="button" className="icon-btn danger" aria-label="Delete" title="Delete (⌫)" disabled={!chord} onClick={() => chord && removeChord(chord.id)}>
+          <button
+            type="button"
+            className="icon-btn danger"
+            aria-label={vocalSelected ? `Delete ${vocalTrackName({ vocalNames }, selectedVocal!)}` : 'Delete'}
+            title="Delete the selected chord or vocal (⌫)"
+            disabled={!chord && !vocalSelected}
+            onClick={() => (vocalSelected ? void deleteTake(selectedVocal!) : chord && removeChord(chord.id))}
+          >
             <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
           </button>
         </div>
-        <VocalControls />
         <div className="toolbar-group toolbar-end">
-          <ClearButton />
+          <ZoomButtons />
+          <ExportButton />
+          <ShortcutsButton />
         </div>
       </div>
     </div>
+  )
+}
+
+/** Widens or narrows the beats on the timeline. */
+function ZoomButtons() {
+  const zoom = useStore((s) => s.zoom)
+  const zoomBy = useStore((s) => s.zoomBy)
+  return (
+    <>
+      <button type="button" className="icon-btn" aria-label="Zoom out" title="Zoom out (−)" disabled={zoom === ZOOMS[0]} onClick={() => zoomBy(-1)}>
+        <Icon d="M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM20 20l-4.9-4.9M7.5 10.5h6" />
+      </button>
+      <button type="button" className="icon-btn" aria-label="Zoom in" title="Zoom in (+)" disabled={zoom === ZOOMS[ZOOMS.length - 1]} onClick={() => zoomBy(1)}>
+        <Icon d="M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM20 20l-4.9-4.9M7.5 10.5h6M10.5 7.5v6" />
+      </button>
+    </>
   )
 }
 
@@ -130,6 +155,7 @@ export function Toolbar() {
 function ExportButton() {
   const hasChords = useStore((s) => s.chords.length > 0)
   const takes = useStore((s) => s.takes)
+  const vocalNames = useStore((s) => s.vocalNames)
   const hasTake = takes.some(Boolean)
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
@@ -147,8 +173,10 @@ function ExportButton() {
     const s = useStore.getState()
     setRendering(true)
     try {
-      const audible = engine.allTakes.filter((t, lane): t is NonNullable<typeof t> => !!t && !s.vocalMuted[lane])
-      download(await songToWav(s, audible), `${exportName(s)}.wav`)
+      // The mix is what you hear: muted and un-soloed tracks are left out.
+      const audible = audibleTracks(s)
+      const takes = engine.allTakes.filter((t, lane): t is NonNullable<typeof t> => !!t && audible.vocals[lane])
+      download(await songToWav(s, takes, audible.chords), `${exportName(s)}.wav`)
       setOpen(false)
     } finally {
       setRendering(false)
@@ -158,7 +186,8 @@ function ExportButton() {
     const s = useStore.getState()
     const take = engine.allTakes[lane]
     if (!take) return
-    download(takeToWav(s, take), `${exportName(s)}-vocal-${lane + 1}.wav`)
+    const slug = vocalTrackName(s, lane).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `vocal-${lane + 1}`
+    download(takeToWav(s, take), `${exportName(s)}-${slug}.wav`)
     setOpen(false)
   }
 
@@ -190,7 +219,7 @@ function ExportButton() {
             (t, lane) =>
               t && (
                 <button type="button" key={lane} className="menu-item" onClick={() => exportVocal(lane)} disabled={rendering}>
-                  <span className="menu-item-title">Vocal {lane + 1}</span>
+                  <span className="menu-item-title">{vocalTrackName({ vocalNames }, lane)}</span>
                   <span className="menu-item-about">This take alone, lined up to bar 1</span>
                 </button>
               ),
@@ -202,8 +231,8 @@ function ExportButton() {
 }
 
 /**
- * Red dot when idle; during the count-in it shows the beats left, in time with
- * the clicks; while recording it's solid red with a stop square.
+ * A dot when idle; during the count-in it counts down the beats left;
+ * while recording it's solid white with a stop square.
  */
 function RecordButton() {
   const recording = useStore((s) => s.recording)
@@ -229,92 +258,6 @@ function RecordButton() {
           {recording === 'on' ? <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" /> : <circle cx="12" cy="12" r="9" fill="currentColor" />}
         </svg>
       )}
-    </button>
-  )
-}
-
-function VocalControls() {
-  const takes = useStore((s) => s.takes)
-  const mutedLanes = useStore((s) => s.vocalMuted)
-  const lane = useStore((s) => s.armedLane)
-  const recording = useStore((s) => s.recording)
-  const { toggleVocalMute, setArmedLane } = useStore()
-  const take = takes[lane]
-  const muted = mutedLanes[lane]
-  return (
-    <div className="toolbar-group" role="group" aria-label="Vocal">
-      <select
-        aria-label="Vocal lane to record into"
-        title="The vocal lane to record into and edit"
-        value={lane}
-        disabled={recording !== 'off'}
-        onChange={(e) => setArmedLane(Number(e.target.value))}
-      >
-        {takes.map((t, i) => (
-          <option key={i} value={i}>
-            Vocal {i + 1}
-            {t ? '' : ' · empty'}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={muted ? `Unmute vocal ${lane + 1}` : `Mute vocal ${lane + 1}`}
-        aria-pressed={muted}
-        title={muted ? 'Unmute this vocal' : 'Mute this vocal'}
-        disabled={!take}
-        onClick={() => toggleVocalMute(lane)}
-      >
-        <Icon d={muted ? 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6' : 'M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12'} />
-      </button>
-      <button
-        type="button"
-        className="icon-btn danger"
-        aria-label={`Delete vocal ${lane + 1}`}
-        title="Delete this vocal"
-        disabled={!take || recording !== 'off'}
-        onClick={() => void deleteTake(lane)}
-      >
-        <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
-      </button>
-    </div>
-  )
-}
-
-/** Clears the timeline; asks once more inline rather than with a dialog. */
-function ClearButton() {
-  const hasChords = useStore((s) => s.chords.length > 0)
-  const [confirming, setConfirming] = useState(false)
-
-  useEffect(() => {
-    if (!confirming) return
-    const t = setTimeout(() => setConfirming(false), 3000)
-    return () => clearTimeout(t)
-  }, [confirming])
-
-  const clear = () => {
-    if (!confirming) {
-      setConfirming(true)
-      return
-    }
-    setConfirming(false)
-    const s = useStore.getState()
-    if (s.playing) void togglePlay()
-    s.clearChords()
-  }
-
-  return (
-    <button
-      type="button"
-      className={confirming ? 'chip clear-btn is-confirming' : 'icon-btn'}
-      aria-label={confirming ? 'Confirm clearing the timeline' : 'Clear the timeline'}
-      disabled={!hasChords}
-      onClick={clear}
-      onBlur={() => setConfirming(false)}
-      title="Remove every chord from the timeline"
-    >
-      {confirming ? 'Clear all?' : <Icon d="M20 20H9l-5-5a2 2 0 0 1 0-2.8l8.2-8.2a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L13 20M8.5 10.5l5 5" />}
     </button>
   )
 }
@@ -368,8 +311,9 @@ const PlayIcon = () => (
     <path d="M7 4.5v15l12.5-7.5z" fill="currentColor" />
   </svg>
 )
-const StopIcon = () => (
+const PauseIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-    <rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" />
+    <rect x="5.5" y="4.5" width="4.5" height="15" rx="1.5" fill="currentColor" />
+    <rect x="14" y="4.5" width="4.5" height="15" rx="1.5" fill="currentColor" />
   </svg>
 )

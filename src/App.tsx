@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from './store'
-import { togglePlay, toggleRecord } from './audio/engine'
+import { deleteTake, seek, togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
 import { Palette } from './components/Palette'
@@ -23,6 +23,9 @@ function useShortcuts() {
         const dir = e.key === 'ArrowLeft' ? -1 : 1
         if (e.altKey && sel) s.moveChord(sel.id, dir)
         else s.selectRelative(dir)
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && s.selectedVocal !== null && s.recording === 'off') {
+        e.preventDefault()
+        void deleteTake(s.selectedVocal)
       } else if ((e.key === 'Backspace' || e.key === 'Delete') && sel) {
         e.preventDefault()
         s.removeChord(sel.id)
@@ -42,6 +45,13 @@ function useShortcuts() {
         void toggleRecord()
       } else if (e.key === 'a') {
         s.setArp({ on: !s.arp.on })
+      } else if (e.key === 'Enter' || e.key === 'Home') {
+        if (target.closest('button')) return
+        void seek(0)
+      } else if (e.key === '-' || e.key === '_') {
+        s.zoomBy(-1)
+      } else if (e.key === '=' || e.key === '+') {
+        s.zoomBy(1)
       } else if (e.key === 'Escape') {
         s.select(null)
       }
@@ -63,20 +73,6 @@ export default function App() {
         </section>
         <Palette />
       </main>
-      <footer className="shortcuts">
-        <span><kbd>Space</kbd> play</span>
-        <span><kbd>1</kbd>–<kbd>7</kbd> add chord</span>
-        <span><kbd>←</kbd><kbd>→</kbd> select</span>
-        <span><kbd>⌥</kbd>+<kbd>←</kbd><kbd>→</kbd> move</span>
-        <span><kbd>[</kbd><kbd>]</kbd> length</span>
-        <span><kbd>S</kbd> 7th</span>
-        <span><kbd>D</kbd> duplicate</span>
-        <span><kbd>⌫</kbd> delete</span>
-        <span><kbd>M</kbd> click</span>
-        <span><kbd>L</kbd> loop</span>
-        <span><kbd>A</kbd> arp</span>
-        <span><kbd>R</kbd> record</span>
-      </footer>
     </div>
   )
 }
