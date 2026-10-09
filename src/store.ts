@@ -43,25 +43,57 @@ export function loopRange(loop: LoopRegion | null, total: number): LoopRegion {
   return { start, end }
 }
 
-interface Song {
+/**
+ * What each section of a song keeps of its own: its chords, loop and vocal
+ * tracks. The open section's live at the top of the state, where the editor
+ * works on them, and are put back in its place among the sections when
+ * another one opens.
+ */
+export interface SectionParts {
+  chords: Chord[]
+  loop: LoopRegion | null
+  /** One recorded vocal per lane, or null; the audio lives in IndexedDB, not here. */
+  takes: (TakeInfo | null)[]
+  vocalMuted: boolean[]
+  vocalSolo: boolean[]
+  /** Names given to the vocal tracks; null keeps the usual one. */
+  vocalNames: (string | null)[]
+  /** How many vocal tracks show, empty ones included. */
+  vocalTracks: number
+}
+
+/** A part of the song, such as a verse or chorus, that can play in it any number of times. */
+export interface Section extends SectionParts {
+  id: string
+  name: string
+}
+
+/** One place in the song where a section plays. */
+export interface SongEntry {
+  id: string
+  section: string
+}
+
+export const SECTION_KINDS = ['Intro', 'Verse', 'Pre-chorus', 'Chorus', 'Bridge', 'Outro']
+
+interface State extends SectionParts {
   key: number
   mode: Mode
   bpm: number
   timeSig: TimeSig
-  chords: Chord[]
-  loop: LoopRegion | null
-}
-
-interface State extends Song {
+  /** Every section; the open one's parts here are out of date (see sectionsNow). */
+  sections: Section[]
+  /** The section open in the editor. */
+  activeSection: string
+  /** The song: which section plays when, repeats included. */
+  arrangement: SongEntry[]
+  /** Editing one section, or looking over the whole song. */
+  view: 'section' | 'song'
   selectedId: string | null
   metronome: boolean
   loopOn: boolean
   sound: Sound
   arp: Arp
-  /** One recorded vocal per lane, or null; the audio lives in IndexedDB, not here. */
-  takes: (TakeInfo | null)[]
-  vocalMuted: boolean[]
-  vocalSolo: boolean[]
   chordsMuted: boolean
   chordsSolo: boolean
   /** The sketch's name; empty until you give it one. */
@@ -70,11 +102,8 @@ interface State extends Song {
   sketchId: string | null
   /** The sketch as last saved (see sketchSignature), to tell whether it has changed since. */
   savedSignature: string | null
-  /** Names given to the tracks; null keeps the usual one. */
+  /** The name given to the chords track; null keeps the usual one. */
   chordsName: string | null
-  vocalNames: (string | null)[]
-  /** How many vocal tracks show, empty ones included. */
-  vocalTracks: number
   /** The lane that recording goes into. */
   armedLane: number
   /** The vocal take that's selected, by lane; a chord and a take are never both selected. */
@@ -137,41 +166,144 @@ interface State extends Song {
   selectVocal: (lane: number | null) => void
   selectChordsTrack: () => void
   selectRelative: (dir: -1 | 1) => void
+
+  /** Opens a section in the editor. */
+  openSection: (id: string) => void
+  setView: (view: State['view']) => void
+  /** Adds an empty section to the end of the song and opens it; the name gets a number if it's taken. */
+  addSection: (name: string) => void
+  renameSection: (id: string, name: string) => void
+  /** Copies a section's chords and loop into a new section after it, and returns its id. */
+  duplicateSection: (id: string) => string | null
+  /** Deletes a section and its places in the song; the last section can't be deleted. */
+  deleteSection: (id: string) => void
+  addToSong: (sectionId: string) => void
+  removeFromSong: (entryId: string) => void
+  moveInSong: (entryId: string, toIndex: number) => void
+  /** Gives one place in the song its own copy of its section, to change without changing the others. */
+  makeUnique: (entryId: string) => void
+  /** Puts loaded takes in a section, showing enough tracks for them. */
+  setSectionTakes: (sectionId: string, takes: (TakeInfo | null)[]) => void
 }
 
 export const chordsTrackName = (s: Pick<State, 'chordsName'>) => s.chordsName ?? 'Chords'
 export const vocalTrackName = (s: Pick<State, 'vocalNames'>, lane: number) => s.vocalNames[lane] ?? `Vocal ${lane + 1}`
 
-/** Everything a saved sketch keeps, apart from the audio of its takes. */
+const newId = () => crypto.randomUUID()
+
+const partsOf = (p: SectionParts): SectionParts => ({
+  chords: p.chords,
+  loop: p.loop,
+  takes: p.takes,
+  vocalMuted: p.vocalMuted,
+  vocalSolo: p.vocalSolo,
+  vocalNames: p.vocalNames,
+  vocalTracks: p.vocalTracks,
+})
+
+export const emptyParts = (): SectionParts => ({
+  chords: [],
+  loop: null,
+  takes: Array(LANES).fill(null),
+  vocalMuted: Array(LANES).fill(false),
+  vocalSolo: Array(LANES).fill(false),
+  vocalNames: Array(LANES).fill(null),
+  vocalTracks: 0,
+})
+
+/** Every section as it is now, the open one's parts taken from the editor. */
+export function sectionsNow(s: Pick<State, 'sections' | 'activeSection' | keyof SectionParts>): Section[] {
+  return s.sections.map((sec) => (sec.id === s.activeSection ? { ...sec, ...partsOf(s) } : sec))
+}
+
+/** `name`, or with the lowest number after it that no section has yet ("Verse 2"). */
+export function uniqueName(sections: { name: string }[], name: string) {
+  const taken = new Set(sections.map((s) => s.name))
+  if (!taken.has(name)) return name
+  let n = 2
+  while (taken.has(`${name} ${n}`)) n++
+  return `${name} ${n}`
+}
+
+/** Everything a saved sketch keeps, apart from its takes, which are stored with their audio. */
 export function songOf(s: State) {
   return {
     key: s.key,
     mode: s.mode,
     bpm: s.bpm,
     timeSig: s.timeSig,
-    chords: s.chords,
-    loop: s.loop,
     metronome: s.metronome,
     loopOn: s.loopOn,
     sound: s.sound,
     arp: s.arp,
-    vocalMuted: s.vocalMuted,
-    vocalSolo: s.vocalSolo,
     chordsMuted: s.chordsMuted,
     chordsSolo: s.chordsSolo,
-    vocalTracks: s.vocalTracks,
     title: s.title,
     chordsName: s.chordsName,
-    vocalNames: s.vocalNames,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    sections: sectionsNow(s).map(({ takes, ...section }) => section),
+    arrangement: s.arrangement,
+    activeSection: s.activeSection,
   }
 }
 export type SongData = ReturnType<typeof songOf>
 
-/** A fingerprint of the sketch, takes included, to compare against the saved one. */
-export const sketchSignature = (s: State) =>
-  JSON.stringify([songOf(s), s.takes.map((t) => t?.id ?? null)])
+/** A sketch as saved before songs had sections: one progression and its vocal tracks. */
+type LegacySong = Partial<Omit<SectionParts, 'vocalMuted'>> & { vocalMuted?: boolean[] | boolean }
 
-const newId = () => crypto.randomUUID()
+/** Lane settings filled out to every lane; vocalMuted was once a single flag for the one take there was. */
+function lanesOf(p: LegacySong) {
+  const muted = p.vocalMuted
+  return {
+    vocalMuted: Array.from({ length: LANES }, (_, i) => (Array.isArray(muted) ? !!muted[i] : i === 0 && !!muted)),
+    vocalSolo: Array.from({ length: LANES }, (_, i) => !!p.vocalSolo?.[i]),
+    vocalNames: Array.from({ length: LANES }, (_, i) => p.vocalNames?.[i] ?? null),
+  }
+}
+
+/**
+ * The state for a saved song, with its first (or last open) section open.
+ * Songs saved before sections become a song of one section, called Verse.
+ * Takes come empty; they're loaded with their audio.
+ */
+/** A song as saved, by songOf or, before songs had sections, as one progression. */
+export type SavedSong = Partial<Omit<SongData, 'sections'>> & LegacySong & { sections?: Partial<Section>[] }
+
+export function songState(p: SavedSong) {
+  const sections: Section[] = p.sections?.length
+    ? p.sections.map((sec) => ({ ...emptyParts(), id: newId(), name: 'Section', ...sec, ...lanesOf(sec), takes: Array(LANES).fill(null) }))
+    : [{ ...emptyParts(), ...lanesOf(p), id: newId(), name: 'Verse', chords: p.chords ?? [], loop: p.loop ?? null, vocalTracks: p.vocalTracks ?? 0 }]
+  const ids = new Set(sections.map((sec) => sec.id))
+  const arrangement = p.arrangement
+    ? p.arrangement.filter((entry) => ids.has(entry.section))
+    : sections.map((sec) => ({ id: newId(), section: sec.id }))
+  const active = sections.find((sec) => sec.id === p.activeSection) ?? sections[0]
+  return { sections, arrangement, activeSection: active.id, ...partsOf(active) }
+}
+
+/** How long a saved song plays, in beats, and how many sections and vocal tracks it has, for listing it. */
+export function songSummary(song: SavedSong) {
+  const { sections, arrangement } = songState(song)
+  const lengths = sectionBeats(sections)
+  return {
+    beats: arrangement.reduce((n, entry) => n + (lengths.get(entry.section) ?? 0), 0),
+    sections: sections.length,
+    vocals: sections.reduce((n, sec) => n + sec.vocalTracks, 0),
+  }
+}
+
+/**
+ * A fingerprint of the sketch, takes included, to compare against the saved
+ * one. Which section is open doesn't count: looking around isn't a change.
+ */
+export function sketchSignature(s: State) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { activeSection, ...song } = songOf(s)
+  return JSON.stringify([song, sectionsNow(s).map((sec) => sec.takes.map((t) => t?.id ?? null))])
+}
+
+/** How long each section is, in beats. */
+export const sectionBeats = (sections: Pick<Section, 'id' | 'chords'>[]) => new Map(sections.map((sec) => [sec.id, totalBeats(sec.chords)]))
 
 const starter = (beats: number): Chord[] =>
   [0, 4, 5, 3].map((degree) => ({ id: newId(), degree, beats, seventh: false }))
@@ -195,24 +327,19 @@ export const useStore = create<State>()(
       mode: 'major',
       bpm: 96,
       timeSig: [4, 4],
-      chords: starter(4),
-      loop: null,
+      ...songState({ chords: starter(4) }),
+      view: 'section',
       selectedId: null,
       metronome: false,
       loopOn: true,
       sound: DEFAULT_SOUND,
       arp: DEFAULT_ARP,
-      takes: Array(LANES).fill(null),
-      vocalMuted: Array(LANES).fill(false),
-      vocalSolo: Array(LANES).fill(false),
       chordsMuted: false,
       chordsSolo: false,
-      vocalTracks: 0,
       title: '',
       sketchId: null,
       savedSignature: null,
       chordsName: null,
-      vocalNames: Array(LANES).fill(null),
       armedLane: 0,
       selectedVocal: null,
       chordsTrackSelected: false,
@@ -226,15 +353,19 @@ export const useStore = create<State>()(
       setMode: (mode) => set({ mode }),
       setBpm: (bpm) => set({ bpm: Math.round(Math.min(MAX_BPM, Math.max(MIN_BPM, bpm))) }),
       setTimeSig: (timeSig) => {
-        // Keep each chord the same number of bars.
+        // Keep each chord, in every section, the same number of bars.
+        const { activeSection, sections } = get()
         const old = get().timeSig[0]
-        const chords = get().chords.map((c) => ({
-          ...c,
-          beats: Math.max(1, Math.round((c.beats / old) * timeSig[0])),
-        }))
-        const loop = get().loop
         const scale = (b: number) => Math.round((b / old) * timeSig[0])
-        set({ timeSig, chords, loop: loop && { start: scale(loop.start), end: scale(loop.end) } })
+        const rescale = ({ chords, loop }: Pick<SectionParts, 'chords' | 'loop'>) => ({
+          chords: chords.map((c) => ({ ...c, beats: Math.max(1, scale(c.beats)) })),
+          loop: loop && { start: scale(loop.start), end: scale(loop.end) },
+        })
+        set({
+          timeSig,
+          ...rescale(get()),
+          sections: sections.map((sec) => (sec.id === activeSection ? sec : { ...sec, ...rescale(sec) })),
+        })
       },
       toggleMetronome: () => set({ metronome: !get().metronome }),
       toggleLoop: () => set({ loopOn: !get().loopOn }),
@@ -345,21 +476,105 @@ export const useStore = create<State>()(
         const j = i === -1 ? (dir === 1 ? 0 : chords.length - 1) : Math.min(chords.length - 1, Math.max(0, i + dir))
         set({ selectedId: chords[j].id, selectedVocal: null, chordsTrackSelected: false })
       },
+
+      openSection: (id) => {
+        const s = get()
+        if (s.recording !== 'off') return
+        const target = s.sections.find((sec) => sec.id === id)
+        if (!target) return
+        const opened = { view: 'section' as const, selectedId: null, selectedVocal: null, chordsTrackSelected: false, playhead: 0 }
+        if (id === s.activeSection) return set(opened)
+        // Put the open section's parts back in its place, and bring out the other's.
+        set({ ...opened, sections: sectionsNow(s), activeSection: id, ...partsOf(target), armedLane: 0 })
+      },
+      setView: (view) => {
+        if (get().recording !== 'off' || view === get().view) return
+        set({ view, playhead: 0, selectedId: null, selectedVocal: null, chordsTrackSelected: false })
+      },
+      addSection: (name) => {
+        const s = get()
+        if (s.recording !== 'off') return
+        const all = sectionsNow(s)
+        const section: Section = { ...emptyParts(), id: newId(), name: uniqueName(all, name) }
+        set({ sections: [...all, section], arrangement: [...s.arrangement, { id: newId(), section: section.id }] })
+        get().openSection(section.id)
+      },
+      renameSection: (id, name) => {
+        const trimmed = name.trim()
+        if (!trimmed) return
+        set({ sections: get().sections.map((sec) => (sec.id === id ? { ...sec, name: trimmed } : sec)) })
+      },
+      duplicateSection: (id) => {
+        const all = sectionsNow(get())
+        const i = all.findIndex((sec) => sec.id === id)
+        if (i === -1) return null
+        const { name, chords, loop } = all[i]
+        // The copy plays the same chords; its vocal tracks start empty, ready for different words.
+        const copy: Section = {
+          ...emptyParts(),
+          id: newId(),
+          name: uniqueName(all, name.replace(/\s+\d+$/, '')),
+          chords: chords.map((c) => ({ ...c, id: newId() })),
+          loop,
+        }
+        set({ sections: [...all.slice(0, i + 1), copy, ...all.slice(i + 1)] })
+        return copy.id
+      },
+      deleteSection: (id) => {
+        const s = get()
+        const all = sectionsNow(s)
+        const i = all.findIndex((sec) => sec.id === id)
+        if (s.recording !== 'off' || i === -1 || all.length < 2) return
+        const sections = all.filter((sec) => sec.id !== id)
+        const arrangement = s.arrangement.filter((entry) => entry.section !== id)
+        if (id !== s.activeSection) return set({ sections, arrangement })
+        const next = sections[Math.min(i, sections.length - 1)]
+        set({
+          sections,
+          arrangement,
+          activeSection: next.id,
+          ...partsOf(next),
+          selectedId: null,
+          selectedVocal: null,
+          chordsTrackSelected: false,
+          armedLane: 0,
+          playhead: 0,
+        })
+      },
+      addToSong: (sectionId) => set({ arrangement: [...get().arrangement, { id: newId(), section: sectionId }] }),
+      removeFromSong: (entryId) => set({ arrangement: get().arrangement.filter((entry) => entry.id !== entryId) }),
+      moveInSong: (entryId, toIndex) => {
+        const arrangement = get().arrangement
+        const entry = arrangement.find((e) => e.id === entryId)
+        if (!entry) return
+        const next = arrangement.filter((e) => e.id !== entryId)
+        next.splice(Math.max(0, Math.min(next.length, toIndex)), 0, entry)
+        if (next.some((e, i) => e !== arrangement[i])) set({ arrangement: next })
+      },
+      makeUnique: (entryId) => {
+        const entry = get().arrangement.find((e) => e.id === entryId)
+        if (!entry) return
+        const copy = get().duplicateSection(entry.section)
+        if (copy) set({ arrangement: get().arrangement.map((e) => (e.id === entryId ? { ...e, section: copy } : e)) })
+      },
+      setSectionTakes: (sectionId, takes) => {
+        const count = takes.reduce((n, t, lane) => (t ? lane + 1 : n), 0)
+        const s = get()
+        if (sectionId === s.activeSection) return set({ takes, vocalTracks: Math.max(s.vocalTracks, count) })
+        set({
+          sections: s.sections.map((sec) => (sec.id === sectionId ? { ...sec, takes, vocalTracks: Math.max(sec.vocalTracks, count) } : sec)),
+        })
+      },
     }),
     {
       name: 'sketchpad-song',
-      // Fill in sound settings saved before a setting existed.
+      // Fill in settings saved before they existed, and give songs saved before sections one section.
       merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<State>
-        // vocalMuted was once a single flag for the one take there was.
-        const muted = p.vocalMuted as boolean[] | boolean | undefined
-        const vocalMuted = Array.from({ length: LANES }, (_, i) => (Array.isArray(muted) ? !!muted[i] : i === 0 && !!muted))
-        const solo = p.vocalSolo as boolean[] | undefined
-        const vocalSolo = Array.from({ length: LANES }, (_, i) => !!solo?.[i])
-        const vocalNames = Array.from({ length: LANES }, (_, i) => p.vocalNames?.[i] ?? null)
-        return { ...current, ...p, sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp }, vocalMuted, vocalSolo, vocalNames }
+        const p = (persisted ?? {}) as Partial<SongData> & LegacySong
+        if (!p.sections && !p.chords) return current
+        return { ...current, ...p, ...songState(p), sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp } }
       },
-      partialize: (s) => ({ ...songOf(s), zoom: s.zoom, sketchId: s.sketchId, savedSignature: s.savedSignature }),
+      partialize: (s) => ({ ...songOf(s), view: s.view, zoom: s.zoom, sketchId: s.sketchId, savedSignature: s.savedSignature }),
     },
   ),
 )

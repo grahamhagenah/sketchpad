@@ -1,14 +1,16 @@
 import { create } from 'zustand'
-import { sketchSignature, songOf, useStore, type SongData } from './store'
-import { engine, replaceTakes } from './audio/engine'
-import { SKETCHES, LANES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage } from './audio/take'
+import { sketchSignature, songOf, songState, useStore, type SavedSong, type SongData } from './store'
+import { engine, loadSongTakes } from './audio/engine'
+import { SKETCHES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage } from './audio/take'
+import { takeIdsBySection } from './song'
 import { clearHistory } from './history'
 
 /** A saved sketch as listed; its takes are stored apart, under the same id. */
 export interface SketchRecord {
   id: string
   updated: number
-  song: SongData
+  /** As songOf gives it, or, for a sketch saved before songs had sections, its one progression. */
+  song: SavedSong & Pick<SongData, 'key' | 'mode' | 'bpm' | 'timeSig'>
 }
 
 /** The saved sketches, newest first, for the library menu. */
@@ -39,7 +41,7 @@ export async function saveSketch() {
   const s = useStore.getState()
   const id = s.sketchId ?? crypto.randomUUID()
   await idb(SKETCHES, 'readwrite', (store) => store.put({ id, updated: Date.now(), song: songOf(s) } satisfies SketchRecord, id))
-  await saveSketchTakes(id, engine.allTakes)
+  await saveSketchTakes(id, takeIdsBySection(s), (take) => engine.takeAudio(take))
   s.setSaved(id, sketchSignature(useStore.getState()))
   await refreshLibrary()
 }
@@ -68,10 +70,14 @@ export async function openSketch(id: string) {
   if (!(await keepCurrent())) return
   const record = await idb<SketchRecord | undefined>(SKETCHES, 'readonly', (store) => store.get(id))
   if (!record) return
-  const takes = await loadSketchTakes(id)
+  const song = songState(record.song)
+  const takes = await loadSketchTakes(id, song.activeSection)
   stopEverything()
-  useStore.setState({ ...record.song })
-  await replaceTakes(takes)
+  // The song's settings as saved; its sections, and their parts, as songState reads them.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { sections, arrangement, activeSection, chords, loop, takes: _, vocalMuted, vocalSolo, vocalNames, vocalTracks, ...settings } = record.song
+  useStore.setState({ ...settings, ...song })
+  loadSongTakes(takes)
   useStore.getState().setSaved(id, sketchSignature(useStore.getState()))
   clearHistory()
 }
@@ -81,19 +87,8 @@ export async function newSketch() {
   if (useStore.getState().recording !== 'off') return
   if (!(await keepCurrent())) return
   stopEverything()
-  useStore.setState({
-    chords: [],
-    loop: null,
-    title: '',
-    vocalTracks: 0,
-    chordsName: null,
-    vocalNames: Array(LANES).fill(null),
-    vocalMuted: Array(LANES).fill(false),
-    vocalSolo: Array(LANES).fill(false),
-    chordsMuted: false,
-    chordsSolo: false,
-  })
-  await replaceTakes([])
+  // One empty section, called Verse, to start from.
+  useStore.setState({ ...songState({}), title: '', chordsName: null, chordsMuted: false, chordsSolo: false })
   useStore.getState().setSaved(null, null)
   clearHistory()
 }

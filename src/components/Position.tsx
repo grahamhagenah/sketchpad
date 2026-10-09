@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { totalBeats, useStore } from '../store'
 import { engine, seek } from '../audio/engine'
+import { songSpans } from '../song'
 
 /**
  * Where the playhead is, as bar.beat out of the song's bars; it follows
@@ -10,7 +11,8 @@ export function Position() {
   const playing = useStore((s) => s.playing)
   const playhead = useStore((s) => s.playhead)
   const perBar = useStore((s) => s.timeSig[0])
-  const total = useStore((s) => totalBeats(s.chords))
+  // The open section's length, or in the song view the whole song's.
+  const total = useStore((s) => (s.view === 'song' ? songSpans(s).reduce((n, span) => n + span.beats, 0) : totalBeats(s.chords)))
   const [live, setLive] = useState<number | null>(null)
 
   useEffect(() => {

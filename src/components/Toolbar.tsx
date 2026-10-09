@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
-import { audibleTracks, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
+import { sectionsNow, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { audition, deleteTake, engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
@@ -8,7 +8,8 @@ import { SoundButton } from './SoundPanel'
 import { ShortcutsButton } from './Shortcuts'
 import { Position } from './Position'
 import { SongTitle } from './SongTitle'
-import { download, exportName, songToMidi, songToWav, takeToWav } from '../audio/export'
+import { download, exportName, placedTakes, songToMidi, songToWav, takeToWav } from '../audio/export'
+import { playbackOf } from '../song'
 import { LANES } from '../audio/take'
 
 /** The one bar for playback, song settings and editing the selected chord. */
@@ -253,12 +254,20 @@ export function AddTrackButton() {
   )
 }
 
+/** What exports: the whole song, or the open section while the song has nothing in it. */
+function exported() {
+  const s = useStore.getState()
+  const song = playbackOf(s, 'song')
+  return song.chords.length ? song : playbackOf(s, 'section')
+}
+
 /** One Export button with a small menu to pick MIDI or WAV. */
 function ExportButton() {
-  const hasChords = useStore((s) => s.chords.length > 0)
+  const hasChords = useStore((s) => s.chords.length > 0 || playbackOf(s, 'song').chords.length > 0)
   const takes = useStore((s) => s.takes)
   const vocalNames = useStore((s) => s.vocalNames)
-  const hasTake = takes.some(Boolean)
+  const sectionName = useStore((s) => s.sections.find((sec) => sec.id === s.activeSection)?.name ?? 'the section')
+  const hasTake = useStore((s) => sectionsNow(s).some((sec) => sec.takes.some(Boolean)))
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
   const [rendering, setRendering] = useState(false)
@@ -268,7 +277,9 @@ function ExportButton() {
 
   const exportMidi = () => {
     const s = useStore.getState()
-    download(songToMidi(s), `${exportName(s)}.mid`)
+    // Every chord, muted or not: in a DAW each track can be muted there.
+    const song = exported()
+    download(songToMidi({ ...song, chords: song.chords.map((c) => ({ ...c, silent: false })) }), `${exportName(s)}.mid`)
     setOpen(false)
   }
   const exportWav = async () => {
@@ -276,9 +287,8 @@ function ExportButton() {
     setRendering(true)
     try {
       // The mix is what you hear: muted and un-soloed tracks are left out.
-      const audible = audibleTracks(s)
-      const takes = engine.allTakes.filter((t, lane): t is NonNullable<typeof t> => !!t && audible.vocals[lane])
-      download(await songToWav(s, takes, audible.chords), `${exportName(s)}.wav`)
+      const song = exported()
+      download(await songToWav(song, placedTakes(song, (id) => engine.takeAudio(id))), `${exportName(s)}.wav`)
       setOpen(false)
     } finally {
       setRendering(false)
@@ -286,7 +296,8 @@ function ExportButton() {
   }
   const exportVocal = (lane: number) => {
     const s = useStore.getState()
-    const take = engine.allTakes[lane]
+    const info = s.takes[lane]
+    const take = info && engine.takeAudio(info.id)
     if (!take) return
     const slug = vocalTrackName(s, lane).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `vocal-${lane + 1}`
     download(takeToWav(s, take), `${exportName(s)}-${slug}.wav`)
@@ -311,18 +322,18 @@ function ExportButton() {
         <div className="menu" id="export-menu" aria-label="Export as">
           <button type="button" className="menu-item" onClick={exportMidi} disabled={rendering}>
             <span className="menu-item-title">MIDI</span>
-            <span className="menu-item-about">Chords and bass on separate tracks, for a DAW</span>
+            <span className="menu-item-about">The whole song’s chords and bass on separate tracks, for a DAW</span>
           </button>
           <button type="button" className="menu-item" onClick={exportWav} disabled={rendering} aria-live="polite">
             <span className="menu-item-title">{rendering ? 'Rendering…' : 'WAV'}</span>
-            <span className="menu-item-about">24-bit audio, played through once{hasTake ? ', with the vocals' : ''}</span>
+            <span className="menu-item-about">The whole song as 24-bit audio{hasTake ? ', with the vocals' : ''}</span>
           </button>
           {takes.map(
             (t, lane) =>
               t && (
                 <button type="button" key={lane} className="menu-item" onClick={() => exportVocal(lane)} disabled={rendering}>
                   <span className="menu-item-title">{vocalTrackName({ vocalNames }, lane)}</span>
-                  <span className="menu-item-about">This take alone, lined up to bar 1</span>
+                  <span className="menu-item-about">This take alone, lined up to the start of {sectionName}</span>
                 </button>
               ),
           )}
@@ -340,6 +351,8 @@ function RecordButton() {
   const recording = useStore((s) => s.recording)
   const countIn = useStore((s) => s.countIn)
   const hasChords = useStore((s) => s.chords.length > 0)
+  // Vocals belong to a section, so they're recorded with one open.
+  const inSong = useStore((s) => s.view === 'song')
   const label = recording === 'off' ? 'Record a vocal (R)' : recording === 'count-in' ? 'Cancel recording (R)' : 'Stop recording (R)'
   return (
     <button
@@ -347,8 +360,14 @@ function RecordButton() {
       className={`icon-btn record-btn is-${recording}`}
       aria-label={label}
       aria-pressed={recording !== 'off'}
-      title={recording === 'off' ? 'Record a vocal over the loop (R). Headphones help keep the chords out of the take.' : label}
-      disabled={!hasChords}
+      title={
+        inSong
+          ? 'Open a section to record a vocal over it'
+          : recording === 'off'
+            ? 'Record a vocal over the loop (R). Headphones help keep the chords out of the take.'
+            : label
+      }
+      disabled={!hasChords || (inSong && recording === 'off')}
       onClick={() => void toggleRecord()}
     >
       {recording === 'count-in' ? (
@@ -405,7 +424,7 @@ function IconToggle({ label, pressed, onClick, children }: { label: string; pres
   )
 }
 
-const Icon = ({ d }: { d: string }) => (
+export const Icon = ({ d }: { d: string }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d={d} />
   </svg>

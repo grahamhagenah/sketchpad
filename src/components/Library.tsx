@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
-import { useStore, totalBeats } from '../store'
+import { songSummary, useStore } from '../store'
 import { keyLabel } from '../music/theory'
 import { deleteSketch, isDirty, newSketch, openSketch, refreshLibrary, reportStorageError, saveSketch, useLibrary, type SketchRecord } from '../library'
 
@@ -86,12 +86,14 @@ export function SketchesButton() {
 function SketchRow({ sketch, current, onOpen }: { sketch: SketchRecord; current: boolean; onOpen: () => void }) {
   const [confirming, setConfirming] = useState(false)
   const { song } = sketch
-  const bars = Math.ceil(totalBeats(song.chords) / song.timeSig[0])
-  const vocals = song.vocalTracks
+  const summary = songSummary(song)
+  const bars = Math.ceil(summary.beats / song.timeSig[0])
+  const vocals = summary.vocals
   const meta = [
     `${keyLabel(song.key, song.mode)} ${song.mode}`,
     `${song.bpm} bpm`,
     `${bars} ${bars === 1 ? 'bar' : 'bars'}`,
+    summary.sections > 1 ? `${summary.sections} sections` : null,
     vocals ? `${vocals} ${vocals === 1 ? 'vocal' : 'vocals'}` : null,
     when(sketch.updated),
   ]

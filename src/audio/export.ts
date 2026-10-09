@@ -3,9 +3,9 @@ import { keyLabel, keySignature } from '../music/theory'
 import { arrange } from './arrange'
 import { createInstruments, midiToHz } from './instruments'
 import { toAudioBuffer, type Take } from './take'
-import type { Song } from './engine'
+import type { Playback } from '../song'
 
-type ExportSong = Pick<Song, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'>
+type ExportSong = Pick<Playback, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'>
 
 const PPQ = 480
 
@@ -103,15 +103,27 @@ export function songToMidi(song: ExportSong): Blob {
 
 // ---- WAV ----
 
+/** The takes that play, each moved to where it plays and cut off at the end of its section. */
+export function placedTakes(song: Pick<Playback, 'bpm' | 'timeSig' | 'vocals'>, audioOf: (id: string) => Take | undefined): Take[] {
+  const beatSeconds = (60 / song.bpm) * (4 / song.timeSig[1])
+  return song.vocals.flatMap((vocal) => {
+    const take = audioOf(vocal.id)
+    if (!take) return []
+    const room = Math.round((vocal.endBeat - vocal.startBeat) * beatSeconds * take.sampleRate)
+    const samples = Number.isFinite(room) && room < take.samples.length ? take.samples.subarray(0, Math.max(0, room)) : take.samples
+    return [{ ...take, startBeat: vocal.startBeat, samples }]
+  })
+}
+
 const TAIL_SECONDS = 2.5
 
 /**
  * Renders the whole progression once, on the same sounds as playback, to a
  * 24-bit WAV, with any vocal takes given mixed in.
  */
-export async function songToWav(song: ExportSong, takes: Take[] = [], withChords = true): Promise<Blob> {
+export async function songToWav(song: ExportSong, takes: Take[] = []): Promise<Blob> {
   const quarterSeconds = 60 / song.bpm
-  const hits = withChords ? arrange(song) : []
+  const hits = arrange(song)
   const takeStart = (take: Take) => take.startBeat * (4 / song.timeSig[1]) * quarterSeconds
   const end = Math.max(
     Math.max(0, ...hits.map((h) => h.start + h.dur)) * quarterSeconds,

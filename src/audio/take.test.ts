@@ -45,70 +45,76 @@ describe('quantize', () => {
   })
 })
 
+const audioOf = (...takes: Take[]) => (id: string) => takes.find((t) => t.id === id)
+
 describe('take storage', () => {
-  it('gives back a take as it was saved', async () => {
-    const t = take('a')
-    await storage.saveTake(1, t)
-    const loaded = await storage.loadTakes()
-    expect(loaded[0]).toBeNull()
-    expect(loaded[1]).toEqual(t)
+  it('gives back each section’s takes as they were stored', async () => {
+    const a = take('a')
+    const b = take('b', 500)
+    await storage.storeLanes({ verse: [null, 'a'], chorus: ['b'] }, audioOf(a, b))
+    const loaded = await storage.loadLanes('verse')
+    expect(loaded.verse).toEqual([null, a])
+    expect(loaded.chorus).toEqual([b])
   })
 
   it('stores audio as 16-bit', async () => {
-    await storage.saveTake(0, take('a'))
+    await storage.storeLanes({ verse: ['a'] }, audioOf(take('a')))
     const { values } = await contents('audio')
     expect((values[0] as { pcm: unknown }).pcm).toBeInstanceOf(Int16Array)
   })
 
-  it('stores a take once, however many lanes and sketches hold it', async () => {
+  it('stores a take once, however many sections and sketches hold it', async () => {
     const t = take('a')
-    await storage.saveTake(0, t)
-    await storage.saveSketchTakes('one', [t, null])
-    await storage.saveSketchTakes('two', [null, t])
+    await storage.storeLanes({ verse: ['a'], chorus: [null, 'a'] }, audioOf(t))
+    await storage.saveSketchTakes('one', { verse: ['a'] }, audioOf(t))
+    await storage.saveSketchTakes('two', { bridge: [null, 'a'] }, audioOf(t))
     expect((await contents('audio')).keys).toEqual(['a'])
-    expect((await storage.loadSketchTakes('two'))[1]).toEqual(t)
+    expect((await storage.loadSketchTakes('two', 'unused')).bridge[1]).toEqual(t)
   })
 
   it('deletes audio once nothing holds it', async () => {
     const t = take('a')
-    await storage.saveTake(0, t)
-    await storage.saveSketchTakes('one', [t])
-    await storage.deleteSavedTake(0)
+    await storage.storeLanes({ verse: ['a'] }, audioOf(t))
+    await storage.saveSketchTakes('one', { verse: ['a'] }, audioOf(t))
+    await storage.storeLanes({ verse: [null] }, audioOf())
     expect((await contents('audio')).keys).toEqual(['a'])
     await storage.deleteSketchTakes('one')
     expect((await contents('audio')).keys).toEqual([])
   })
 
-  it('deletes the audio a lane held when another take replaces it', async () => {
-    await storage.saveTake(0, take('a'))
-    await storage.saveTake(0, take('b'))
-    expect((await contents('audio')).keys).toEqual(['b'])
+  it('deletes the audio of a section that’s gone', async () => {
+    await storage.storeLanes({ verse: ['a'], chorus: ['b'] }, audioOf(take('a'), take('b')))
+    await storage.storeLanes({ verse: ['a'] }, audioOf(take('a')))
+    expect((await contents('audio')).keys).toEqual(['a'])
   })
 
   it('deletes the audio a saved sketch dropped when saved again', async () => {
-    await storage.saveSketchTakes('one', [take('a'), take('b')])
-    await storage.saveSketchTakes('one', [take('a'), null])
+    await storage.saveSketchTakes('one', { verse: ['a', 'b'] }, audioOf(take('a'), take('b')))
+    await storage.saveSketchTakes('one', { verse: ['a', null] }, audioOf(take('a')))
     expect((await contents('audio')).keys).toEqual(['a'])
   })
 })
 
+/** A database as an earlier version left it, with `stores` filled in. */
+function oldDatabase(version: number, stores: Record<string, Record<string, unknown>>) {
+  return new Promise<void>((resolve) => {
+    const req = indexedDB.open('sketchpad', version)
+    req.onupgradeneeded = () => {
+      const tx = req.transaction!
+      for (const [name, values] of Object.entries(stores)) {
+        req.result.createObjectStore(name)
+        for (const [key, value] of Object.entries(values)) tx.objectStore(name).put(value, key)
+      }
+    }
+    req.onsuccess = () => {
+      req.result.close()
+      resolve()
+    }
+  })
+}
+
 describe('upgrading from version 2', () => {
-  /** A version-2 database, where each lane and saved sketch held whole 32-bit takes. */
-  function oldDatabase(lanes: Record<string, unknown>, sketches: Record<string, unknown>) {
-    return new Promise<void>((resolve) => {
-      const req = indexedDB.open('sketchpad', 2)
-      req.onupgradeneeded = () => {
-        for (const name of ['takes', 'sketches', 'sketch-takes']) req.result.createObjectStore(name)
-        const tx = req.transaction!
-        for (const [key, value] of Object.entries(lanes)) tx.objectStore('takes').put(value, key)
-        for (const [key, value] of Object.entries(sketches)) tx.objectStore('sketch-takes').put(value, key)
-      }
-      req.onsuccess = () => {
-        req.result.close()
-        resolve()
-      }
-    })
-  }
+  // Version 2 kept whole 32-bit takes in each lane and saved sketch.
   const old = (length: number) => {
     const { id, ...rest } = take('x', length)
     void id
@@ -118,23 +124,48 @@ describe('upgrading from version 2', () => {
   it('moves takes into the audio store and keeps them playable', async () => {
     const lane = old(500)
     const saved = old(700)
-    await oldDatabase({ 'vocal-0': lane }, { sketch: [null, saved] })
+    await oldDatabase(2, { takes: { 'vocal-0': lane }, sketches: {}, 'sketch-takes': { sketch: [null, saved] } })
 
-    const lanes = await storage.loadTakes()
-    expect(lanes[0]?.samples).toEqual(lane.samples)
-    const sketch = await storage.loadSketchTakes('sketch')
-    expect(sketch[0]).toBeNull()
-    expect(sketch[1]?.samples).toEqual(saved.samples)
-
+    const lanes = await storage.loadLanes('verse')
+    expect(lanes.verse[0]?.samples).toEqual(lane.samples)
+    const sketch = await storage.loadSketchTakes('sketch', 'verse')
+    expect(sketch.verse[0]).toBeNull()
+    expect(sketch.verse[1]?.samples).toEqual(saved.samples)
     expect((await contents('audio')).keys).toHaveLength(2)
-    expect((await contents('takes')).values.every((v) => typeof v === 'string')).toBe(true)
   })
 
   it('moves the oldest single take into lane 1', async () => {
     const lane = old(300)
-    await oldDatabase({ vocal: lane }, {})
-    const lanes = await storage.loadTakes()
-    expect(lanes[0]?.samples).toEqual(lane.samples)
-    expect((await contents('takes')).keys).toEqual(['vocal-0'])
+    await oldDatabase(2, { takes: { vocal: lane }, sketches: {}, 'sketch-takes': {} })
+    const lanes = await storage.loadLanes('verse')
+    expect(lanes.verse[0]?.samples).toEqual(lane.samples)
+    expect((await contents('takes')).keys).toEqual(['lanes'])
+  })
+})
+
+describe('songs saved before sections', () => {
+  // Version 3, before sections: a take id in each lane's own key, and a list of lanes for each saved sketch.
+  const stored = (length: number) => ({ startBeat: 0, bpm: 96, sampleRate: 48000, pcm: new Int16Array(length).fill(1000) })
+
+  it('puts the lanes in the open section', async () => {
+    await oldDatabase(3, { takes: { 'vocal-1': 'a' }, sketches: {}, 'sketch-takes': {}, audio: { a: stored(400) } })
+    const lanes = await storage.loadLanes('verse')
+    expect(lanes.verse.map((t) => t?.id ?? null)).toEqual([null, 'a', null, null])
+    expect(lanes.verse[1]?.samples).toHaveLength(400)
+    expect((await contents('takes')).keys).toEqual(['lanes'])
+  })
+
+  it('puts a saved sketch’s lanes in the section it opens with', async () => {
+    await oldDatabase(3, { takes: {}, sketches: {}, 'sketch-takes': { s: ['a', null] }, audio: { a: stored(200) } })
+    const sketch = await storage.loadSketchTakes('s', 'verse')
+    expect(sketch.verse.map((t) => t?.id ?? null)).toEqual(['a', null])
+  })
+
+  it('keeps the audio those lanes hold', async () => {
+    await oldDatabase(3, { takes: { 'vocal-0': 'a' }, sketches: {}, 'sketch-takes': { s: [null, 'b'] }, audio: { a: stored(10), b: stored(10), c: stored(10) } })
+    await storage.loadLanes('verse')
+    // Any write tidies up: only audio nothing holds (c) goes.
+    await storage.saveSketchTakes('other', {}, audioOf())
+    expect((await contents('audio')).keys).toEqual(['a', 'b'])
   })
 })
