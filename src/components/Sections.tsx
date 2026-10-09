@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
@@ -349,36 +349,40 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
   )
 }
 
-/** The narrowest a place in the song is drawn, so a short section's name and chords stay readable. */
-const MIN_BLOCK = 170
+/** Each place in the song is a row this tall, with this gap under it, below a ruler of bar numbers. */
+const ROW_H = 64
+const ROW_GAP = 8
+const RULER_H = 24
+const rowTop = (i: number) => RULER_H + i * (ROW_H + ROW_GAP)
 
-/**
- * Where each place in the song is drawn. Each is sized to its length, but
- * never narrower than MIN_BLOCK, so a short one is stretched; `scale` is its
- * own pixels per beat. An empty section still gets that width, to be seen and picked.
- */
-function layout(spans: ReturnType<typeof songSpans>, beatPx: number) {
-  let x = 0
-  return spans.map((span) => {
-    const width = Math.max(span.beats * beatPx, MIN_BLOCK)
-    const placed = { ...span, x, width, scale: span.beats ? width / span.beats : beatPx }
-    x += width
-    return placed
-  })
-}
-type Placed = ReturnType<typeof layout>[number]
-
-/** The x of a beat of the song, through each place's own scale. */
-function beatToX(placed: Placed[], beat: number) {
-  for (const p of placed) if (p.beats && beat < p.start + p.beats) return p.x + Math.max(0, beat - p.start) * p.scale
-  const last = placed[placed.length - 1]
-  return last ? last.x + last.width : 0
+/** An element's width, kept up to date as it changes. */
+function useWidth(ref: RefObject<HTMLElement | null>) {
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth))
+    observer.observe(el)
+    setWidth(el.clientWidth)
+    return () => observer.disconnect()
+  }, [ref])
+  return width
 }
 
+/** Which row a beat of the song falls in, and how far along it, in beats; past the end, the end of the last row. */
+function rowAt(spans: ReturnType<typeof songSpans>, beat: number) {
+  const i = spans.findIndex((span) => span.beats && beat < span.start + span.beats)
+  if (i !== -1) return { i, along: Math.max(0, beat - spans[i].start) }
+  const last = spans.length - 1
+  return { i: Math.max(0, last), along: spans[last]?.beats ?? 0 }
+}
+
 /**
- * The whole song: each place a section plays, in order, sized to its length
- * and showing its chords. Click one to edit it; drag to reorder; play to
- * hear the song through.
+ * The whole song as a lead sheet: each place a section plays is a row, in
+ * order from the top, its chords on a bar grid shared by every row, so bar 1
+ * of each section lines up. Click a row to edit its section; drag it (or ⌥↑
+ * ⌥↓) to reorder; play to hear the song through, the playhead running along
+ * each row in turn.
  */
 export function SongView() {
   const state = useStore()
@@ -387,20 +391,31 @@ export function SongView() {
   const sections = sectionsNow(state)
   const spans = songSpans(state)
   const [num, den] = timeSig
-  // Narrower than the section editor: a song runs much longer than one section.
-  const beatPx = (den === 16 ? 12 : den === 8 ? 16 : 24) * zoom
-  const placed = layout(spans, beatPx)
   const total = spans.reduce((n, span) => n + span.beats, 0)
-  const width = (placed.length ? placed[placed.length - 1].x + placed[placed.length - 1].width : 0)
+  // The grid is as wide as the longest section, and at least four bars.
+  const gridBars = Math.max(4, ...spans.map((span) => Math.ceil(span.beats / num)))
+  // At normal zoom the grid fills the width beside the names, so the chords get the room; zooming scales it from there.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const sheetWidth = useWidth(scrollRef)
+  const headPx = sheetWidth && sheetWidth < 640 ? 128 : 200
+  const fitPx = sheetWidth ? (sheetWidth - headPx - 24) / (gridBars * num) : 0
+  // Never so narrow a chord name can't fit, though; a long section then scrolls sideways.
+  const beatPx = Math.max(fitPx, den === 16 ? 5 : den === 8 ? 7 : 10) * zoom
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
   const uses = new Map<string, number>()
   for (const entry of arrangement) uses.set(entry.section, (uses.get(entry.section) ?? 0) + 1)
 
-  // While playing, the playhead follows the song and the place being played lights up.
+  // While playing, the playhead follows the song, the row being played lights up, and it's kept in view.
   const playheadRef = useRef<HTMLDivElement>(null)
+  const rowRefs = useRef(new Map<string, HTMLDivElement>())
   const [current, setCurrent] = useState<string | null>(null)
-  const placedRef = useRef(placed)
-  placedRef.current = placed
+  const spansRef = useRef(spans)
+  spansRef.current = spans
+  const placePlayhead = (el: HTMLElement | null, beat: number) => {
+    if (!el) return
+    const { i, along } = rowAt(spansRef.current, beat)
+    el.style.transform = `translate(${along * beatPx}px, ${rowTop(i)}px)`
+  }
   useEffect(() => {
     if (!playing) {
       setCurrent(null)
@@ -410,60 +425,61 @@ export function SongView() {
     const frame = () => {
       const beat = engine.position()
       if (beat !== null) {
-        if (playheadRef.current) playheadRef.current.style.transform = `translateX(${beatToX(placedRef.current, beat)}px)`
-        setCurrent(placedRef.current.find((p) => p.beats && beat >= p.start && beat < p.start + p.beats)?.entry.id ?? null)
+        placePlayhead(playheadRef.current, beat)
+        const { i } = rowAt(spansRef.current, beat)
+        setCurrent(spansRef.current[i]?.entry.id ?? null)
       }
       raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, beatPx])
+  useEffect(() => {
+    if (current) rowRefs.current.get(current)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [current])
 
-  // Dragging a block: the others close up around it, as chords do in the editor.
-  const [drag, setDrag] = useState<{ id: string; dx: number } | null>(null)
+  // Dragging a row: the others close up around it, as chords do in the editor.
+  const [drag, setDrag] = useState<{ id: string; dy: number } | null>(null)
   const suppressClick = useRef(false)
-  const dropIndex = (id: string, dx: number) => {
-    const from = placed.findIndex((p) => p.entry.id === id)
-    const middle = placed[from].x + dx + placed[from].width / 2
-    return placed.filter((p) => p.entry.id !== id).filter((p) => p.x + p.width / 2 < middle).length
+  const dropIndex = (id: string, dy: number) => {
+    const from = spans.findIndex((span) => span.entry.id === id)
+    return Math.min(spans.length - 1, Math.max(0, from + Math.round(dy / (ROW_H + ROW_GAP))))
   }
   const order = (() => {
-    if (!drag) return placed
-    const to = dropIndex(drag.id, drag.dx)
-    const dragged = placed.find((p) => p.entry.id === drag.id)!
-    const rest = placed.filter((p) => p.entry.id !== drag.id)
-    rest.splice(to, 0, dragged)
+    if (!drag) return spans
+    const dragged = spans.find((span) => span.entry.id === drag.id)!
+    const rest = spans.filter((span) => span.entry.id !== drag.id)
+    rest.splice(dropIndex(drag.id, drag.dy), 0, dragged)
     return rest
   })()
-  const lefts = new Map<string, number>()
-  {
-    let x = 0
-    for (const p of order) {
-      lefts.set(p.entry.id, p.entry.id === drag?.id ? p.x + drag.dx : x)
-      x += p.width
-    }
-  }
+  const tops = new Map(
+    order.map((span, i) => {
+      const id = span.entry.id
+      return [id, id === drag?.id ? rowTop(spans.findIndex((s) => s.entry.id === id)) + drag.dy : rowTop(i)]
+    }),
+  )
 
   const startPress = (id: string, e: PointerEvent<HTMLElement>) => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest('.song-block-more')) return
+    if (e.button !== 0 || (e.target as HTMLElement).closest('.song-row-more')) return
     suppressClick.current = false
     const x0 = e.clientX
     const y0 = e.clientY
-    let dx = 0
+    let dy = 0
     let moved = false
-    // On a touch screen a swipe scrolls the song; a block picks up after being held still.
+    // On a touch screen a swipe scrolls the song; a row picks up after being held still.
     let held = e.pointerType !== 'touch'
     const hold = held ? undefined : setTimeout(() => ((held = true), navigator.vibrate?.(10)), 350)
     const stopScroll = (ev: TouchEvent) => held && ev.preventDefault()
     const onMove = (ev: globalThis.PointerEvent) => {
-      dx = ev.clientX - x0
+      dy = ev.clientY - y0
       if (!held) {
-        if (Math.abs(dx) > 8 || Math.abs(ev.clientY - y0) > 8) finish(false)
+        if (Math.abs(ev.clientX - x0) > 8 || Math.abs(dy) > 8) finish(false)
         return
       }
-      if (!moved && Math.abs(dx) < 5) return
+      if (!moved && Math.abs(dy) < 5) return
       moved = true
-      setDrag({ id, dx })
+      setDrag({ id, dy })
     }
     function finish(commit: boolean) {
       clearTimeout(hold)
@@ -473,7 +489,7 @@ export function SongView() {
       window.removeEventListener('touchmove', stopScroll)
       if (!moved) return
       suppressClick.current = true
-      if (commit) moveInSong(id, dropIndex(id, dx))
+      if (commit) moveInSong(id, dropIndex(id, dy))
       setDrag(null)
     }
     const onUp = () => finish(true)
@@ -484,34 +500,50 @@ export function SongView() {
     window.addEventListener('touchmove', stopScroll, { passive: false })
   }
 
-  const onBlockKey = (e: KeyboardEvent<HTMLElement>, index: number, id: string) => {
-    // ⌥← and ⌥→ move the focused block, as they move a chord in the editor.
-    if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return
+  const onRowKey = (e: KeyboardEvent<HTMLElement>, index: number, id: string) => {
+    // ⌥↑ and ⌥↓ move the focused row; ⌥← and ⌥→ too, as they move a chord in the editor.
+    const dir = e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : 0
+    if (!e.altKey || !dir) return
     e.preventDefault()
     e.stopPropagation()
-    moveInSong(id, index + (e.key === 'ArrowLeft' ? -1 : 1))
+    moveInSong(id, index + dir)
   }
 
+  const bars = (beats: number) => Math.ceil(beats / num)
   return (
-    <div className="song-view">
-      <div className="song-scroll">
-        <div className="song-lane" style={{ width: width + 140 }}>
+    <div className="song-view" style={{ ['--beat' as string]: `${beatPx}px`, ['--bar' as string]: `${num * beatPx}px`, ['--song-head' as string]: `${headPx}px` }}>
+      <div className="song-scroll" ref={scrollRef}>
+        <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${gridBars * num * beatPx + 24}px)`, height: rowTop(spans.length) + ROW_H + 8 }}>
+          {/* Bar numbers within a section, over the grid every row shares. */}
+          <div className="song-ruler" aria-hidden="true">
+            {Array.from({ length: gridBars }, (_, bar) => (
+              <span key={bar} style={{ left: bar * num * beatPx }}>
+                {bar + 1}
+              </span>
+            ))}
+          </div>
 
-          {order.map((p) => {
-            const section = byId.get(p.entry.section)
+          {order.map((span) => {
+            const { entry, start, beats } = span
+            const section = byId.get(entry.section)
             if (!section) return null
-            const index = placed.findIndex((q) => q.entry.id === p.entry.id)
-            const hasVocals = section.takes.some(Boolean)
+            const index = spans.findIndex((s) => s.entry.id === entry.id)
+            const shared = (uses.get(section.id) ?? 0) > 1
+            const own = section.sectionKey
             return (
               <div
-                key={p.entry.id}
-                className={`song-block ${p.entry.id === current ? 'is-playing' : ''} ${p.entry.id === drag?.id ? 'is-dragging' : ''} ${p.beats ? '' : 'is-empty'}`}
-                style={{ ...colorStyle(section.name), left: lefts.get(p.entry.id), width: p.width - 6 }}
-                onPointerDown={(e) => startPress(p.entry.id, e)}
+                key={entry.id}
+                ref={(el) => {
+                  if (el) rowRefs.current.set(entry.id, el)
+                  else rowRefs.current.delete(entry.id)
+                }}
+                className={`song-row ${entry.id === current ? 'is-playing' : ''} ${entry.id === drag?.id ? 'is-dragging' : ''} ${beats ? '' : 'is-empty'}`}
+                style={{ ...colorStyle(section.name), top: tops.get(entry.id), height: ROW_H }}
+                onPointerDown={(e) => startPress(entry.id, e)}
               >
                 <button
                   type="button"
-                  className="song-block-body"
+                  className="song-row-body"
                   onClick={() => {
                     if (suppressClick.current) {
                       suppressClick.current = false
@@ -519,54 +551,57 @@ export function SongView() {
                     }
                     openSection(section.id)
                   }}
-                  onKeyDown={(e) => onBlockKey(e, index, p.entry.id)}
-                  aria-label={`${section.name}, ${p.beats ? `${Math.ceil(p.beats / num)} bars` : 'empty'}. Edit it`}
-                  title={`Edit ${section.name} (⌥← ⌥→ to move it)`}
+                  onKeyDown={(e) => onRowKey(e, index, entry.id)}
+                  aria-label={`${section.name}, from bar ${bars(start) + 1}, ${beats ? `${bars(beats)} bars` : 'empty'}. Edit it`}
+                  title={`Edit ${section.name} (⌥↑ ⌥↓ to move it)`}
                 >
-                  <span className="song-block-name">
-                    <span className="section-dot" aria-hidden="true" />
-                    {section.name}
-                    {(uses.get(section.id) ?? 0) > 1 && <span className="song-block-shared" title="Plays more than once; changing it changes every place it plays">⧉</span>}
-                    {section.sectionKey && (
-                      <span className="song-block-key" title={`In its own key: ${keyLabel(section.sectionKey.key, section.sectionKey.mode)} ${section.sectionKey.mode}`}>
-                        {keyLabel(section.sectionKey.key, section.sectionKey.mode)}
-                        {section.sectionKey.mode === 'minor' ? 'm' : ''}
-                      </span>
-                    )}
-                    {hasVocals && (
-                      <svg className="song-block-mic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-label="Has vocals">
-                        <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" />
-                      </svg>
-                    )}
+                  <span className="song-row-head">
+                    <span className="song-row-name">
+                      <span className="section-dot" aria-hidden="true" />
+                      <span className="song-row-title">{section.name}</span>
+                      {shared && <span className="song-row-shared" title="Plays more than once; changing it changes every place it plays">⧉</span>}
+                      {own && (
+                        <span className="song-row-key" title={`In its own key: ${keyLabel(own.key, own.mode)} ${own.mode}`}>
+                          {keyLabel(own.key, own.mode)}
+                          {own.mode === 'minor' ? 'm' : ''}
+                        </span>
+                      )}
+                      {section.takes.some(Boolean) && (
+                        <svg className="song-row-mic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-label="Has vocals">
+                          <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="song-row-meta">{beats ? `Bar ${bars(start) + 1} · ${bars(beats)} ${bars(beats) === 1 ? 'bar' : 'bars'}` : 'Empty'}</span>
                   </span>
                   {/* Each chord where it falls in the section, as in the editor. */}
-                  <span className="song-block-chords" aria-hidden={section.chords.length > 0}>
-                    {section.chords.length
+                  <span className="song-row-chords" style={{ width: beats ? beats * beatPx : undefined }} aria-hidden={beats > 0}>
+                    {beats
                       ? section.chords.map((c, i) => {
                           const at = section.chords.slice(0, i).reduce((n, prev) => n + prev.beats, 0)
                           return (
-                            <span key={c.id} className="song-chord" style={{ left: at * p.scale, width: c.beats * p.scale }}>
-                              {chordOf(section.sectionKey?.key ?? key, section.sectionKey?.mode ?? mode, c).name}
+                            <span key={c.id} className="song-chord" style={{ left: at * beatPx, width: c.beats * beatPx }}>
+                              {chordOf(own?.key ?? key, own?.mode ?? mode, c).name}
                             </span>
                           )
                         })
                       : 'No chords yet'}
                   </span>
-                  <span className="song-block-bars">{p.beats ? `${Math.ceil(p.beats / num)} ${Math.ceil(p.beats / num) === 1 ? 'bar' : 'bars'}` : ''}</span>
                 </button>
-                <BlockMenu entryId={p.entry.id} section={section} index={index} count={placed.length} shared={(uses.get(section.id) ?? 0) > 1} />
+                <BlockMenu entryId={entry.id} section={section} index={index} count={spans.length} shared={shared} />
               </div>
             )
           })}
 
-          <div className="song-add" style={{ left: width }}>
+          {/* As wide as the view, even when a long section makes the grid scroll sideways. */}
+          <div className="song-add" style={{ top: rowTop(spans.length), width: sheetWidth || undefined }}>
             <MenuButton label="Add to the song" title="Add a section to the end of the song" className="song-add-btn" menu={(close) => (
               <>
                 {sections.map((sec) => (
                   <button key={sec.id} type="button" className="menu-item menu-item-row" style={colorStyle(sec.name)} onClick={() => { addToSong(sec.id); close() }}>
                     <span className="section-dot" aria-hidden="true" />
                     <span className="menu-item-title">{sec.name}</span>
-                    <span className="menu-item-about">{totalBeats(sec.chords) ? `${Math.ceil(totalBeats(sec.chords) / num)} bars` : 'empty'}</span>
+                    <span className="menu-item-about">{totalBeats(sec.chords) ? `${bars(totalBeats(sec.chords))} bars` : 'empty'}</span>
                   </button>
                 ))}
                 <div className="menu-divider" role="separator" />
@@ -574,14 +609,20 @@ export function SongView() {
                 <NewSectionItems onPick={(name) => { addSection(name); close() }} />
               </>
             )}>
-              +
+              <span aria-hidden="true">+</span> {spans.length ? 'Add a section to the song' : 'The song is empty: add its first section'}
             </MenuButton>
           </div>
 
-          {placed.length === 0 && <p className="song-empty">The song is empty. Add sections with +, in the order they play.</p>}
-
           {total > 0 && (playing || playhead > 0) && (
-            <div className="playhead song-playhead" ref={playheadRef} style={{ transform: `translateX(${beatToX(placed, playhead)}px)` }} aria-hidden="true" />
+            <div
+              className="song-playhead"
+              ref={(el) => {
+                playheadRef.current = el
+                if (!playing) placePlayhead(el, playhead)
+              }}
+              style={{ height: ROW_H }}
+              aria-hidden="true"
+            />
           )}
         </div>
       </div>
@@ -593,7 +634,7 @@ export function SongView() {
 function BlockMenu({ entryId, section, index, count, shared }: { entryId: string; section: Section; index: number; count: number; shared: boolean }) {
   const { moveInSong, removeFromSong, makeUnique, openSection, liftSection } = useStore()
   return (
-    <MenuButton label={`${section.name} options`} className="song-block-more icon-btn" align="right" menu={(close) => {
+    <MenuButton label={`${section.name} options`} className="song-row-more icon-btn" align="right" menu={(close) => {
       const act = (fn: () => void) => () => {
         fn()
         close()
