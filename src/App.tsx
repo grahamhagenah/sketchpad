@@ -38,6 +38,8 @@ function useShortcuts() {
         s.toggleMetronome()
       } else if (e.key === 'l') {
         s.toggleLoop()
+      } else if (e.key === 'a') {
+        s.setArp({ on: !s.arp.on })
       } else if (e.key === 'Escape') {
         s.select(null)
       }
@@ -70,6 +72,7 @@ export default function App() {
         <span><kbd>⌫</kbd> delete</span>
         <span><kbd>M</kbd> click</span>
         <span><kbd>L</kbd> loop</span>
+        <span><kbd>A</kbd> arp</span>
       </footer>
     </div>
   )

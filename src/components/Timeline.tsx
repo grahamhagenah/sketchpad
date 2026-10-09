@@ -36,7 +36,8 @@ export function Timeline() {
   const { chords, key, mode, timeSig, selectedId, playing, loopOn } = useStore()
   const { select, updateChord, addChord, reorderChord } = useStore()
   const [num, den] = timeSig
-  const beatPx = den === 8 ? 30 : 44
+  // Shorter beat units get narrower columns, so a bar stays a sensible width.
+  const beatPx = den === 16 ? 20 : den === 8 ? 30 : 44
   const barPx = num * beatPx
 
   const totalBeats = chords.reduce((sum, c) => sum + c.beats, 0)

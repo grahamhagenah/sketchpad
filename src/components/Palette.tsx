@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { useDismiss } from '../hooks/useDismiss'
 import { useStore } from '../store'
 import { chordInfo, keyLabel, FUNCTIONS, type Mode } from '../music/theory'
 import { audition } from '../audio/engine'
@@ -49,26 +50,10 @@ export function Palette() {
 /** An info button explaining the three chord functions, with this key's numerals. */
 function FunctionsInfo({ keyNum, mode }: { keyNum: number; mode: Mode }) {
   const [open, setOpen] = useState(false)
+  const close = useCallback(() => setOpen(false), [])
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    const onPointer = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        setOpen(false)
-      }
-    }
-    window.addEventListener('pointerdown', onPointer)
-    window.addEventListener('keydown', onKey, true)
-    return () => {
-      window.removeEventListener('pointerdown', onPointer)
-      window.removeEventListener('keydown', onKey, true)
-    }
-  }, [open])
+  useDismiss(open, close, ref)
 
   return (
     <div className="info" ref={ref}>

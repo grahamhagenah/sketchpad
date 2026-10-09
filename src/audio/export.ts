@@ -1,9 +1,10 @@
 import * as Tone from 'tone'
-import { keyLabel, keySignature, voiceProgression } from '../music/theory'
+import { keyLabel, keySignature } from '../music/theory'
+import { arrange } from './arrange'
 import { createInstruments, midiToHz } from './instruments'
 import type { Song } from './engine'
 
-type ExportSong = Pick<Song, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords'>
+type ExportSong = Pick<Song, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'>
 
 const PPQ = 480
 
@@ -57,11 +58,13 @@ function track(name: string, events: MidiEvent[]) {
   return chunk('MTrk', body)
 }
 
-function notes(channel: number, velocity: number, spans: { start: number; end: number; pitches: number[] }[]) {
+function notes(channel: number, hits: { start: number; dur: number; pitches: number[]; velocity: number }[]) {
   const events: MidiEvent[] = []
-  for (const { start, end, pitches } of spans) {
-    for (const p of pitches) {
-      events.push({ tick: start, order: 1, data: [0x90 | channel, p, velocity] })
+  for (const h of hits) {
+    const start = Math.round(h.start * PPQ)
+    const end = Math.round((h.start + h.dur) * PPQ)
+    for (const p of h.pitches) {
+      events.push({ tick: start, order: 1, data: [0x90 | channel, p, Math.round(h.velocity * 110)] })
       events.push({ tick: end, order: 0, data: [0x80 | channel, p, 0] })
     }
   }
@@ -74,15 +77,7 @@ function notes(channel: number, velocity: number, spans: { start: number; end: n
  */
 export function songToMidi(song: ExportSong): Blob {
   const [num, den] = song.timeSig
-  const ticksPerBeat = (PPQ * 4) / den
-  const voiced = voiceProgression(song.key, song.mode, song.chords)
-
-  let beat = 0
-  const spans = song.chords.map((c, i) => {
-    const start = Math.round(beat * ticksPerBeat)
-    beat += c.beats
-    return { start, end: Math.round(beat * ticksPerBeat), ...voiced[i] }
-  })
+  const hits = arrange(song)
 
   const usPerQuarter = Math.round(60_000_000 / song.bpm)
   const sf = keySignature(song.key, song.mode)
@@ -92,12 +87,15 @@ export function songToMidi(song: ExportSong): Blob {
     { tick: 0, order: 0, data: [0xff, 0x59, 2, sf & 255, song.mode === 'minor' ? 1 : 0] },
   ]
 
-  const bytes = [
-    ...chunk('MThd', [0, 1, 0, 3, PPQ >> 8, PPQ & 255]),
-    ...track('Sketchpad', conductor),
-    ...track('Chords', notes(0, 88, spans.map((s) => ({ start: s.start, end: s.end, pitches: s.notes })))),
-    ...track('Bass', notes(1, 100, spans.map((s) => ({ start: s.start, end: s.end, pitches: [s.bass] })))),
+  const tracks = [
+    track('Sketchpad', conductor),
+    track(song.arp.on ? 'Arpeggio' : 'Chords', notes(0, hits.filter((h) => h.pad.length).map((h) => ({ ...h, pitches: h.pad })))),
   ]
+  if (song.sound.bass) {
+    const bass = hits.flatMap((h) => (h.bass === null ? [] : [{ ...h, pitches: [h.bass], velocity: 0.9 }]))
+    tracks.push(track('Bass', notes(1, bass)))
+  }
+  const bytes = [...chunk('MThd', [0, 1, 0, tracks.length, PPQ >> 8, PPQ & 255]), ...tracks.flat()]
   return new Blob([new Uint8Array(bytes)], { type: 'audio/midi' })
 }
 
@@ -107,23 +105,20 @@ const TAIL_SECONDS = 2.5
 
 /** Renders the whole progression once, on the same sounds as playback, to a 24-bit WAV. */
 export async function songToWav(song: ExportSong): Promise<Blob> {
-  const [, den] = song.timeSig
-  const beatSeconds = (60 / song.bpm) * (4 / den)
-  const voiced = voiceProgression(song.key, song.mode, song.chords)
-  const totalBeats = song.chords.reduce((sum, c) => sum + c.beats, 0)
-  const duration = totalBeats * beatSeconds + TAIL_SECONDS
+  const quarterSeconds = 60 / song.bpm
+  const hits = arrange(song)
+  const end = Math.max(0, ...hits.map((h) => h.start + h.dur))
+  const duration = end * quarterSeconds + TAIL_SECONDS
 
   const rendered = await Tone.Offline(async () => {
-    const { pad, bass, reverb } = createInstruments()
+    const { pad, bass, reverb } = createInstruments(song.sound)
     await reverb.ready
-    let beat = 0
-    song.chords.forEach((c, i) => {
-      const time = beat * beatSeconds
-      const dur = c.beats * beatSeconds * 0.97
-      pad.triggerAttackRelease(voiced[i].notes.map(midiToHz), dur, time, 0.8)
-      bass.triggerAttackRelease(midiToHz(voiced[i].bass), dur, time, 0.9)
-      beat += c.beats
-    })
+    for (const h of hits) {
+      const time = h.start * quarterSeconds
+      const length = h.dur * quarterSeconds
+      if (h.pad.length) pad.triggerAttackRelease(h.pad.map(midiToHz), h.held ? length * 0.97 : length, time, h.velocity)
+      if (h.bass !== null) bass.triggerAttackRelease(midiToHz(h.bass), length * 0.97, time, 0.9)
+    }
   }, duration, 2, 44100)
 
   return encodeWav(rendered.get()!)

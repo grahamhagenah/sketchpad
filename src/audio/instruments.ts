@@ -1,24 +1,44 @@
 import * as Tone from 'tone'
+import { WAVE_VOLUME, type Sound } from './sound'
 
 export const midiToHz = (m: number) => Tone.Frequency(m, 'midi').toFrequency()
+
+const BASS_VOLUME = -9
+
+export interface Instruments {
+  pad: Tone.PolySynth
+  bass: Tone.MonoSynth
+  filter: Tone.Filter
+  reverb: Tone.Reverb
+}
 
 /**
  * The pad and bass the song plays on, built in whichever Tone context is
  * current, so live playback and the WAV render sound the same.
  */
-export function createInstruments() {
-  const reverb = new Tone.Reverb({ decay: 2.4, wet: 0.18 }).toDestination()
-  const filter = new Tone.Filter(2200, 'lowpass').connect(reverb)
-  const pad = new Tone.PolySynth(Tone.Synth, {
-    oscillator: { type: 'fatsawtooth', count: 3, spread: 18 },
-    envelope: { attack: 0.015, decay: 0.4, sustain: 0.55, release: 0.9 },
-  }).connect(filter)
-  pad.volume.value = -17
+export function createInstruments(sound: Sound): Instruments {
+  const reverb = new Tone.Reverb({ decay: 2.4 }).toDestination()
+  const filter = new Tone.Filter(sound.brightness, 'lowpass').connect(reverb)
+  const pad = new Tone.PolySynth(Tone.Synth).connect(filter)
   const bass = new Tone.MonoSynth({
     oscillator: { type: 'triangle' },
     filterEnvelope: { baseFrequency: 180, octaves: 2.5, attack: 0.01, decay: 0.3, sustain: 0.4 },
     envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.4 },
   }).toDestination()
-  bass.volume.value = -9
-  return { pad, bass, reverb }
+  const instruments = { pad, bass, filter, reverb }
+  applySound(instruments, sound)
+  return instruments
+}
+
+/** Retunes existing instruments to a sound, so changes are heard straight away. */
+export function applySound({ pad, bass, filter, reverb }: Instruments, sound: Sound) {
+  pad.set({
+    // Sine stays pure; the others get a little detuned thickness.
+    oscillator: sound.wave === 'sine' ? { type: 'sine' } : { type: `fat${sound.wave}`, count: 3, spread: 18 },
+    envelope: { attack: sound.attack, decay: sound.decay, sustain: sound.sustain, release: sound.release },
+  } as Partial<Tone.SynthOptions>)
+  pad.volume.value = WAVE_VOLUME[sound.wave]
+  filter.frequency.value = sound.brightness
+  reverb.wet.value = sound.reverb
+  bass.volume.value = sound.bass ? BASS_VOLUME : -Infinity
 }

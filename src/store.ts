@@ -1,9 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Mode } from './music/theory'
+import { DEFAULT_SOUND, type Sound } from './audio/sound'
+import { DEFAULT_ARP, type Arp } from './audio/arrange'
 
 export type TimeSig = [number, number]
-export const TIME_SIGS: TimeSig[] = [[4, 4], [3, 4], [2, 4], [5, 4], [6, 8], [12, 8]]
+export const TIME_SIG_GROUPS: { label: string; sigs: TimeSig[] }[] = [
+  { label: 'Common', sigs: [[4, 4], [3, 4], [2, 4], [6, 8], [12, 8]] },
+  { label: 'Odd', sigs: [[5, 4], [7, 4], [5, 8], [7, 8], [9, 8], [11, 8], [13, 8], [15, 16]] },
+]
+export const TIME_SIGS: TimeSig[] = TIME_SIG_GROUPS.flatMap((g) => g.sigs)
 export const MIN_BPM = 30
 export const MAX_BPM = 300
 
@@ -47,6 +53,8 @@ interface State extends Song {
   selectedId: string | null
   metronome: boolean
   loopOn: boolean
+  sound: Sound
+  arp: Arp
   playing: boolean
 
   setKey: (key: number) => void
@@ -55,6 +63,8 @@ interface State extends Song {
   setTimeSig: (sig: TimeSig) => void
   toggleMetronome: () => void
   toggleLoop: () => void
+  setSound: (patch: Partial<Sound>) => void
+  setArp: (patch: Partial<Arp>) => void
   setPlaying: (playing: boolean) => void
   setLoop: (loop: LoopRegion | null) => void
 
@@ -86,6 +96,8 @@ export const useStore = create<State>()(
       selectedId: null,
       metronome: false,
       loopOn: true,
+      sound: DEFAULT_SOUND,
+      arp: DEFAULT_ARP,
       playing: false,
 
       setKey: (key) => set({ key }),
@@ -104,6 +116,8 @@ export const useStore = create<State>()(
       },
       toggleMetronome: () => set({ metronome: !get().metronome }),
       toggleLoop: () => set({ loopOn: !get().loopOn }),
+      setSound: (patch) => set({ sound: { ...get().sound, ...patch } }),
+      setArp: (patch) => set({ arp: { ...get().arp, ...patch } }),
       setPlaying: (playing) => set({ playing }),
       setLoop: (loop) => set({ loop }),
 
@@ -161,6 +175,11 @@ export const useStore = create<State>()(
     }),
     {
       name: 'sketchpad-song',
+      // Fill in sound settings saved before a setting existed.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<State>
+        return { ...current, ...p, sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp } }
+      },
       partialize: (s) => ({
         key: s.key,
         mode: s.mode,
@@ -170,6 +189,8 @@ export const useStore = create<State>()(
         loop: s.loop,
         metronome: s.metronome,
         loopOn: s.loopOn,
+        sound: s.sound,
+        arp: s.arp,
       }),
     },
   ),

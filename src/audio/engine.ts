@@ -1,7 +1,9 @@
 import * as Tone from 'tone'
 import { useStore, loopRange, type Chord, type LoopRegion, type TimeSig } from '../store'
-import { bassNote, chordInfo, voiceChord, voiceProgression, type Mode } from '../music/theory'
-import { createInstruments, midiToHz } from './instruments'
+import { bassNote, chordInfo, voiceChord, type Mode } from '../music/theory'
+import { arrange, type Arp, type Hit } from './arrange'
+import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
+import type { Sound } from './sound'
 
 export interface Song {
   key: number
@@ -12,13 +14,12 @@ export interface Song {
   loop: LoopRegion | null
   metronome: boolean
   loopOn: boolean
+  sound: Sound
+  arp: Arp
 }
 
-interface ChordEvent {
+interface HitEvent extends Hit {
   time: string
-  durTicks: number
-  notes: number[]
-  bass: number
 }
 
 interface ClickEvent {
@@ -28,10 +29,11 @@ interface ClickEvent {
 
 class Engine {
   private ready = false
+  private instruments!: Instruments
   private pad!: Tone.PolySynth
   private bass!: Tone.MonoSynth
   private click!: Tone.Synth
-  private chordPart: Tone.Part<ChordEvent> | null = null
+  private chordPart: Tone.Part<HitEvent> | null = null
   private clickPart: Tone.Part<ClickEvent> | null = null
   private ticksPerBeat = 192
   private loopStartTicks = 0
@@ -41,9 +43,9 @@ class Engine {
 
   private setup() {
     if (this.ready) return
-    const { pad, bass } = createInstruments()
-    this.pad = pad
-    this.bass = bass
+    this.instruments = createInstruments(useStore.getState().sound)
+    this.pad = this.instruments.pad
+    this.bass = this.instruments.bass
     this.click = new Tone.Synth({
       oscillator: { type: 'sine' },
       envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 },
@@ -61,36 +63,22 @@ class Engine {
     t.timeSignature = song.timeSig
     this.ticksPerBeat = (t.PPQ * 4) / den
 
-    const voiced = voiceProgression(song.key, song.mode, song.chords)
-    let beat = 0
-    const spans = song.chords.map((c) => {
-      const span = { start: beat, end: beat + c.beats }
-      beat += c.beats
-      return span
-    })
-    const totalBeats = Math.max(beat, num)
+    const totalBeats = Math.max(
+      song.chords.reduce((sum, c) => sum + c.beats, 0),
+      num,
+    )
     // With looping off, the whole progression plays once.
     const region = song.loopOn ? loopRange(song.loop, totalBeats) : { start: 0, end: totalBeats }
 
     // Only what sits inside the loop is scheduled; a chord that crosses the
     // loop's edge is cut to it, so it still sounds when the loop comes round.
-    const events: ChordEvent[] = []
-    spans.forEach((span, i) => {
-      const start = Math.max(span.start, region.start)
-      const end = Math.min(span.end, region.end)
-      if (end <= start) return
-      events.push({
-        time: `${Math.round(start * this.ticksPerBeat)}i`,
-        durTicks: Math.round((end - start) * this.ticksPerBeat),
-        ...voiced[i],
-      })
-    })
+    const events: HitEvent[] = arrange(song, region).map((h) => ({ ...h, time: `${Math.round(h.start * t.PPQ)}i` }))
 
     this.chordPart?.dispose()
-    this.chordPart = new Tone.Part<ChordEvent>((time, ev) => {
-      const dur = Tone.Ticks(ev.durTicks).toSeconds() * 0.97
-      this.pad.triggerAttackRelease(ev.notes.map(midiToHz), dur, time, 0.8)
-      this.bass.triggerAttackRelease(midiToHz(ev.bass), dur, time, 0.9)
+    this.chordPart = new Tone.Part<HitEvent>((time, ev) => {
+      const length = Tone.Ticks(Math.round(ev.dur * t.PPQ)).toSeconds()
+      if (ev.pad.length) this.pad.triggerAttackRelease(ev.pad.map(midiToHz), ev.held ? length * 0.97 : length, time, ev.velocity)
+      if (ev.bass !== null) this.bass.triggerAttackRelease(midiToHz(ev.bass), length * 0.97, time, 0.9)
     }, events).start(0)
 
     this.clickPart?.dispose()
@@ -128,6 +116,20 @@ class Engine {
     t.start('+0.05', `${this.loopStartTicks}i`)
   }
 
+  /** Tears everything down, so a reloaded copy of this module starts clean. */
+  dispose() {
+    const t = Tone.getTransport()
+    t.stop()
+    if (this.endEvent !== null) t.clear(this.endEvent)
+    this.chordPart?.dispose()
+    this.clickPart?.dispose()
+    if (this.ready) {
+      Object.values(this.instruments).forEach((node) => node.dispose())
+      this.click.dispose()
+    }
+    this.ready = false
+  }
+
   stop() {
     if (!this.ready) return
     Tone.getTransport().stop()
@@ -140,6 +142,10 @@ class Engine {
     const t = Tone.getTransport()
     if (t.state !== 'started') return null
     return t.ticks / this.ticksPerBeat
+  }
+
+  setSound(sound: Sound) {
+    if (this.ready) applySound(this.instruments, sound)
   }
 
   async audition(song: Song, chord: Chord) {
@@ -155,7 +161,8 @@ class Engine {
 export const engine = new Engine()
 
 // Keep the loop in step with edits made while it plays.
-useStore.subscribe((s, prev) => {
+const unsubscribe = useStore.subscribe((s, prev) => {
+  if (s.sound !== prev.sound) engine.setSound(s.sound)
   if (!s.playing) return
   if (
     s.key !== prev.key ||
@@ -165,7 +172,8 @@ useStore.subscribe((s, prev) => {
     s.chords !== prev.chords ||
     s.loop !== prev.loop ||
     s.metronome !== prev.metronome ||
-    s.loopOn !== prev.loopOn
+    s.loopOn !== prev.loopOn ||
+    s.arp !== prev.arp
   ) {
     engine.sync(s)
   }
@@ -191,3 +199,11 @@ export function audition(chord: Chord) {
   const s = useStore.getState()
   if (!s.playing) void engine.audition(s, chord)
 }
+
+// In development, a code change reloads this module while Tone's transport
+// lives on; without this, the old copy's scheduled chords keep playing too.
+import.meta.hot?.dispose(() => {
+  unsubscribe()
+  engine.dispose()
+  useStore.getState().setPlaying(false)
+})
