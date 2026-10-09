@@ -330,7 +330,7 @@ export function Timeline() {
             />
           ))}
           {recording === 'on' && (
-            <div className="vocal-recording" ref={recordingRef} style={{ ['--row' as string]: armedLane }} aria-hidden="true" />
+            <div className="vocal-recording" ref={recordingRef} style={{ ['--row' as string]: armedLane, ['--track' as string]: vocalColor(armedLane) }} aria-hidden="true" />
           )}
 
           {chords.length > 0 && (playing || playhead > 0) && (
@@ -410,9 +410,12 @@ interface VocalLaneProps {
   beatsPerQuarter: number
 }
 
+/** Each vocal track's colour, as Logic gives each track its own; they go round again after eight. */
+const vocalColor = (lane: number) => `var(--vocal-${(lane % 8) + 1})`
+
 /** One vocal track: click it to select it (to record into, or delete); its take is drawn at the beat it starts on. */
 function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, beatPx, beatsPerQuarter }: VocalLaneProps) {
-  const row = { ['--row' as string]: lane }
+  const row = { ['--row' as string]: lane, ['--track' as string]: vocalColor(lane) }
   let content = null
   if (take) {
     const pxPerSecond = (bpm / 60) * beatsPerQuarter * beatPx
@@ -590,7 +593,7 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
           key={lane}
           className={`is-vocal ${s.selectedVocal === lane ? 'is-selected' : ''}`}
           icon={<MicIcon />}
-          style={{ ['--row' as string]: lane }}
+          style={{ ['--row' as string]: lane, ['--track' as string]: vocalColor(lane) }}
           name={vocalTrackName(s, lane)}
           muted={s.vocalMuted[lane]}
           solo={s.vocalSolo[lane]}
