@@ -67,11 +67,10 @@ export function Toolbar() {
         <div className="lcd" role="group" aria-label="Position and song settings">
           <Position />
           <TempoField />
-          {/* Meter over key, stacked in one cell as Logic shows them. */}
-          <div className="lcd-cell lcd-stack">
+          {/* Meter and key, each a readout of its own, labelled like the bar and tempo. */}
+          <label className="lcd-cell lcd-meter" title="Time signature">
             <select
               aria-label="Time signature"
-              title="Time signature"
               value={timeSig.join('/')}
               onChange={(e) => {
                 const sig = TIME_SIGS.find((s) => s.join('/') === e.target.value)
@@ -88,10 +87,16 @@ export function Toolbar() {
                 </optgroup>
               ))}
             </select>
+            <span className="lcd-label" aria-hidden="true">
+              Time
+            </span>
+          </label>
+          <label
+            className={`lcd-cell lcd-key ${ownKey ? 'is-own-key' : ''}`}
+            title={ownKey ? `This section’s own key; the song is in ${keyLabel(songKey, songMode)} ${songMode}` : 'Key'}
+          >
             <select
               aria-label={ownKey ? 'This section’s key' : 'Key'}
-              title={ownKey ? `This section’s own key; the song is in ${keyLabel(songKey, songMode)} ${songMode}` : 'Key'}
-              className={ownKey ? 'is-own-key' : ''}
               value={`${key}-${mode}`}
               onChange={(e) => {
                 const [pc, m] = e.target.value.split('-')
@@ -104,13 +109,16 @@ export function Toolbar() {
                 <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
                   {Array.from({ length: 12 }, (_, pc) => (
                     <option key={pc} value={`${pc}-${m}`}>
-                      {keyLabel(pc, m)} {m === 'major' ? 'maj' : 'min'}
+                      {keyLabel(pc, m)} {m}
                     </option>
                   ))}
                 </optgroup>
               ))}
             </select>
-          </div>
+            <span className="lcd-label" aria-hidden="true">
+              {ownKey ? 'Section key' : 'Key'}
+            </span>
+          </label>
         </div>
 
         <div className="toolbar-icons toolbar-modes">

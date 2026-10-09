@@ -74,7 +74,7 @@ main > .panel {
 /* Toolbar: three zones (the sketch, the transport and display, then editing and export) on one row.
    Plain actions are borderless icon buttons; things that belong together are one joined, outlined unit. */
 .toolbar {
-  --control-h: 40px;
+  --control-h: 46px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -226,8 +226,8 @@ main > .panel {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 0 14px;
+  gap: 4px;
+  padding: 0 18px;
   border: 0;
   background: none;
   color: var(--text);
@@ -246,7 +246,7 @@ main > .panel {
   border: 0;
   background: none;
   font-family: 'DM Mono', monospace;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
@@ -261,13 +261,14 @@ main > .panel {
 .lcd .tempo:focus-visible { outline: none; color: var(--accent); }
 .lcd .tempo::-webkit-inner-spin-button,
 .lcd .tempo::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.lcd-label { font-size: 9px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.lcd-position { min-width: 80px; }
-.lcd-stack { gap: 1px; align-items: stretch; }
-.lcd .lcd-stack select { font-size: 13px; line-height: 1.25; }
-.lcd .lcd-stack select:hover { color: var(--accent); }
-/* A section in its own key: the key shows in the accent, so the change is noticed. */
-.lcd .lcd-stack select.is-own-key { color: var(--accent); }
+.lcd-label { font-size: 9px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.lcd-position { min-width: 88px; }
+/* Sized to their values: a select is otherwise as wide as its longest option or group heading. */
+.lcd-meter select { width: 5ch; text-align-last: center; }
+.lcd-key select { width: 9ch; text-align-last: center; }
+.lcd-meter:hover select, .lcd-key:hover select { color: var(--accent); }
+/* A section in its own key: the key and its label show in the accent, so the change is noticed. */
+.lcd-key.is-own-key select, .lcd-key.is-own-key .lcd-label { color: var(--accent); }
 .record-count { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; line-height: 1; color: var(--text); }
 .toolbar :disabled { opacity: 0.4; }
 
@@ -286,7 +287,8 @@ main > .panel {
   .transport { order: 3; }
   .toolbar-modes { order: 4; margin-left: auto; }
   .lcd { order: 5; width: 100%; }
-  .lcd-cell { flex: 1; }
+  .lcd-cell { flex: 1; padding: 0 6px; }
+  .lcd-position { min-width: 0; }
   .selection { order: 6; width: 100%; }
   .selection .selection-chord { flex: 1; }
 }
