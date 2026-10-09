@@ -13,8 +13,12 @@ import { playbackOf } from '../song'
 
 /** The one bar for playback, song settings and editing the selected chord. */
 export function Toolbar() {
-  const { key, mode, timeSig, playing, metronome, loopOn, chords, selectedId } = useStore()
-  const { setKey, setMode, setTimeSig, toggleMetronome, toggleLoop } = useStore()
+  const { key: songKey, mode: songMode, timeSig, playing, metronome, loopOn, chords, selectedId } = useStore()
+  const { setKey, setMode, setTimeSig, toggleMetronome, toggleLoop, setSectionKey } = useStore()
+  // In a section with its own key, the display shows and changes that; otherwise the song's.
+  const ownKey = useStore((s) => (s.view === 'section' ? s.sectionKey : null))
+  const activeSection = useStore((s) => s.activeSection)
+  const { key, mode } = ownKey ?? { key: songKey, mode: songMode }
   const { updateChord, removeChord, duplicateChord } = useStore()
   const chord = chords.find((c) => c.id === selectedId)
   const selectedVocal = useStore((s) => s.selectedVocal)
@@ -85,11 +89,13 @@ export function Toolbar() {
               ))}
             </select>
             <select
-              aria-label="Key"
-              title="Key"
+              aria-label={ownKey ? 'This section’s key' : 'Key'}
+              title={ownKey ? `This section’s own key; the song is in ${keyLabel(songKey, songMode)} ${songMode}` : 'Key'}
+              className={ownKey ? 'is-own-key' : ''}
               value={`${key}-${mode}`}
               onChange={(e) => {
                 const [pc, m] = e.target.value.split('-')
+                if (ownKey) return setSectionKey(activeSection, { key: Number(pc), mode: m as Mode })
                 setKey(Number(pc))
                 setMode(m as Mode)
               }}

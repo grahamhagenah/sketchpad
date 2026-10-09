@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '../store'
-import { chordOf } from '../music/theory'
+import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { engine } from '../audio/engine'
 import { songSpans } from '../song'
 import { Icon, ZoomButtons } from './Toolbar'
@@ -241,7 +241,11 @@ function RenameField({ section, onDone }: { section: Section; onDone: () => void
 
 /** Rename, duplicate or delete the open section. */
 function SectionMenu({ section, onRename }: { section: Section; onRename: () => void }) {
-  const { duplicateSection, deleteSection, openSection, addToSong } = useStore()
+  const { duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useStore()
+  const songKey = useStore((s) => s.key)
+  const songMode = useStore((s) => s.mode)
+  // The open section's own key lives with its chords, in the editor.
+  const sectionKey = useStore((s) => s.sectionKey)
   const count = useStore((s) => s.sections.length)
   const places = useStore((s) => s.arrangement.filter((entry) => entry.section === section.id).length)
   const recording = useStore((s) => s.recording !== 'off')
@@ -276,6 +280,51 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
           <span className="menu-item-title">Duplicate</span>
           <span className="menu-item-about">A copy of the chords to change on their own, with no vocals yet</span>
         </button>
+        <div className="menu-divider" role="separator" />
+        {/* A key change: the section's chords keep their numerals and play in its own key. */}
+        <label className="menu-item menu-item-row menu-key">
+          <span className="menu-item-title">Key</span>
+          <select
+            value={sectionKey ? `${sectionKey.key}-${sectionKey.mode}` : 'song'}
+            disabled={recording}
+            onChange={(e) => {
+              if (e.target.value === 'song') return setSectionKey(section.id, null)
+              const [pc, m] = e.target.value.split('-')
+              setSectionKey(section.id, { key: Number(pc), mode: m as Mode })
+            }}
+          >
+            <option value="song">
+              Song’s ({keyLabel(songKey, songMode)} {songMode === 'major' ? 'maj' : 'min'})
+            </option>
+            {(['major', 'minor'] as const).map((m) => (
+              <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
+                {Array.from({ length: 12 }, (_, pc) => (
+                  <option key={pc} value={`${pc}-${m}`}>
+                    {keyLabel(pc, m)} {m === 'major' ? 'maj' : 'min'}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+        {[1, 2].map((step) => (
+          <button
+            key={step}
+            type="button"
+            className="menu-item"
+            disabled={recording}
+            onClick={() => {
+              const copy = liftSection(section.id, step)
+              if (copy) openSection(copy)
+              close()
+            }}
+          >
+            <span className="menu-item-title">Copy, up a {step === 1 ? 'half' : 'whole'} step</span>
+            <span className="menu-item-about">
+              The same chords in {keyLabel(((sectionKey?.key ?? songKey) + step) % 12, sectionKey?.mode ?? songMode)} {sectionKey?.mode ?? songMode}, for a lift
+            </span>
+          </button>
+        ))}
         <div className="menu-divider" role="separator" />
         <button
           type="button"
@@ -478,6 +527,12 @@ export function SongView() {
                     <span className="section-dot" aria-hidden="true" />
                     {section.name}
                     {(uses.get(section.id) ?? 0) > 1 && <span className="song-block-shared" title="Plays more than once; changing it changes every place it plays">⧉</span>}
+                    {section.sectionKey && (
+                      <span className="song-block-key" title={`In its own key: ${keyLabel(section.sectionKey.key, section.sectionKey.mode)} ${section.sectionKey.mode}`}>
+                        {keyLabel(section.sectionKey.key, section.sectionKey.mode)}
+                        {section.sectionKey.mode === 'minor' ? 'm' : ''}
+                      </span>
+                    )}
                     {hasVocals && (
                       <svg className="song-block-mic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-label="Has vocals">
                         <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" />
@@ -491,7 +546,7 @@ export function SongView() {
                           const at = section.chords.slice(0, i).reduce((n, prev) => n + prev.beats, 0)
                           return (
                             <span key={c.id} className="song-chord" style={{ left: at * p.scale, width: c.beats * p.scale }}>
-                              {chordOf(key, mode, c).name}
+                              {chordOf(section.sectionKey?.key ?? key, section.sectionKey?.mode ?? mode, c).name}
                             </span>
                           )
                         })
@@ -536,7 +591,7 @@ export function SongView() {
 
 /** Move, unlink or remove one place in the song. */
 function BlockMenu({ entryId, section, index, count, shared }: { entryId: string; section: Section; index: number; count: number; shared: boolean }) {
-  const { moveInSong, removeFromSong, makeUnique, openSection } = useStore()
+  const { moveInSong, removeFromSong, makeUnique, openSection, liftSection } = useStore()
   return (
     <MenuButton label={`${section.name} options`} className="song-block-more icon-btn" align="right" menu={(close) => {
       const act = (fn: () => void) => () => {
@@ -559,6 +614,10 @@ function BlockMenu({ entryId, section, index, count, shared }: { entryId: string
             <span className="menu-item-about">
               {shared ? `Its own copy of ${section.name}’s chords, to change without changing the others` : `${section.name} only plays here`}
             </span>
+          </button>
+          <button type="button" className="menu-item" onClick={act(() => liftSection(section.id, 2, entryId))}>
+            <span className="menu-item-title">Lift this one a whole step</span>
+            <span className="menu-item-about">Its own copy, two semitones up, as for a last chorus</span>
           </button>
           <div className="menu-divider" role="separator" />
           <button type="button" className="menu-item" onClick={act(() => removeFromSong(entryId))}>

@@ -84,12 +84,27 @@ export function songToMidi(song: ExportSong): Blob {
   const hits = arrange(song)
 
   const usPerQuarter = Math.round(60_000_000 / song.bpm)
-  const sf = keySignature(song.key, song.mode)
+  const keySig = (tick: number, key: number, mode: ExportSong['mode']): MidiEvent => ({
+    tick,
+    order: 0,
+    data: [0xff, 0x59, 2, keySignature(key, mode) & 255, mode === 'minor' ? 1 : 0],
+  })
   const conductor: MidiEvent[] = [
     { tick: 0, order: 0, data: [0xff, 0x51, 3, (usPerQuarter >> 16) & 255, (usPerQuarter >> 8) & 255, usPerQuarter & 255] },
     { tick: 0, order: 0, data: [0xff, 0x58, 4, num, Math.log2(den), 24, 8] },
-    { tick: 0, order: 0, data: [0xff, 0x59, 2, sf & 255, song.mode === 'minor' ? 1 : 0] },
   ]
+  // The key, and a new key signature wherever a section in another key starts.
+  const first = song.chords[0]
+  const keys = [{ beat: 0, key: first?.key ?? song.key, mode: first?.mode ?? song.mode }]
+  let beat = 0
+  for (const c of song.chords) {
+    const key = c.key ?? song.key
+    const mode = c.mode ?? song.mode
+    const prev = keys[keys.length - 1]
+    if (key !== prev.key || mode !== prev.mode) keys.push({ beat, key, mode })
+    beat += c.beats
+  }
+  conductor.push(...keys.map((k) => keySig(Math.round(k.beat * (4 / den) * PPQ), k.key, k.mode)))
 
   const tracks = [
     track('Bounce', conductor),

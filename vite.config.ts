@@ -5,8 +5,8 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Served from https://grahamhagenah.github.io/sketchpad/
-  base: '/sketchpad/',
+  // Served from the root of https://music.grahamhagenah.com (GitHub Pages, custom domain).
+  base: '/',
   test: {
     setupFiles: ['src/test/setup.ts'],
   },

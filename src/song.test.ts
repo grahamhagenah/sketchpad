@@ -113,3 +113,40 @@ describe('undo with sections', () => {
     expect(get().takes.every((t) => t === null)).toBe(true)
   })
 })
+
+describe('a section in its own key', () => {
+  beforeEach(() => useStore.setState({ key: 0, mode: 'major' }))
+
+  it('plays its chords in its key in the song view, and the rest in the song’s', () => {
+    get().setSectionKey(id('Chorus'), { key: 2, mode: 'major' })
+    const p = playbackOf(get(), 'song')
+    expect(p.chords.map((c) => c.key ?? null)).toEqual([null, null, null, null, 2, 2, null, null, null, null])
+  })
+
+  it('plays in its key in the section view, and names its chords there', () => {
+    get().setSectionKey(id('Chorus'), { key: 7, mode: 'minor' })
+    const p = playbackOf(get())
+    expect([p.key, p.mode]).toEqual([7, 'minor'])
+  })
+
+  it('goes back to the song’s key when given it', () => {
+    get().setSectionKey(id('Chorus'), { key: 0, mode: 'major' })
+    expect(get().sectionKey).toBeNull()
+  })
+
+  it('lifts one place in the song into a copy a whole step up', () => {
+    const last = get().arrangement[2]
+    const copy = get().liftSection(id('Verse'), 2, last.id)!
+    const lifted = get().sections.find((sec) => sec.id === copy)!
+    expect(lifted.sectionKey).toEqual({ key: 2, mode: 'major' })
+    expect(get().arrangement.map((e) => e.section)).toEqual([id('Verse'), id('Chorus'), copy])
+    // The first verse is untouched.
+    expect(get().sections.find((sec) => sec.name === 'Verse')!.sectionKey).toBeNull()
+  })
+
+  it('undoes a key change', () => {
+    get().setSectionKey(id('Chorus'), { key: 5, mode: 'major' })
+    undo()
+    expect(get().sectionKey).toBeNull()
+  })
+})

@@ -1,11 +1,11 @@
 :root {
-  --bg: #121416;
-  --panel: #1b1e22;
-  --raised: #23272c;
-  --line: #2c3036;
-  --line-strong: #454b53;
-  --text: #ecedee;
-  --muted: #b0b6be;
+  --bg: #07080a;
+  --panel: #0e1013;
+  --raised: #1a1d22;
+  --line: #262a30;
+  --line-strong: #3f454e;
+  --text: #f8f9fa;
+  --muted: #c3c8cf;
   --accent: #5ad8c8;
   --on-accent: #052421;
   --danger: #ff8a7a;
@@ -204,7 +204,7 @@ main > .panel {
 }
 
 /* The display: where you are, and the song's tempo, meter and key, read like a DAW's LCD. */
-.lcd { display: inline-flex; height: var(--control-h); border: 1px solid var(--line); border-radius: 8px; background: #0d0f11; }
+.lcd { display: inline-flex; height: var(--control-h); border: 1px solid var(--line); border-radius: 8px; background: #000; }
 .lcd-cell {
   display: flex;
   flex-direction: column;
@@ -250,6 +250,8 @@ main > .panel {
 .lcd-stack { gap: 1px; align-items: stretch; }
 .lcd .lcd-stack select { font-size: 13px; line-height: 1.25; }
 .lcd .lcd-stack select:hover { color: var(--accent); }
+/* A section in its own key: the key shows in the accent, so the change is noticed. */
+.lcd .lcd-stack select.is-own-key { color: var(--accent); }
 .record-count { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; line-height: 1; color: var(--text); }
 .toolbar :disabled { opacity: 0.4; }
 
@@ -968,6 +970,20 @@ main > .panel {
 .song-block-name { display: flex; align-items: center; gap: 6px; max-width: 100%; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; }
 .song-block-shared { font-size: 12px; font-weight: 400; color: var(--muted); }
 .song-block-mic { flex: none; color: var(--muted); }
+/* A section in its own key says which, beside its name. */
+.song-block-key { flex: none; padding: 0 5px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 16%, transparent); font-size: 11px; font-weight: 600; color: var(--accent); }
+/* The key picker, a row of the section menu. */
+.menu-key { cursor: default; }
+.menu-key select {
+  margin-left: auto;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--text);
+  font-size: 13px;
+}
 /* The chords, each at its place in the section, from the block's left edge. */
 .song-block-chords {
   position: relative;

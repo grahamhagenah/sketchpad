@@ -1,11 +1,13 @@
-import { audibleTracks, sectionsNow, totalBeats, useStore, type Chord, type LoopRegion } from './store'
+import { audibleTracks, keyOf, sectionsNow, totalBeats, useStore, type Chord, type LoopRegion } from './store'
 import { grooveHits, type DrumHit } from './audio/drums'
 
 type State = ReturnType<typeof useStore.getState>
 
-/** A chord as played; a silent one keeps its place and voicing but isn't heard. */
+/** A chord as played; a silent one keeps its place and voicing but isn't heard. One from a section with its own key carries it. */
 export interface PlayChord extends Chord {
   silent?: boolean
+  key?: number
+  mode?: State['mode']
 }
 
 /** A take placed where it plays. */
@@ -84,6 +86,7 @@ export function playbackOf(s: State, view = s.view): Playback {
     const audible = audibleTracks(s)
     return {
       ...base,
+      ...keyOf(s),
       chords: audible.chords ? s.chords : s.chords.map((c) => ({ ...c, silent: true })),
       loop: s.loop,
       drums: audible.drums && s.drumTrack ? grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords)) : [],
@@ -103,7 +106,8 @@ export function playbackOf(s: State, view = s.view): Playback {
     if (!section) continue
     const audible = audibleTracks({ ...section, chordsMuted: s.chordsMuted, chordsSolo: s.chordsSolo, drumsMuted: s.drumsMuted, drumsSolo: s.drumsSolo })
     // Each place gets its own chord ids, so a section that repeats stays distinct.
-    chords.push(...section.chords.map((c) => ({ ...c, id: `${entry.id}:${c.id}`, silent: !audible.chords })))
+    const own = section.sectionKey ?? {}
+    chords.push(...section.chords.map((c) => ({ ...c, ...own, id: `${entry.id}:${c.id}`, silent: !audible.chords })))
     const groove = grooveHits(section.drums, s.timeSig, start, beats)
     if (audible.drums && s.drumTrack) drums.push(...groove)
     kicks.push(...kicksOf(groove))

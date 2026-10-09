@@ -150,10 +150,11 @@ export function bassNote(rootPc: number) {
 }
 
 /** MIDI notes for each chord of a progression, each voiced to lead smoothly from the last. */
-export function voiceProgression(key: number, mode: Mode, chords: ChordSpec[]) {
+export function voiceProgression(key: number, mode: Mode, chords: (ChordSpec & { key?: number; mode?: Mode })[]) {
   let prev: number[] | null = null
   return chords.map((c) => {
-    const info = chordOf(key, mode, c)
+    // A chord can carry its own key, from a section in another one; the voicing still leads on from the last chord.
+    const info = chordOf(c.key ?? key, c.mode ?? mode, c)
     prev = voiceChord(info.pcs, prev)
     return { notes: prev, bass: bassNote(info.bassPc) }
   })

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { useStore } from '../store'
+import { keyOf, useStore } from '../store'
 import { BORROWED, chordInfo, FUNCTIONS } from '../music/theory'
 import { audition } from '../audio/engine'
 import { Progressions } from './Palette'
@@ -17,7 +17,7 @@ let lastTab: 'chords' | 'progressions' = 'chords'
  * follows the slot as chords are added.
  */
 export function AddChordMenu({ anchor, onClose }: { anchor: RefObject<HTMLElement | null>; onClose: () => void }) {
-  const { key, mode } = useStore()
+  const { key, mode } = keyOf(useStore())
   const chords = useStore((s) => s.chords)
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)

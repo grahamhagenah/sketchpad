@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { audibleTracks, chordsTrackName, drumsTrackName, useStore, vocalTrackName, type Chord } from '../store'
+import { audibleTracks, chordsTrackName, drumsTrackName, keyOf, useStore, vocalTrackName, type Chord } from '../store'
 import { chordOf } from '../music/theory'
 import { audition, engine, seek } from '../audio/engine'
 import { LANES } from '../audio/take'
@@ -38,7 +38,9 @@ function dragLayout(chords: Chord[], drag: Drag | null, beatPx: number) {
 }
 
 export function Timeline() {
-  const { chords, key, mode, timeSig, selectedId, playing, loopOn } = useStore()
+  const { chords, timeSig, selectedId, playing, loopOn } = useStore()
+  // The open section's key: its own, if it has one.
+  const { key, mode } = keyOf(useStore())
   const { select, updateChord, reorderChord } = useStore()
   const [num, den] = timeSig
   // Shorter beat units get narrower columns, so a bar stays a sensible width.

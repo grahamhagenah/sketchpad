@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { chordsTrackName, drumsTrackName, useStore, vocalTrackName } from '../store'
+import { chordsTrackName, drumsTrackName, keyOf, useStore, vocalTrackName } from '../store'
 import { grooveLabel } from '../audio/drums'
 import { chordOf } from '../music/theory'
 import { isDirty } from '../library'
@@ -62,7 +62,8 @@ function Status() {
   }
 
   if (sel) {
-    const info = chordOf(s.key, s.mode, sel)
+    const { key, mode } = keyOf(s)
+    const info = chordOf(key, mode, sel)
     return (
       <>
         <strong>{info.name}</strong>

@@ -53,6 +53,14 @@ describe('songToMidi', () => {
     expect(bytes.some((b, i) => b === 0x99 && bytes[i + 1] === 36)).toBe(true)
   })
 
+  it('changes the key signature where a section in another key starts', async () => {
+    const chords = [{ ...song.chords[0] }, { ...song.chords[1], key: 8, mode: 'minor' as const }]
+    const bytes = [...new Uint8Array(await songToMidi({ ...song, chords }).arrayBuffer())]
+    const sigs = bytes.flatMap((b, i) => (b === 0xff && bytes[i + 1] === 0x59 && bytes[i + 2] === 2 ? [[(bytes[i + 3] << 24) >> 24, bytes[i + 4]]] : []))
+    // F♯ minor, then G♯ minor (five sharps).
+    expect(sigs).toEqual([[3, 1], [5, 1]])
+  })
+
   it('records the meter and key', async () => {
     const bytes = [...new Uint8Array(await songToMidi(song).arrayBuffer())]
     const find = (meta: number[]) => bytes.findIndex((_, i) => meta.every((b, j) => bytes[i + j] === b))

@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { useStore, loopRange, type Chord } from '../store'
+import { keyOf, useStore, loopRange, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
 import { arrange, type Hit } from './arrange'
 import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
@@ -374,6 +374,7 @@ const unsubscribe = useStore.subscribe((s, prev) => {
     s.chordsMuted !== prev.chordsMuted ||
     s.chordsSolo !== prev.chordsSolo ||
     s.drums !== prev.drums ||
+    s.sectionKey !== prev.sectionKey ||
     s.drumTrack !== prev.drumTrack ||
     s.drumsMuted !== prev.drumsMuted ||
     s.drumsSolo !== prev.drumsSolo ||
@@ -576,7 +577,7 @@ void loadLanes(useStore.getState().activeSection)
 
 export function audition(chord: Chord) {
   const s = useStore.getState()
-  if (!s.playing) void engine.audition(s, chord)
+  if (!s.playing) void engine.audition(keyOf(s), chord)
 }
 
 // In development, a code change reloads this module while Tone's transport

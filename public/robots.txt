@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://grahamhagenah.github.io/sketchpad/sitemap.xml
+Sitemap: https://music.grahamhagenah.com/sitemap.xml
