@@ -5,6 +5,7 @@ import { DEFAULT_SOUND, type Sound } from './audio/sound'
 import { DEFAULT_ARP, DEFAULT_RHYTHM, type Arp, type Rhythm } from './audio/arrange'
 import { LANES, type TakeInfo } from './audio/take'
 import type { GrooveId } from './audio/drums'
+import { newId } from './id'
 
 export type TimeSig = [number, number]
 export const TIME_SIG_GROUPS: { label: string; sigs: TimeSig[] }[] = [
@@ -241,7 +242,6 @@ export const keyOf = (s: Pick<State, 'key' | 'mode'> & Pick<SectionParts, 'secti
 export const drumsTrackName = (s: Pick<State, 'drumsName'>) => s.drumsName ?? 'Drums'
 export const vocalTrackName = (s: Pick<State, 'vocalNames'>, lane: number) => s.vocalNames[lane] ?? `Vocal ${lane + 1}`
 
-const newId = () => crypto.randomUUID()
 
 const partsOf = (p: SectionParts): SectionParts => ({
   chords: p.chords,

@@ -5,6 +5,7 @@ import { engine, loadSongTakes } from './audio/engine'
 import { SKETCHES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage } from './audio/take'
 import { takeIdsBySection } from './song'
 import { clearHistory } from './history'
+import { newId } from './id'
 
 /** A saved sketch as listed; its takes are stored apart, under the same id. */
 export interface SketchRecord {
@@ -40,7 +41,7 @@ export function reportStorageError(doing: string) {
 export async function saveSketch() {
   keepStorage()
   const s = useStore.getState()
-  const id = s.sketchId ?? crypto.randomUUID()
+  const id = s.sketchId ?? newId()
   await idb(SKETCHES, 'readwrite', (store) => store.put({ id, updated: Date.now(), song: songOf(s) } satisfies SketchRecord, id))
   await saveSketchTakes(id, takeIdsBySection(s), (take) => engine.takeAudio(take))
   s.setSaved(id, sketchSignature(useStore.getState()))

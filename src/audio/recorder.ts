@@ -21,6 +21,17 @@ registerProcessor('sketchpad-capture', SketchpadCapture)
 let workletLoaded: Promise<void> | null = null
 
 /** Asks for the microphone, with the processing meant for calls turned off. */
+/**
+ * Why the microphone couldn't be opened, to tell the person. Browsers only
+ * offer it on secure pages, so on plain http the fix is the https address.
+ */
+export function micProblem(doing: string) {
+  if (!window.isSecureContext) {
+    return `Browsers only allow the microphone on secure pages. To ${doing}, open Bounce at https://${location.host}${location.pathname}`
+  }
+  return `Bounce needs the microphone to ${doing}. Allow it in your browser’s site settings, then try again.`
+}
+
 export function openMic() {
   return navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },

@@ -56,7 +56,7 @@ function Status() {
     return (
       <>
         Click a section to edit it, or drag it to reorder.
-        {shared && ' ⧉ marks a section that plays more than once and is the same each time.'}
+        {shared && ' A section that plays more than once is the same each time; its ⋯ menu can make one place a copy.'}
       </>
     )
   }

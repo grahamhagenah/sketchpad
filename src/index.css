@@ -935,8 +935,6 @@ main > .panel {
 .section-tab[aria-selected='true'] { color: var(--text); }
 /* A section that isn't in the song yet. */
 .section-tab.is-unused { font-style: italic; }
-.section-tab.is-unused .section-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--section); }
-.section-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--section); }
 /* A square button, inset from the tab's edge so its hover has room around it. */
 .section-more,
 .section-more-space { flex: none; width: 26px; height: 26px; margin: 0 6px 0 -6px; }
@@ -980,47 +978,54 @@ main > .panel {
 .menu-label { margin: 6px 12px 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .menu-item.is-danger .menu-item-title { color: var(--danger); }
 
-/* The song: each place a section plays, in order, sized to its length. */
-.song-view { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.song-scroll { overflow-x: auto; padding-bottom: 6px; }
-.song-lane { position: relative; min-width: 100%; height: 118px; }
-.song-block {
+/*
+ * The song from above: each place a section plays is a slim row, top to
+ * bottom in order, with its name and a bar as long as it is. The detail is
+ * in the section itself.
+ */
+/* --song-head, the name column's width, is set by the view: narrower on a phone. */
+.song-view { --song-head: 180px; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding-top: 4px; }
+.song-scroll { flex: 1; min-height: 0; overflow: auto; padding-bottom: 12px; }
+.song-sheet { position: relative; min-width: 100%; }
+.song-row {
   position: absolute;
-  top: 4px;
-  height: 110px;
-  margin-left: 3px;
+  left: 0;
+  right: 0;
   display: flex;
-  border-radius: var(--radius);
-  /* Neutral, like the chord blocks; the section's colour is only its dot. */
-  background: var(--raised);
-  border: 1px solid var(--line-strong);
-  touch-action: pan-x;
-  transition: left 0.16s ease, background 0.08s, border-color 0.08s;
+  border-radius: 8px;
+  touch-action: pan-y;
+  transition: top 0.16s ease, background 0.08s;
 }
-.song-block.is-empty { border-style: dashed; background: none; }
-.song-block.is-playing { background: color-mix(in srgb, var(--text) 8%, var(--raised)); border-color: var(--muted); }
-.song-block.is-dragging { z-index: 4; transition: none; box-shadow: 0 10px 28px rgb(0 0 0 / 0.5); opacity: 0.92; }
-.song-block-body {
+.song-row.is-playing { background: rgb(255 255 255 / 0.05); }
+.song-row.is-dragging { z-index: 4; transition: none; background: var(--raised); box-shadow: 0 8px 22px rgb(0 0 0 / 0.5); }
+.song-row-body {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 12px 12px 10px;
+  align-items: center;
+  padding: 0;
   border: 0;
   background: none;
   text-align: left;
   cursor: grab;
 }
-.song-block.is-dragging .song-block-body { cursor: grabbing; }
-.song-block-body:focus-visible { outline: none; }
-.song-block:has(.song-block-body:focus-visible) { box-shadow: inset 0 0 0 2px var(--accent); }
-.song-block-name { display: flex; align-items: center; gap: 6px; max-width: 100%; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; }
-.song-block-shared { font-size: 12px; font-weight: 400; color: var(--muted); }
-.song-block-mic { flex: none; color: var(--muted); }
-/* A section in its own key says which, beside its name. */
-.song-block-key { flex: none; padding: 0 5px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 16%, transparent); font-size: 11px; font-weight: 600; color: var(--accent); }
+.song-row.is-dragging .song-row-body { cursor: grabbing; }
+.song-row-body:focus-visible { outline: none; }
+.song-row:has(.song-row-body:focus-visible) { box-shadow: inset 0 0 0 2px var(--accent); }
+.song-row-head {
+  flex: none;
+  width: var(--song-head);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.song-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Its length in bars, after the name. */
+.song-row-meta { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 400; color: var(--muted); }
 /* The key picker, a row of the section menu. */
 .menu-key { cursor: default; }
 .menu-key select {
@@ -1033,51 +1038,67 @@ main > .panel {
   color: var(--text);
   font-size: 13px;
 }
-/* The chords, each at its place in the section, from the block's left edge. */
-.song-block-chords {
+/* The section's length, to scale with the others, in its colour. */
+.song-row-track { flex: 1; min-width: 0; display: flex; align-items: center; }
+.song-row-bar {
   position: relative;
-  align-self: stretch;
-  height: 22px;
-  margin: 0 -10px;
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
-  color: color-mix(in srgb, var(--text) 85%, transparent);
+  height: 26px;
+  border-radius: 7px;
+  background: var(--raised);
+  overflow: hidden;
+  transition: background 0.08s;
 }
+.song-row.is-playing .song-row-bar { background: color-mix(in srgb, var(--text) 16%, var(--raised)); }
+/* Each chord a segment of the bar, its name inside, split from the next by a thin line. */
 .song-chord {
   position: absolute;
   top: 0;
   bottom: 0;
   display: flex;
   align-items: center;
-  padding: 0 6px;
-  border-left: 1px solid color-mix(in srgb, var(--section) 35%, transparent);
-  overflow: hidden;
+  padding: 0 7px;
+  border-left: 1px solid var(--line-strong);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text);
   white-space: nowrap;
+  overflow: hidden;
 }
-.song-chord:first-child { border-left: 0; padding-left: 10px; }
-.song-block.is-empty .song-block-chords { margin: 0; color: var(--muted); font-family: inherit; font-style: italic; line-height: 22px; }
-.song-block-bars { margin-top: auto; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
-.song-block-more { position: absolute; top: 6px; right: 4px; width: 26px; height: 26px; min-height: 0; border: 0; background: none; color: var(--muted); }
-.song-block-more svg { width: 15px; height: 15px; }
+.song-chord:first-child { border-left: 0; }
+.song-row-grip { flex: none; margin-left: -2px; color: var(--muted); opacity: 0.5; cursor: grab; }
+.song-row:hover .song-row-grip, .song-row.is-dragging .song-row-grip { opacity: 1; }
+/* An empty section: just its name, with a dashed stub to show there's nothing to play yet. */
+.song-row.is-empty .song-row-bar { width: 40px; height: 14px; background: none; border: 1.5px dashed var(--line-strong); }
+.song-row-more { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); z-index: 2; width: 26px; height: 26px; min-height: 0; border: 0; background: none; color: var(--muted); }
+.song-row-more svg { width: 15px; height: 15px; }
 @media (hover: hover) {
-  .song-block:not(:hover):not(:focus-within) .song-block-more:not([aria-expanded='true']) { opacity: 0; }
-  .song-block-more:hover { color: var(--text); background: rgb(255 255 255 / 0.06); }
-  .song-block:not(.is-playing):hover { border-color: var(--muted); }
+  .song-row:not(:hover):not(:focus-within) .song-row-more:not([aria-expanded='true']) { opacity: 0; }
+  .song-row-more:hover { color: var(--text); background: rgb(255 255 255 / 0.06); }
+  .song-row:not(.is-playing):not(.is-dragging):hover { background: rgb(255 255 255 / 0.03); }
 }
-.song-add { position: absolute; top: 4px; margin-left: 6px; }
+.song-add { position: absolute; left: 0; }
 .song-add-btn {
-  width: 76px;
-  /* As tall as the section blocks beside it. */
-  height: 110px;
+  width: 100%;
+  height: 40px;
   border: 1.5px dashed var(--line-strong);
   border-radius: var(--radius);
   background: none;
   color: var(--muted);
-  font-size: 22px;
+  font-size: 14px;
+  font-weight: 600;
 }
 .song-add-btn:hover, .song-add-btn[aria-expanded='true'] { border-color: var(--accent); color: var(--accent); }
-.song-empty { position: absolute; top: 46px; left: 96px; margin: 0; font-size: 14px; color: var(--muted); }
-.song-playhead { top: 0; height: 118px; }
+/* The playhead runs along the row being played, from the start of the grid. */
+.song-playhead {
+  position: absolute;
+  top: 0;
+  left: var(--song-head);
+  width: 2px;
+  background: var(--text);
+  pointer-events: none;
+  will-change: transform;
+  z-index: 3;
+}
 
 /* Status bar: along the bottom of the window, staying in view when the editor is taller. */
 .status-bar {
@@ -1311,6 +1332,7 @@ main > .panel {
 .shortcuts-menu dd { margin: 0; }
 
 @media (max-width: 640px) {
+  .song-row-head { padding-left: 12px; }
   .app { padding: 0 0 32px; }
   .panel { padding: 14px; }
   .app { --gutter: 12px; }

@@ -5,7 +5,8 @@ import { arrange, type Hit } from './arrange'
 import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
-import { measuredLatency, measureLatency, openMic, roundTrip, startCapture, type Capture } from './recorder'
+import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
+import { newId } from '../id'
 import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take } from './take'
 import { playbackOf, takeIdsBySection, type Playback } from '../song'
 
@@ -321,7 +322,7 @@ class Engine {
     if (samples.length - skip < sampleRate * 0.25) return { lane: rec.lane, take: null }
     const aligned =
       skip >= 0 ? samples.slice(skip) : Float32Array.from({ length: samples.length - skip }, (_, i) => (i < -skip ? 0 : samples[i + skip]))
-    return { lane: rec.lane, take: { id: crypto.randomUUID(), startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: quantize(aligned) } }
+    return { lane: rec.lane, take: { id: newId(), startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: quantize(aligned) } }
   }
 
   /** Current loop position in beats, or null when stopped. */
@@ -449,7 +450,7 @@ export async function toggleRecord() {
     stream = await openMic()
   } catch {
     setAudioSession('playback')
-    window.alert('Bounce needs the microphone to record. Allow it in your browser’s site settings, then try again.')
+    window.alert(micProblem('record'))
     return
   }
   // Record into the selected track, or else the first one without a take
@@ -489,7 +490,7 @@ export async function checkLatency() {
     setAudioSession('play-and-record')
     latency = await measureLatency()
   } catch {
-    window.alert('Bounce needs the microphone to check the timing. Allow it in your browser’s site settings, then try again.')
+    window.alert(micProblem('check the timing'))
     return
   } finally {
     setAudioSession('playback')
