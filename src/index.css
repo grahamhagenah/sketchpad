@@ -419,15 +419,28 @@ main > .panel {
   /* The ruler's row; the buttons are centred on it, overhanging it equally above and below. */
   top: 0;
   height: var(--ruler-h);
-  /* Icons in line with the track icons below and the mute and solo letters. */
   left: 0;
-  right: 2px;
+  right: 0;
   z-index: 5;
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
-.timeline-corner-group { display: flex; gap: 4px; }
+/* Only there while a track is muted or soloed. */
+.unmute-all {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.unmute-all svg { width: 16px; height: 16px; }
+.unmute-all:hover { color: var(--text); background: var(--raised); }
 /* Sets the corner's controls apart from the track names below. */
 .track-headers::before {
   content: '';
@@ -438,9 +451,6 @@ main > .panel {
   height: 1px;
   background: var(--line);
 }
-.timeline-corner .icon-btn { width: 30px; height: 30px; min-height: 0; border: 0; background: none; color: var(--muted); }
-.timeline-corner .icon-btn:not(:disabled):hover { color: var(--text); background: var(--raised); }
-.timeline-corner .icon-btn svg { width: 17px; height: 17px; }
 
 /* The sketch's title, leading the toolbar, with the library and save beside it. */
 .song-bar { display: flex; align-items: center; gap: 2px; }
@@ -632,7 +642,11 @@ main > .panel {
 .progression-numerals { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
 
 /* Sections: tabs for the song and each of its sections, above the editor. */
-.section-bar { display: flex; align-items: center; min-width: 0; margin-top: -2px; }
+.section-bar { display: flex; align-items: center; gap: 12px; min-width: 0; margin-top: -2px; }
+.section-bar-end { flex: none; margin-left: auto; display: flex; gap: 2px; }
+.section-bar-end .icon-btn { width: 30px; height: 30px; min-height: 0; border: 0; background: none; color: var(--muted); }
+.section-bar-end .icon-btn:not(:disabled):hover { color: var(--text); background: var(--raised); }
+.section-bar-end .icon-btn svg { width: 17px; height: 17px; }
 .section-tabs { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; padding: 2px; scrollbar-width: none; }
 .section-tabs::-webkit-scrollbar { display: none; }
 .section-tabs-divider { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line-strong); }
@@ -662,7 +676,20 @@ main > .panel {
 .section-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--section); }
 .section-tab-wrap.is-open .section-tab { padding-right: 4px; }
 .section-more,
-.section-add { width: 28px; min-height: 28px; height: 28px; border-color: transparent; background: none; color: var(--muted); }
+.section-add {
+  flex: none;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
 .section-more svg, .section-add svg { width: 16px; height: 16px; }
 .section-rename {
   width: auto;
@@ -1020,7 +1047,7 @@ main > .panel {
   .tempo { width: 3ch; }
   .song-title { width: auto; flex: 1; min-width: 0; }
   .song-bar { flex: 1; }
-  .timeline-corner-zoom { display: none; }
+  .section-bar-end { display: none; }
   /* Icon and name on one line, mute and solo under it. */
   .track-headers { width: 64px; }
   .track-header { flex-wrap: wrap; align-content: center; row-gap: 2px; }

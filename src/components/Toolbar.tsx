@@ -10,7 +10,6 @@ import { Position } from './Position'
 import { SongTitle } from './SongTitle'
 import { download, exportName, placedTakes, songToMidi, songToWav, takeToWav } from '../audio/export'
 import { playbackOf } from '../song'
-import { LANES } from '../audio/take'
 
 /** The one bar for playback, song settings and editing the selected chord. */
 export function Toolbar() {
@@ -231,26 +230,6 @@ function UndoRedo() {
         <Icon d="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
       </button>
     </>
-  )
-}
-
-/** Adds an empty vocal track, selected and ready to record into. */
-export function AddTrackButton() {
-  const full = useStore((s) => s.vocalTracks >= LANES)
-  const recording = useStore((s) => s.recording !== 'off')
-  const addVocalTrack = useStore((s) => s.addVocalTrack)
-  return (
-    <button
-      type="button"
-      className="icon-btn"
-      aria-label="Add a vocal track"
-      title={full ? `Up to ${LANES} vocal tracks` : 'Add a vocal track to record into'}
-      disabled={full || recording}
-      onClick={addVocalTrack}
-    >
-      {/* Track lanes with a plus. */}
-      <Icon d="M4 7h11M4 12h11M4 17h7M18 14v6M15 17h6" />
-    </button>
   )
 }
 

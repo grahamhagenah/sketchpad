@@ -4,7 +4,7 @@ import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '
 import { chordOf } from '../music/theory'
 import { engine, seek } from '../audio/engine'
 import { songSpans } from '../song'
-import { Icon } from './Toolbar'
+import { Icon, ZoomButtons } from './Toolbar'
 
 const KIND_COLORS = ['#8fa8c8', '#5ad8c8', '#e8c46a', '#ff8fa3', '#b39cff', '#9aa5b1']
 
@@ -172,7 +172,7 @@ export function SectionBar() {
             </div>
           )
         })}
-        <MenuButton label="Add a section" title="Add a section to the end of the song" className="section-add icon-btn" menu={(close) => (
+        <MenuButton label="Add a section" title="Add a section to the end of the song" className="section-add" menu={(close) => (
           <NewSectionItems
             onPick={(name) => {
               addSection(name)
@@ -181,7 +181,12 @@ export function SectionBar() {
           />
         )}>
           <Icon d="M12 5v14M5 12h14" />
+          Section
         </MenuButton>
+      </div>
+      {/* Zoom works on whichever view is showing, so it sits with the views. */}
+      <div className="section-bar-end">
+        <ZoomButtons />
       </div>
     </nav>
   )

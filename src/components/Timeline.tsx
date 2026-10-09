@@ -2,9 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { audibleTracks, chordsTrackName, useStore, vocalTrackName, type Chord } from '../store'
 import { chordOf } from '../music/theory'
 import { audition, engine, seek } from '../audio/engine'
+import { LANES } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
-import { AddTrackButton, ZoomButtons } from './Toolbar'
 import type { TakeInfo } from '../audio/take'
 
 interface Drag {
@@ -56,8 +56,9 @@ export function Timeline() {
   // The tracks added so far, plus the one a recording is adding.
   const laneCount = Math.max(vocalTracks, recording === 'off' ? 0 : armedLane + 1)
   // With chords but no vocal tracks, a row invites you to add one.
-  const vocalHint = laneCount === 0 && chords.length > 0
-  const rows = laneCount || (vocalHint ? 1 : 0)
+  // Under the last vocal track, a row to add another, while there's room for one.
+  const vocalHint = laneCount < LANES && recording === 'off'
+  const rows = laneCount + (vocalHint ? 1 : 0)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -433,21 +434,17 @@ function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, b
 }
 
 /** Brings back every muted or soloed-out track at once. */
+/** Brings back every muted or soloed-out track; only there while something is. */
 function UnmuteAllButton() {
   const any = useStore((s) => s.chordsMuted || s.chordsSolo || s.vocalMuted.some(Boolean) || s.vocalSolo.some(Boolean))
   const unmuteAll = useStore((s) => s.unmuteAll)
+  if (!any) return null
   return (
-    <button
-      type="button"
-      className="icon-btn"
-      aria-label="Unmute all tracks"
-      title={any ? 'Unmute all and clear solos' : 'Every track is playing'}
-      disabled={!any}
-      onClick={unmuteAll}
-    >
+    <button type="button" className="unmute-all" aria-label="Unmute all tracks" title="Unmute all and clear solos" onClick={unmuteAll}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
       </svg>
+      Unmute all
     </button>
   )
 }
@@ -458,13 +455,7 @@ function TrackHeaders({ laneCount, vocalHint }: { laneCount: number; vocalHint: 
   return (
     <div className="track-headers">
       <div className="timeline-corner">
-        <span className="timeline-corner-group">
-          <AddTrackButton />
-          <UnmuteAllButton />
-        </span>
-        <span className="timeline-corner-group timeline-corner-zoom">
-          <ZoomButtons />
-        </span>
+        <UnmuteAllButton />
       </div>
       <TrackHeader
         className={`is-chords ${s.chordsTrackSelected ? 'is-selected' : ''}`}
@@ -493,10 +484,15 @@ function TrackHeaders({ laneCount, vocalHint }: { laneCount: number; vocalHint: 
         />
       ))}
       {vocalHint && (
-        // Where the first vocal track will go, while there are none.
-        <button type="button" className="track-header is-vocal vocal-hint" onClick={s.addVocalTrack} title="Add a vocal track to record into, or press R to record straight away">
-          <MicIcon />
-          Add vocal track
+        <button
+          type="button"
+          className="track-header is-vocal vocal-hint"
+          style={{ ['--row' as string]: laneCount }}
+          onClick={s.addVocalTrack}
+          title="Add a vocal track to record into"
+        >
+          <PlusIcon />
+          Vocal track
         </button>
       )}
     </div>
@@ -594,6 +590,12 @@ const KeysIcon = () => (
     <path d="M9 13v6M15 13v6" />
     <rect x="7.5" y="5" width="3" height="8" fill="currentColor" stroke="none" />
     <rect x="13.5" y="5" width="3" height="8" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+const PlusIcon = () => (
+  <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M12 5v14M5 12h14" />
   </svg>
 )
 
