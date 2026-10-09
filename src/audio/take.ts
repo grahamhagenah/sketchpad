@@ -68,14 +68,41 @@ function db(): Promise<IDBDatabase> {
   })
 }
 
-/** Runs one request against a store in the app's database. */
+/**
+ * Runs one request against a store in the app's database. It settles once the
+ * transaction does: a write that runs out of space can succeed as a request
+ * and still be thrown away when its transaction aborts.
+ */
 export async function idb<T>(store: string, mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const d = await db()
   return new Promise((resolve, reject) => {
-    const req = fn(d.transaction(store, mode).objectStore(store))
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
+    const tx = d.transaction(store, mode)
+    const req = fn(tx.objectStore(store))
+    tx.oncomplete = () => resolve(req.result)
+    tx.onabort = () => reject(tx.error ?? req.error)
   })
+}
+
+/** What to tell someone when the browser wouldn't store their work. */
+export function storageErrorMessage(error: unknown) {
+  if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+    return 'Your browser is out of space for Sketchpad. Delete sketches you no longer need, then try again.'
+  }
+  return `Your browser wouldn’t store it${error instanceof Error && error.message ? ` (${error.message})` : ''}.`
+}
+
+let persistAsked = false
+
+/**
+ * Asks the browser to keep Sketchpad's storage rather than clear it when space
+ * runs low or the site goes unvisited for a while (Safari clears it after a
+ * week). Asked once there's something worth keeping, since some browsers ask
+ * the person.
+ */
+export function keepStorage() {
+  if (persistAsked) return
+  persistAsked = true
+  void navigator.storage?.persist?.().catch(() => {})
 }
 
 const run = <T,>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>) => idb(STORE, mode, fn)

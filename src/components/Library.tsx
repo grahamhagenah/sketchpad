@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
 import { useStore, totalBeats } from '../store'
 import { keyLabel } from '../music/theory'
-import { deleteSketch, isDirty, newSketch, openSketch, refreshLibrary, saveSketch, useLibrary, type SketchRecord } from '../library'
+import { deleteSketch, isDirty, newSketch, openSketch, refreshLibrary, reportStorageError, saveSketch, useLibrary, type SketchRecord } from '../library'
 
 /** Saves the sketch; a dot on it means there are unsaved changes. */
 export function SaveButton() {
@@ -12,6 +12,8 @@ export function SaveButton() {
     setSaving(true)
     try {
       await saveSketch()
+    } catch (error) {
+      reportStorageError('save the sketch')(error)
     } finally {
       setSaving(false)
     }
@@ -66,7 +68,7 @@ export function SketchesButton() {
             type="button"
             className="menu-item"
             onClick={() => {
-              void newSketch()
+              void newSketch().catch(reportStorageError('start a new sketch'))
               close()
             }}
           >
@@ -80,7 +82,7 @@ export function SketchesButton() {
               sketch={sketch}
               current={sketch.id === current}
               onOpen={() => {
-                void openSketch(sketch.id)
+                void openSketch(sketch.id).catch(reportStorageError('open that sketch'))
                 close()
               }}
             />
@@ -118,7 +120,7 @@ function SketchRow({ sketch, current, onOpen }: { sketch: SketchRecord; current:
         className={confirming ? 'chip sketch-delete is-confirming' : 'icon-btn sketch-delete'}
         aria-label={confirming ? `Confirm deleting ${song.title || 'this sketch'}` : `Delete ${song.title || 'this sketch'}`}
         title="Delete this sketch"
-        onClick={() => (confirming ? void deleteSketch(sketch.id) : setConfirming(true))}
+        onClick={() => (confirming ? void deleteSketch(sketch.id).catch(reportStorageError('delete that sketch')) : setConfirming(true))}
         onBlur={() => setConfirming(false)}
       >
         {confirming ? (

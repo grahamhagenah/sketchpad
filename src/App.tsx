@@ -5,7 +5,7 @@ import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
 import { Palette } from './components/Palette'
 import { redo, undo } from './history'
-import { isDirty, saveSketch } from './library'
+import { isDirty, reportStorageError, saveSketch } from './library'
 
 function useShortcuts() {
   useEffect(() => {
@@ -14,7 +14,7 @@ function useShortcuts() {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         // Even from inside a text field, as in any editor.
         e.preventDefault()
-        if (isDirty()) void saveSketch()
+        if (isDirty()) void saveSketch().catch(reportStorageError('save the sketch'))
         return
       }
       if (target.closest('input, select, textarea')) return
