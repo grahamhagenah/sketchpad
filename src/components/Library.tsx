@@ -35,6 +35,10 @@ export function SaveButton() {
 }
 
 /** Lists the saved sketches to open or delete, and starts new ones. */
+/**
+ * One button for the sketch file: save, start a new sketch, or open a saved
+ * one. A dot on it means there are unsaved changes; ⌘S saves without opening it.
+ */
 export function SketchesButton() {
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
@@ -42,6 +46,7 @@ export function SketchesButton() {
   useDismiss(open, close, ref)
   const sketches = useLibrary((s) => s.sketches)
   const current = useStore((s) => s.sketchId)
+  const dirty = useStore(isDirty)
 
   useEffect(() => {
     if (open) void refreshLibrary()
@@ -51,9 +56,9 @@ export function SketchesButton() {
     <div className="menu-anchor" ref={ref}>
       <button
         type="button"
-        className="icon-btn"
-        aria-label="Sketches"
-        title="Your sketches"
+        className={`icon-btn save-btn ${dirty ? 'has-changes' : ''}`}
+        aria-label={`Sketches${dirty ? ', unsaved changes' : ''}`}
+        title={dirty ? 'Save, open or start a sketch (unsaved changes)' : 'Save, open or start a sketch'}
         aria-expanded={open}
         aria-controls="sketches-menu"
         onClick={() => setOpen(!open)}
@@ -64,6 +69,21 @@ export function SketchesButton() {
       </button>
       {open && (
         <div className="menu sketches-menu" id="sketches-menu" role="dialog" aria-label="Your sketches">
+          <button
+            type="button"
+            className="menu-item"
+            disabled={!dirty}
+            onClick={() => {
+              void saveSketch()
+              close()
+            }}
+          >
+            <span className="menu-item-title">
+              {dirty ? 'Save' : 'Saved'}
+              <kbd>⌘S</kbd>
+            </span>
+            <span className="menu-item-about">{dirty ? 'Keep the changes to this sketch' : 'Nothing new since the last save'}</span>
+          </button>
           <button
             type="button"
             className="menu-item"

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
-import { chordInfo, FUNCTIONS } from '../music/theory'
+import { BORROWED, chordInfo, FUNCTIONS } from '../music/theory'
 import { audition } from '../audio/engine'
 
 const WIDTH = 300
@@ -51,10 +51,10 @@ export function AddChordMenu({ anchor, onClose }: { anchor: RefObject<HTMLElemen
     }
   }, [onClose])
 
-  const add = (degree: number) => {
+  const add = (degree: number, borrowed = false) => {
     const s = useStore.getState()
     s.select(s.chords[s.chords.length - 1]?.id ?? null)
-    s.addChord(degree)
+    s.addChord(degree, borrowed)
     const now = useStore.getState().chords
     audition(now[now.length - 1])
   }
@@ -80,6 +80,22 @@ export function AddChordMenu({ anchor, onClose }: { anchor: RefObject<HTMLElemen
           </div>
         </div>
       ))}
+      <div className="add-chord-group" role="group" aria-label="Borrowed">
+        <span className="palette-group-label" title={`From the parallel ${mode === 'major' ? 'minor' : 'major'} key`}>
+          Borrowed
+        </span>
+        <div className="add-chord-chords">
+          {BORROWED[mode].map((degree) => {
+            const info = chordInfo(key, mode, degree, false, { borrowed: true })
+            return (
+              <button type="button" key={degree} className="add-chord" onClick={() => add(degree, true)} title={`Add ${info.name}, borrowed`}>
+                <span className="add-chord-name">{info.name}</span>
+                <span className="add-chord-roman">{info.roman}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </div>,
     document.body,
   )
