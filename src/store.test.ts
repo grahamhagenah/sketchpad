@@ -237,3 +237,18 @@ describe('sketchSignature', () => {
     expect(sketchSignature(useStore.getState())).not.toBe(before)
   })
 })
+
+describe('the starter song', () => {
+  it('opens a first visit on a verse and chorus, twice through, with drums', () => {
+    const s = useStore.getInitialState()
+    expect(s.sections.map((sec) => [sec.name, sec.drums, sec.chords.length])).toEqual([
+      ['Verse', 'light', 4],
+      ['Chorus', 'backbeat', 4],
+    ])
+    expect(s.arrangement.map((e) => s.sections.find((sec) => sec.id === e.section)?.name)).toEqual(['Verse', 'Chorus', 'Verse', 'Chorus'])
+    expect(s.drumTrack).toBe(true)
+    expect(s.view).toBe('song')
+    // The open section's chords are the verse's, in the editor.
+    expect(s.chords).toBe(s.sections[0].chords)
+  })
+})

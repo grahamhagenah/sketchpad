@@ -3,13 +3,16 @@ import { WAVE_VOLUME, type Sound } from './sound'
 
 export const midiToHz = (m: number) => Tone.Frequency(m, 'midi').toFrequency()
 
-const BASS_VOLUME = -9
+// Under the chords, rather than level with them.
+const BASS_VOLUME = -14
 
 export interface Instruments {
   pad: Tone.PolySynth
   bass: Tone.MonoSynth
   filter: Tone.Filter
   reverb: Tone.Reverb
+  /** The chords track's level: the pad and bass both run through it. */
+  bus: Tone.Volume
 }
 
 /**
@@ -17,15 +20,16 @@ export interface Instruments {
  * current, so live playback and the WAV render sound the same.
  */
 export function createInstruments(sound: Sound): Instruments {
-  const reverb = new Tone.Reverb({ decay: 2.4 }).toDestination()
+  const bus = new Tone.Volume(0).toDestination()
+  const reverb = new Tone.Reverb({ decay: 2.4 }).connect(bus)
   const filter = new Tone.Filter(sound.brightness, 'lowpass').connect(reverb)
   const pad = new Tone.PolySynth(Tone.Synth).connect(filter)
   const bass = new Tone.MonoSynth({
     oscillator: { type: 'triangle' },
-    filterEnvelope: { baseFrequency: 180, octaves: 2.5, attack: 0.01, decay: 0.3, sustain: 0.4 },
+    filterEnvelope: { baseFrequency: 160, octaves: 2, attack: 0.01, decay: 0.3, sustain: 0.35 },
     envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.4 },
-  }).toDestination()
-  const instruments = { pad, bass, filter, reverb }
+  }).connect(bus)
+  const instruments = { pad, bass, filter, reverb, bus }
   applySound(instruments, sound)
   return instruments
 }

@@ -59,6 +59,8 @@ export interface SectionParts {
   vocalSolo: boolean[]
   /** Names given to the vocal tracks; null keeps the usual one. */
   vocalNames: (string | null)[]
+  /** Each vocal track's level, in dB from its usual one. */
+  vocalVolume: number[]
   /** How many vocal tracks show, empty ones included. */
   vocalTracks: number
   /** The drum groove the section plays, or none. */
@@ -104,6 +106,9 @@ interface State extends SectionParts {
   drumTrack: boolean
   drumsMuted: boolean
   drumsSolo: boolean
+  /** The chords' and drums' levels, in dB from their usual ones. */
+  chordsVolume: number
+  drumsVolume: number
   /** The sketch's name; empty until you give it one. */
   title: string
   /** Which saved sketch this is, once it's been saved. */
@@ -124,6 +129,8 @@ interface State extends SectionParts {
   recording: 'off' | 'count-in' | 'on'
   /** Beats left in the count-in, shown on the record button. */
   countIn: number | null
+  /** How late recordings arrive on this device, in seconds, once measured; kept with the device, not the song. */
+  latency: number | null
   playing: boolean
   /** Where playback starts next, in beats; it stays where you paused. */
   playhead: number
@@ -161,11 +168,15 @@ interface State extends SectionParts {
   renameDrums: (name: string) => void
   toggleDrumsMute: () => void
   toggleDrumsSolo: () => void
+  setChordsVolume: (db: number) => void
+  setDrumsVolume: (db: number) => void
+  setVocalVolume: (lane: number, db: number) => void
   /** Unmutes every track and clears every solo, so everything plays. */
   unmuteAll: () => void
   setArmedLane: (lane: number) => void
   setRecording: (recording: State['recording']) => void
   setCountIn: (countIn: number | null) => void
+  setLatency: (latency: number | null) => void
   setPlaying: (playing: boolean) => void
   setPlayhead: (beat: number) => void
   setLoop: (loop: LoopRegion | null) => void
@@ -220,6 +231,7 @@ const partsOf = (p: SectionParts): SectionParts => ({
   vocalMuted: p.vocalMuted,
   vocalSolo: p.vocalSolo,
   vocalNames: p.vocalNames,
+  vocalVolume: p.vocalVolume,
   vocalTracks: p.vocalTracks,
   drums: p.drums,
 })
@@ -231,6 +243,7 @@ export const emptyParts = (): SectionParts => ({
   vocalMuted: Array(LANES).fill(false),
   vocalSolo: Array(LANES).fill(false),
   vocalNames: Array(LANES).fill(null),
+  vocalVolume: Array(LANES).fill(0),
   vocalTracks: 0,
   drums: null,
 })
@@ -266,6 +279,8 @@ export function songOf(s: State) {
     drumTrack: s.drumTrack,
     drumsMuted: s.drumsMuted,
     drumsSolo: s.drumsSolo,
+    chordsVolume: s.chordsVolume,
+    drumsVolume: s.drumsVolume,
     title: s.title,
     chordsName: s.chordsName,
     drumsName: s.drumsName,
@@ -287,6 +302,7 @@ function lanesOf(p: LegacySong) {
     vocalMuted: Array.from({ length: LANES }, (_, i) => (Array.isArray(muted) ? !!muted[i] : i === 0 && !!muted)),
     vocalSolo: Array.from({ length: LANES }, (_, i) => !!p.vocalSolo?.[i]),
     vocalNames: Array.from({ length: LANES }, (_, i) => p.vocalNames?.[i] ?? null),
+    vocalVolume: Array.from({ length: LANES }, (_, i) => p.vocalVolume?.[i] ?? 0),
   }
 }
 
@@ -334,8 +350,27 @@ export function sketchSignature(s: State) {
 /** How long each section is, in beats. */
 export const sectionBeats = (sections: Pick<Section, 'id' | 'chords'>[]) => new Map(sections.map((sec) => [sec.id, totalBeats(sec.chords)]))
 
-const starter = (beats: number): Chord[] =>
-  [0, 4, 5, 3].map((degree) => ({ id: newId(), degree, beats, seventh: false }))
+const progression = (degrees: number[]): Chord[] => degrees.map((degree) => ({ id: newId(), degree, beats: 4, seventh: false }))
+
+/**
+ * What a first visit opens on: a short song to press play on, a verse
+ * leading into a chorus, with drums and the chords pushed in time with them,
+ * so what Bounce does is heard straight away. "New sketch" starts from nothing.
+ */
+function starterSong() {
+  const verse = { id: newId(), name: 'Verse', chords: progression([5, 3, 0, 4]), drums: 'light' as const }
+  const chorus = { id: newId(), name: 'Chorus', chords: progression([0, 4, 5, 3]), drums: 'backbeat' as const }
+  return {
+    ...songState({
+      sections: [verse, chorus],
+      arrangement: [verse, chorus, verse, chorus].map((sec) => ({ id: newId(), section: sec.id })),
+      activeSection: verse.id,
+    }),
+    view: 'song' as const,
+    drumTrack: true,
+    rhythm: { ...DEFAULT_RHYTHM, chords: 'tresillo' as const },
+  }
+}
 
 /**
  * Which tracks sound: with any track soloed, only soloed tracks play; mute
@@ -357,19 +392,18 @@ export const useStore = create<State>()(
       mode: 'major',
       bpm: 96,
       timeSig: [4, 4],
-      ...songState({ chords: starter(4) }),
-      view: 'section',
+      ...starterSong(),
       selectedId: null,
       metronome: false,
       loopOn: true,
       sound: DEFAULT_SOUND,
       arp: DEFAULT_ARP,
-      rhythm: DEFAULT_RHYTHM,
       chordsMuted: false,
       chordsSolo: false,
-      drumTrack: false,
       drumsMuted: false,
       drumsSolo: false,
+      chordsVolume: 0,
+      drumsVolume: 0,
       title: '',
       sketchId: null,
       savedSignature: null,
@@ -380,6 +414,7 @@ export const useStore = create<State>()(
       chordsTrackSelected: false, drumsTrackSelected: false,
       recording: 'off',
       countIn: null,
+      latency: null,
       playing: false,
       playhead: 0,
       zoom: 1,
@@ -409,7 +444,7 @@ export const useStore = create<State>()(
       setRhythm: (patch) => set({ rhythm: { ...get().rhythm, ...patch } }),
       setTake: (lane, take) => set({ takes: get().takes.map((t, i) => (i === lane ? take : t)) }),
       renumberVocals: (from) => {
-        const { takes, vocalMuted, vocalSolo, vocalNames } = get()
+        const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume } = get()
         const pick = <T,>(list: T[], empty: T) => list.map((_, lane) => (lane < from.length ? list[from[lane]] : empty))
         // Nothing stays selected; the next recording goes in the first free lane.
         set({
@@ -417,6 +452,7 @@ export const useStore = create<State>()(
           vocalMuted: pick(vocalMuted, false),
           vocalSolo: pick(vocalSolo, false),
           vocalNames: pick(vocalNames, null),
+          vocalVolume: pick(vocalVolume, 0),
           vocalTracks: from.length,
           selectedVocal: null,
         })
@@ -443,11 +479,15 @@ export const useStore = create<State>()(
       renameDrums: (name) => set({ drumsName: name.trim() || null }),
       toggleDrumsMute: () => set({ drumsMuted: !get().drumsMuted }),
       toggleDrumsSolo: () => set({ drumsSolo: !get().drumsSolo }),
+      setChordsVolume: (chordsVolume) => set({ chordsVolume }),
+      setDrumsVolume: (drumsVolume) => set({ drumsVolume }),
+      setVocalVolume: (lane, db) => set({ vocalVolume: get().vocalVolume.map((v, i) => (i === lane ? db : v)) }),
       unmuteAll: () =>
         set({ chordsMuted: false, chordsSolo: false, drumsMuted: false, drumsSolo: false, vocalMuted: Array(LANES).fill(false), vocalSolo: Array(LANES).fill(false) }),
       setArmedLane: (armedLane) => set({ armedLane }),
       setRecording: (recording) => set({ recording, countIn: recording === 'count-in' ? get().countIn : null }),
       setCountIn: (countIn) => set({ countIn }),
+      setLatency: (latency) => set({ latency }),
       setPlaying: (playing) => set({ playing }),
       setPlayhead: (playhead) => set({ playhead }),
       setLoop: (loop) => set({ loop }),

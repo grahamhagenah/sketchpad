@@ -67,7 +67,9 @@ export function Timeline() {
   const hasDrumTrack = useStore((s) => s.drumTrack)
   const drumTrack = hasDrumTrack && !empty
   const drumHint = !hasDrumTrack && recording === 'off' && !empty
-  const rows = laneCount + (vocalHint ? 1 : 0) + (drumHint ? 1 : 0)
+  // Both add buttons share one row, under the vocal tracks.
+  const addRow = vocalHint || drumHint
+  const rows = laneCount + (addRow ? 1 : 0)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -216,7 +218,10 @@ export function Timeline() {
   }, [playing, beatPx])
 
   return (
-    <div className={`timeline-wrap ${rows ? 'has-vocals' : ''}`} style={{ ['--lanes' as string]: rows, ['--drum-rows' as string]: drumTrack ? 1 : 0 }}>
+    <div
+      className={`timeline-wrap ${rows ? 'has-vocals' : ''} ${addRow && laneCount ? 'has-adds' : ''}`}
+      style={{ ['--lanes' as string]: rows, ['--drum-rows' as string]: drumTrack ? 1 : 0, ['--adds-row' as string]: laneCount }}
+    >
       <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumTrack={drumTrack} drumHint={drumHint} />
       <div className="timeline-scroll" ref={scrollRef}>
         <div
@@ -559,6 +564,8 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
         onMute={s.toggleChordsMute}
         onSolo={s.toggleChordsSolo}
         onRename={s.renameChords}
+        volume={s.chordsVolume}
+        onVolume={s.setChordsVolume}
         onSelect={s.recording === 'off' && s.chords.length > 0 ? s.selectChordsTrack : undefined}
       />
       {drumTrack && (
@@ -571,6 +578,8 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
           onMute={s.toggleDrumsMute}
           onSolo={s.toggleDrumsSolo}
           onRename={s.renameDrums}
+          volume={s.drumsVolume}
+          onVolume={s.setDrumsVolume}
           onSelect={s.recording === 'off' ? s.selectDrumsTrack : undefined}
         />
       )}
@@ -586,32 +595,26 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
           onMute={() => s.toggleVocalMute(lane)}
           onSolo={() => s.toggleVocalSolo(lane)}
           onRename={(name) => s.renameVocal(lane, name)}
+          volume={s.vocalVolume[lane] ?? 0}
+          onVolume={(db) => s.setVocalVolume(lane, db)}
           onSelect={s.recording === 'off' ? () => s.selectVocal(lane) : undefined}
         />
       ))}
-      {vocalHint && (
-        <button
-          type="button"
-          className="track-header is-vocal vocal-hint"
-          style={{ ['--row' as string]: laneCount }}
-          onClick={s.addVocalTrack}
-          title="Add a vocal track to record into"
-        >
-          <PlusIcon />
-          Vocal track
-        </button>
-      )}
-      {drumHint && (
-        <button
-          type="button"
-          className="track-header is-vocal vocal-hint"
-          style={{ ['--row' as string]: laneCount + (vocalHint ? 1 : 0) }}
-          onClick={s.addDrumTrack}
-          title="Add a drum track, with a groove for each section"
-        >
-          <PlusIcon />
-          Drum track
-        </button>
+      {(vocalHint || drumHint) && (
+        <div className="track-adds" style={{ ['--row' as string]: laneCount }}>
+          {vocalHint && (
+            <button type="button" className="track-add" onClick={s.addVocalTrack} aria-label="Add a vocal track" title="Add a vocal track to record into">
+              <PlusIcon />
+              <span className="track-add-label">Vocal track</span>
+            </button>
+          )}
+          {drumHint && (
+            <button type="button" className="track-add" onClick={s.addDrumTrack} aria-label="Add a drum track" title="Add a drum track, with a groove for each section">
+              <PlusIcon />
+              <span className="track-add-label">Drum track</span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
@@ -629,11 +632,18 @@ interface TrackHeaderProps {
   onSolo: () => void
   /** An empty name puts the usual one back. */
   onRename: (name: string) => void
+  /** The track's level in dB from its usual one, and setting it. */
+  volume: number
+  onVolume: (db: number) => void
   /** Clicking the header (other than mute and solo) selects the track. */
   onSelect?: () => void
 }
 
-function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo, onRename, onSelect }: TrackHeaderProps) {
+const MIN_DB = -30
+const MAX_DB = 6
+const dbLabel = (db: number) => `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)} dB`
+
+function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo, onRename, volume, onVolume, onSelect }: TrackHeaderProps) {
   const [editing, setEditing] = useState(false)
   // A double tap or double click; timed by hand, since phones don't reliably send dblclick.
   const lastTap = useRef(0)
@@ -689,6 +699,21 @@ function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo
       <button type="button" className="track-btn is-solo" aria-pressed={solo} aria-label={`Solo ${name}`} title="Solo" onClick={onSolo}>
         S
       </button>
+      {/* Its level, like a fader laid on its side; double-click puts it back to the usual level. */}
+      <input
+        type="range"
+        className="track-volume"
+        min={MIN_DB}
+        max={MAX_DB}
+        step={0.5}
+        value={volume}
+        style={{ ['--fill' as string]: `${((volume - MIN_DB) / (MAX_DB - MIN_DB)) * 100}%` }}
+        aria-label={`${name} volume`}
+        aria-valuetext={dbLabel(volume)}
+        title={`Volume ${dbLabel(volume)} · double-click for 0 dB`}
+        onChange={(e) => onVolume(Number(e.target.value))}
+        onDoubleClick={() => onVolume(0)}
+      />
     </div>
   )
 }

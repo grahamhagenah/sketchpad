@@ -3,9 +3,9 @@ import { useStore, loopRange, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
 import { arrange, type Hit } from './arrange'
 import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
-import { createKit, disposeKit, playDrum, type DrumHit, type Kit } from './drums'
+import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
-import { openMic, outputLatency, startCapture, type Capture } from './recorder'
+import { measuredLatency, measureLatency, openMic, roundTrip, startCapture, type Capture } from './recorder'
 import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take } from './take'
 import { playbackOf, takeIdsBySection, type Playback } from '../song'
 
@@ -91,9 +91,21 @@ class Engine {
     return player ?? null
   }
 
+  /** Sets each track's level: the chords, the drums, and every take's player. */
+  setLevels(song: Pick<Playback, 'chordsDb' | 'drumsDb' | 'vocals'>) {
+    if (!this.ready) return
+    this.instruments.bus.volume.value = song.chordsDb
+    this.kit.out.volume.value = KIT_VOLUME + song.drumsDb
+    for (const vocal of song.vocals) {
+      const player = this.player(vocal.id)
+      if (player) player.volume.value = vocal.db
+    }
+  }
+
   /** Rebuilds the loop from what plays. Safe to call while playing. */
   sync(song: Playback) {
     if (!this.ready) return
+    this.setLevels(song)
     const t = Tone.getTransport()
     const [num, den] = song.timeSig
     t.bpm.value = song.bpm
@@ -289,8 +301,8 @@ class Engine {
     }
     const startAt = countIn + num * beatSeconds
     // What the singer hears at startAt leaves the speakers a little later,
-    // and their voice reaches us a little later again.
-    rec.alignTime = startAt + outputLatency() + capture.inputLatency
+    // and their voice reaches us a little later again: measured, if it has been, or else the browser's estimate.
+    rec.alignTime = startAt + roundTrip(capture)
     t.start(startAt, `${this.loopStartTicks}i`)
     at(startAt, on.rolling)
   }
@@ -335,9 +347,15 @@ class Engine {
 
 export const engine = new Engine()
 
+useStore.setState({ latency: measuredLatency() })
+
 // Keep the loop in step with edits made while it plays.
 const unsubscribe = useStore.subscribe((s, prev) => {
   if (s.sound !== prev.sound) engine.setSound(s.sound)
+  // Levels change straight away, playing or not, so a chord auditioned after turning the chords down is quieter too.
+  if (s.chordsVolume !== prev.chordsVolume || s.drumsVolume !== prev.drumsVolume || s.vocalVolume !== prev.vocalVolume || s.sections !== prev.sections) {
+    engine.setLevels(playbackOf(s))
+  }
   if (!s.playing) return
   if (
     s.key !== prev.key ||
@@ -447,6 +465,40 @@ export async function toggleRecord() {
       useStore.getState().setPlaying(true)
     },
   })
+}
+
+/**
+ * Measures how late recordings arrive on this device, by playing clicks and
+ * listening for them, so takes line up with the beat with any speakers or
+ * headphones. Tells the person how it went.
+ */
+export async function checkLatency() {
+  const s = useStore.getState()
+  if (s.recording !== 'off') return
+  const go = window.confirm(
+    'Bounce will play eight clicks and listen for them on the microphone, to line your recordings up with the beat.\n\nTurn the volume up. On headphones, hold one up to the microphone.',
+  )
+  if (!go) return
+  if (s.playing) {
+    engine.stop()
+    s.setPlaying(false)
+  }
+  let latency: number | null
+  try {
+    setAudioSession('play-and-record')
+    latency = await measureLatency()
+  } catch {
+    window.alert('Bounce needs the microphone to check the timing. Allow it in your browser’s site settings, then try again.')
+    return
+  } finally {
+    setAudioSession('playback')
+  }
+  useStore.getState().setLatency(latency ?? useStore.getState().latency)
+  window.alert(
+    latency === null
+      ? 'Bounce couldn’t hear the clicks clearly. Turn the volume up (or hold your headphones to the microphone), keep the room quiet, and try again.'
+      : `Recording timing set: ${Math.round(latency * 1000)} ms. New takes will line up with that on this device.`,
+  )
 }
 
 async function stopRecording() {

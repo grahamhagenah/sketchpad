@@ -2,12 +2,12 @@ import * as Tone from 'tone'
 import { keyLabel, keySignature } from '../music/theory'
 import { arrange } from './arrange'
 import { createInstruments, midiToHz } from './instruments'
-import { createKit, DRUM_NOTES, playDrum } from './drums'
+import { createKit, DRUM_NOTES, KIT_VOLUME, playDrum } from './drums'
 import { zip } from './zip'
 import { toAudioBuffer, type Take } from './take'
 import type { Playback } from '../song'
 
-type ExportSong = Pick<Playback, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'> & Partial<Pick<Playback, 'drums' | 'rhythm' | 'kicks'>>
+type ExportSong = Pick<Playback, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'> & Partial<Pick<Playback, 'drums' | 'rhythm' | 'kicks' | 'chordsDb' | 'drumsDb'>>
 
 const PPQ = 480
 
@@ -112,7 +112,7 @@ export function songToMidi(song: ExportSong): Blob {
 // ---- WAV ----
 
 /** A take placed where it plays, and which vocal track it's on. */
-export type PlacedTake = Take & { track: number }
+export type PlacedTake = Take & { track: number; db?: number }
 
 /** The takes that play, each moved to where it plays and cut off at the end of its section. */
 export function placedTakes(song: Pick<Playback, 'bpm' | 'timeSig' | 'vocals'>, audioOf: (id: string) => Take | undefined): PlacedTake[] {
@@ -122,7 +122,7 @@ export function placedTakes(song: Pick<Playback, 'bpm' | 'timeSig' | 'vocals'>, 
     if (!take) return []
     const room = Math.round((vocal.endBeat - vocal.startBeat) * beatSeconds * take.sampleRate)
     const samples = Number.isFinite(room) && room < take.samples.length ? take.samples.subarray(0, Math.max(0, room)) : take.samples
-    return [{ ...take, startBeat: vocal.startBeat, samples, track: vocal.track }]
+    return [{ ...take, startBeat: vocal.startBeat, samples, track: vocal.track, db: vocal.db }]
   })
 }
 
@@ -133,7 +133,7 @@ interface Parts {
   pad: boolean
   bass: boolean
   drums: boolean
-  takes: Take[]
+  takes: PlacedTake[]
 }
 
 /** How long a render of the whole song runs, with time for the last notes to ring out. */
@@ -154,7 +154,8 @@ async function render(song: ExportSong, parts: Parts, duration: number) {
   const beatSeconds = quarterSeconds * (4 / song.timeSig[1])
   const hits = arrange(song)
   const rendered = await Tone.Offline(async () => {
-    const { pad, bass, reverb } = createInstruments(song.sound)
+    const { pad, bass, reverb, bus } = createInstruments(song.sound)
+    bus.volume.value = song.chordsDb ?? 0
     await reverb.ready
     for (const h of hits) {
       const time = h.start * quarterSeconds
@@ -164,9 +165,14 @@ async function render(song: ExportSong, parts: Parts, duration: number) {
     }
     if (parts.drums) {
       const kit = createKit()
+      kit.out.volume.value = KIT_VOLUME + (song.drumsDb ?? 0)
       for (const h of song.drums ?? []) playDrum(kit, h.piece, h.beat * beatSeconds, h.velocity)
     }
-    for (const take of parts.takes) new Tone.Player(toAudioBuffer(take)).toDestination().start(take.startBeat * beatSeconds)
+    for (const take of parts.takes) {
+      const player = new Tone.Player(toAudioBuffer(take)).toDestination()
+      player.volume.value = take.db ?? 0
+      player.start(take.startBeat * beatSeconds)
+    }
   }, duration, 2, 44100)
   return rendered.get()!
 }
@@ -175,7 +181,7 @@ async function render(song: ExportSong, parts: Parts, duration: number) {
  * Renders the whole song once, on the same sounds as playback, to a 24-bit
  * WAV, with any vocal takes given mixed in.
  */
-export async function songToWav(song: ExportSong, takes: Take[] = []): Promise<Blob> {
+export async function songToWav(song: ExportSong, takes: PlacedTake[] = []): Promise<Blob> {
   return encodeWav(await render(song, { pad: true, bass: song.sound.bass, drums: true, takes }, songSeconds(song, takes)))
 }
 

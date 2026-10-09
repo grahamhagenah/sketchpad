@@ -72,8 +72,8 @@ function restore(snapshot: Snapshot) {
   const s = useStore.getState()
   const now = new Map(sectionsNow(s).map((sec) => [sec.id, sec]))
   const vocalsOf = (id: string) => {
-    const { takes, vocalMuted, vocalSolo, vocalNames, vocalTracks } = now.get(id) ?? emptyParts()
-    return { takes, vocalMuted, vocalSolo, vocalNames, vocalTracks }
+    const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalTracks } = now.get(id) ?? emptyParts()
+    return { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalTracks }
   }
   const sections = snapshot.sections.map((sec) => ({ ...sec, ...vocalsOf(sec.id) }))
   const switched = snapshot.activeSection !== s.activeSection

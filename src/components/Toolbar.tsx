@@ -5,7 +5,6 @@ import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { audition, deleteTake, engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
 import { SoundButton } from './SoundPanel'
-import { ShortcutsButton } from './Shortcuts'
 import { Position } from './Position'
 import { SongTitle } from './SongTitle'
 import { download, exportName, placedTakes, songToMidi, songToStems, songToWav, takeToWav } from '../audio/export'
@@ -32,81 +31,83 @@ export function Toolbar() {
     audition({ ...c, ...patch })
   }
 
+  const trackSelected = vocalSelected || chordsTrackSelected || drumsTrackSelected
+
   return (
-    <div className="toolbar">
-      <div className="toolbar-row" role="toolbar" aria-label="Playback">
-        <div className="toolbar-group">
-          <SongTitle />
+    <div className="toolbar" role="toolbar" aria-label="Song">
+      <div className="toolbar-zone">
+        <SongTitle />
+      </div>
+
+      {/* Laid out like a DAW's control bar: transport, then a display of where you are and the song's settings, then modes. */}
+      <div className="toolbar-zone">
+        <div className="transport" role="group" aria-label="Transport">
+          <button type="button" className="to-start" onClick={() => void seek(0)} aria-label="Go to the start" title="Go to the start (↵)">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="5" width="2.5" height="14" rx="1" fill="currentColor" />
+              <path d="M19 5.5v13L9 12z" fill="currentColor" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={`play ${playing ? 'is-playing' : ''}`}
+            onClick={togglePlay}
+            aria-label={playing ? 'Pause' : 'Play'}
+            title="Play / pause (Space)"
+          >
+            {playing ? <PauseIcon /> : <PlayIcon />}
+          </button>
+          <RecordButton />
         </div>
 
-        {/* Laid out like a DAW's control bar: transport, then a display of where you are and the song's settings, then modes. */}
-        <div className="toolbar-group">
-          <div className="transport" role="group" aria-label="Transport">
-            <button type="button" className="to-start" onClick={() => void seek(0)} aria-label="Go to the start" title="Go to the start (↵)">
-              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="5" y="5" width="2.5" height="14" rx="1" fill="currentColor" />
-                <path d="M19 5.5v13L9 12z" fill="currentColor" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={`play ${playing ? 'is-playing' : ''}`}
-              onClick={togglePlay}
-              aria-label={playing ? 'Pause' : 'Play'}
-              title="Play / pause (Space)"
+        <div className="lcd" role="group" aria-label="Position and song settings">
+          <Position />
+          <TempoField />
+          {/* Meter over key, stacked in one cell as Logic shows them. */}
+          <div className="lcd-cell lcd-stack">
+            <select
+              aria-label="Time signature"
+              title="Time signature"
+              value={timeSig.join('/')}
+              onChange={(e) => {
+                const sig = TIME_SIGS.find((s) => s.join('/') === e.target.value)
+                if (sig) setTimeSig(sig)
+              }}
             >
-              {playing ? <PauseIcon /> : <PlayIcon />}
-            </button>
-            <RecordButton />
+              {TIME_SIG_GROUPS.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.sigs.map((s) => (
+                    <option key={s.join('/')} value={s.join('/')}>
+                      {s.join('/')}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <select
+              aria-label="Key"
+              title="Key"
+              value={`${key}-${mode}`}
+              onChange={(e) => {
+                const [pc, m] = e.target.value.split('-')
+                setKey(Number(pc))
+                setMode(m as Mode)
+              }}
+            >
+              {(['major', 'minor'] as const).map((m) => (
+                <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
+                  {Array.from({ length: 12 }, (_, pc) => (
+                    <option key={pc} value={`${pc}-${m}`}>
+                      {keyLabel(pc, m)} {m === 'major' ? 'maj' : 'min'}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </div>
+        </div>
 
-          <div className="lcd" role="group" aria-label="Position and song settings">
-            <Position />
-            <TempoField />
-            {/* Meter over key, stacked in one cell as Logic shows them. */}
-            <div className="lcd-cell lcd-stack">
-              <select
-                aria-label="Time signature"
-                title="Time signature"
-                value={timeSig.join('/')}
-                onChange={(e) => {
-                  const sig = TIME_SIGS.find((s) => s.join('/') === e.target.value)
-                  if (sig) setTimeSig(sig)
-                }}
-              >
-                {TIME_SIG_GROUPS.map((g) => (
-                  <optgroup key={g.label} label={g.label}>
-                    {g.sigs.map((s) => (
-                      <option key={s.join('/')} value={s.join('/')}>
-                        {s.join('/')}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              <select
-                aria-label="Key"
-                title="Key"
-                value={`${key}-${mode}`}
-                onChange={(e) => {
-                  const [pc, m] = e.target.value.split('-')
-                  setKey(Number(pc))
-                  setMode(m as Mode)
-                }}
-              >
-                {(['major', 'minor'] as const).map((m) => (
-                  <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
-                    {Array.from({ length: 12 }, (_, pc) => (
-                      <option key={pc} value={`${pc}-${m}`}>
-                        {keyLabel(pc, m)} {m === 'major' ? 'maj' : 'min'}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-          </div>
-
+        <div className="toolbar-icons toolbar-modes">
           <IconToggle label="Cycle (L)" pressed={loopOn} onClick={toggleLoop}>
             <Icon d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4" />
           </IconToggle>
@@ -115,105 +116,86 @@ export function Toolbar() {
           </IconToggle>
           <SoundButton />
         </div>
+      </div>
 
-        <div className="toolbar-group" aria-label="Edit" role="group">
-          <UndoRedo />
-        </div>
-
-        {/* Shown only for what's selected, rather than sitting greyed out. */}
-        {(chord || vocalSelected || chordsTrackSelected || drumsTrackSelected) && (
-          <div className="toolbar-group" aria-label={chord ? 'Selected chord' : 'Selected track'} role="group">
-            {chord && (
-              <>
-                <select
-                  aria-label="Selected chord"
-                  title="Change the selected chord"
-                  className="chord-select"
-                  value={chord.degree}
-                  onChange={(e) => editChord(chord, { degree: Number(e.target.value) })}
-                >
-                  {Array.from({ length: 7 }, (_, d) => {
-                    const o = chordOf(key, mode, { ...chord, degree: d })
-                    return (
-                      <option key={d} value={d}>
-                        {o.name} — {o.roman}
-                      </option>
-                    )
-                  })}
-                </select>
-                <button
-                  type="button"
-                  className="chip"
-                  aria-pressed={chord.seventh}
-                  onClick={() => editChord(chord, { seventh: !chord.seventh })}
-                  title="Add 7th (S)"
-                >
-                  7th
-                </button>
-                <select
-                  aria-label="Chord colour"
-                  title="Sus or added note"
-                  value={chord.color ?? ''}
-                  onChange={(e) => editChord(chord, { color: (e.target.value || undefined) as Chord['color'] })}
-                >
-                  <option value="">Triad</option>
-                  <option value="sus2">sus2</option>
-                  <option value="sus4">sus4</option>
-                  <option value="add9">add9</option>
-                </select>
-                <select
-                  aria-label="Bass note"
-                  title="Bass note (slash chord)"
-                  value={chord.bass ?? ''}
-                  onChange={(e) => editChord(chord, { bass: (e.target.value || undefined) as Chord['bass'] })}
-                >
-                  <option value="">Root</option>
-                  <option value="third">/3rd</option>
-                  <option value="fifth">/5th</option>
-                </select>
-                <button type="button" className="icon-btn" aria-label="Duplicate" title="Duplicate (D)" onClick={() => duplicateChord(chord.id)}>
-                  <Icon d="M9 9h10v10H9zM5 15V5h10" />
-                </button>
-              </>
-            )}
+      <div className="toolbar-zone toolbar-end">
+        {/* What's selected, as one joined unit, shown only while something is. */}
+        {chord && (
+          <div className="selection" role="group" aria-label="Selected chord">
+            <select
+              aria-label="Selected chord"
+              title="Change the selected chord"
+              className="selection-chord"
+              value={chord.degree}
+              onChange={(e) => editChord(chord, { degree: Number(e.target.value) })}
+            >
+              {Array.from({ length: 7 }, (_, d) => {
+                const o = chordOf(key, mode, { ...chord, degree: d })
+                return (
+                  <option key={d} value={d}>
+                    {o.name} — {o.roman}
+                  </option>
+                )
+              })}
+            </select>
+            <button type="button" className="selection-toggle" aria-pressed={chord.seventh} onClick={() => editChord(chord, { seventh: !chord.seventh })} title="Add 7th (S)">
+              7th
+            </button>
+            <select
+              aria-label="Chord colour"
+              title="Sus or added note"
+              value={chord.color ?? ''}
+              onChange={(e) => editChord(chord, { color: (e.target.value || undefined) as Chord['color'] })}
+            >
+              <option value="">Triad</option>
+              <option value="sus2">sus2</option>
+              <option value="sus4">sus4</option>
+              <option value="add9">add9</option>
+            </select>
+            <select
+              aria-label="Bass note"
+              title="Bass note (slash chord)"
+              value={chord.bass ?? ''}
+              onChange={(e) => editChord(chord, { bass: (e.target.value || undefined) as Chord['bass'] })}
+            >
+              <option value="">Root</option>
+              <option value="third">/3rd</option>
+              <option value="fifth">/5th</option>
+            </select>
+            <button type="button" className="selection-icon" aria-label="Duplicate" title="Duplicate (D)" onClick={() => duplicateChord(chord.id)}>
+              <Icon d="M9 9h10v10H9zM5 15V5h10" />
+            </button>
+            <button type="button" className="selection-icon is-danger" aria-label="Delete" title="Delete the selected chord (⌫)" onClick={() => removeChord(chord.id)}>
+              <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
+            </button>
+          </div>
+        )}
+        {!chord && trackSelected && (
+          <div className="selection" role="group" aria-label="Selected track">
             <button
               type="button"
-              className="icon-btn danger"
+              className="selection-icon is-danger"
               aria-label={
-                vocalSelected
-                  ? `Delete ${vocalTrackName({ vocalNames }, selectedVocal!)}`
-                  : drumsTrackSelected
-                    ? 'Remove the drum track'
-                    : chordsTrackSelected
-                      ? 'Clear the progression'
-                      : 'Delete'
+                vocalSelected ? `Delete ${vocalTrackName({ vocalNames }, selectedVocal!)}` : drumsTrackSelected ? 'Remove the drum track' : 'Clear the progression'
               }
               title={
                 vocalSelected
                   ? 'Delete the selected track (⌫)'
                   : drumsTrackSelected
                     ? 'Remove the drum track (⌫); each section keeps its groove if you add it back'
-                    : chordsTrackSelected
-                    ? 'Clear every chord (⌫); undo brings them back'
-                    : 'Delete the selected chord (⌫)'
+                    : 'Clear every chord (⌫); undo brings them back'
               }
-              onClick={() =>
-                vocalSelected
-                  ? void deleteTake(selectedVocal!)
-                  : drumsTrackSelected
-                    ? removeDrumTrack()
-                    : chordsTrackSelected
-                      ? clearChords()
-                      : chord && removeChord(chord.id)
-              }
+              onClick={() => (vocalSelected ? void deleteTake(selectedVocal!) : drumsTrackSelected ? removeDrumTrack() : clearChords())}
             >
               <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
             </button>
           </div>
         )}
-        <div className="toolbar-group toolbar-end">
+        <div className="toolbar-icons">
+          <UndoRedo />
+        </div>
+        <div className="toolbar-icons">
           <ExportButton />
-          <ShortcutsButton />
         </div>
       </div>
     </div>

@@ -55,23 +55,44 @@ main > .panel {
   padding: 16px max(var(--gutter), calc((100% - var(--site)) / 2));
 }
 
-/* Toolbar */
+/* Toolbar: three zones (the sketch, the transport and display, then editing and export) on one row.
+   Plain actions are borderless icon buttons; things that belong together are one joined, outlined unit. */
 .toolbar {
+  --control-h: 40px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
   padding-bottom: 14px;
 }
-.toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 0; }
-.toolbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 6px; }
-.toolbar-group:first-child { padding-left: 0; }
-.toolbar-group + .toolbar-group { border-left: 1px solid var(--line-strong); }
-.toolbar-end { margin-left: auto; padding-right: 0; }
-.toolbar-group + .toolbar-end { border-left: 0; }
-.toolbar select,
-.icon-btn,
+.toolbar-zone { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.toolbar-end { margin-left: auto; gap: 8px; }
+.toolbar-icons { display: flex; align-items: center; gap: 2px; }
+.toolbar-end .toolbar-icons + .toolbar-icons { padding-left: 8px; border-left: 1px solid var(--line); }
+
+/* Icon buttons: no outline of their own, a soft fill when hovered, the accent when on. */
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+}
+.icon-btn:not(:disabled):hover { color: var(--text); background: var(--raised); }
+.icon-btn[aria-expanded='true'] { color: var(--text); background: var(--raised); }
+.toggle-btn[aria-pressed='true'] { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.toggle-btn[aria-pressed='true']:not(:disabled):hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.icon-btn.danger:not(:disabled):hover { color: var(--danger); }
+
+/* Chips: the choices in the sound panel. */
 .chip {
+  min-width: 32px;
   min-height: 32px;
+  padding: 0 10px;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
   background: var(--raised);
@@ -79,21 +100,79 @@ main > .panel {
   font-size: 13px;
   font-weight: 500;
 }
-.toolbar select { padding: 0 8px; }
-.toolbar .chord-select { font-weight: 700; }
-.icon-btn { width: 32px; display: inline-grid; place-items: center; }
-.chip { min-width: 32px; padding: 0 10px; }
-.toolbar select:not(:disabled):not(.lcd select):hover,
-.icon-btn:not(:disabled):hover,
 .chip:not(:disabled):hover { border-color: var(--muted); }
-.icon-btn.danger:not(:disabled):hover { color: var(--danger); border-color: var(--danger); }
 .chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
+/* Cycle, metronome and sound: joined into one unit like the transport. No overflow clip, since the sound panel opens from it. */
+.toolbar-modes {
+  gap: 0;
+  height: var(--control-h);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--raised);
+}
+.toolbar-modes > * + * { border-left: 1px solid var(--line-strong); }
+.toolbar-modes .icon-btn { width: 38px; height: calc(var(--control-h) - 2px); border-radius: 0; color: var(--text); }
+.toolbar-modes > :first-child,
+.toolbar-modes > :first-child .icon-btn { border-radius: 7px 0 0 7px; }
+.toolbar-modes > :last-child,
+.toolbar-modes > :last-child .icon-btn { border-radius: 0 7px 7px 0; }
+.toolbar-modes .icon-btn:not(:disabled):hover { background: rgb(255 255 255 / 0.06); }
+.toolbar-modes .toggle-btn[aria-pressed='true'] { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.toolbar-modes .icon-btn[aria-expanded='true'] { background: rgb(255 255 255 / 0.08); }
+
+/* The selected chord's settings, joined like the transport, each part split from the next by a line. */
+.selection {
+  display: inline-flex;
+  align-items: stretch;
+  height: var(--control-h);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--raised);
+  overflow: hidden;
+}
+.selection > * + * { border-left: 1px solid var(--line-strong) !important; }
+.selection select,
+.selection-toggle,
+.selection-icon {
+  min-height: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+.selection select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0 26px 0 12px;
+  /* A small chevron, the same in every browser. */
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23b0b6be' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  cursor: pointer;
+}
+.selection .selection-chord { font-weight: 700; }
+.selection-toggle { padding: 0 12px; }
+.selection-toggle[aria-pressed='true'] { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.selection-icon { width: 38px; display: grid; place-items: center; padding: 0; color: var(--muted); }
+.selection-icon.is-danger:not(:disabled):hover { color: var(--danger); }
+@media (hover: hover) {
+  .selection select:hover,
+  .selection-toggle:not(:disabled):hover,
+  .selection-icon:not(:disabled):hover { background-color: rgb(255 255 255 / 0.06); color: var(--text); }
+  .selection-toggle[aria-pressed='true']:hover { color: var(--accent); }
+  .selection-icon.is-danger:not(:disabled):hover { color: var(--danger); }
+}
+.selection select:focus-visible,
+.selection button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
 /* Transport: start, play and record joined in one group. */
-.transport { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--raised); }
+.transport { display: inline-flex; height: var(--control-h); border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--raised); }
 .transport > button {
-  width: 36px;
-  height: 42px;
+  width: 38px;
+  height: 100%;
   min-height: 0;
   display: grid;
   place-items: center;
@@ -125,13 +204,13 @@ main > .panel {
 }
 
 /* The display: where you are, and the song's tempo, meter and key, read like a DAW's LCD. */
-.lcd { display: inline-flex; height: 44px; border: 1px solid var(--line); border-radius: 8px; background: #0d0f11; }
+.lcd { display: inline-flex; height: var(--control-h); border: 1px solid var(--line); border-radius: 8px; background: #0d0f11; }
 .lcd-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   padding: 0 14px;
   border: 0;
   background: none;
@@ -172,15 +251,26 @@ main > .panel {
 .lcd .lcd-stack select { font-size: 13px; line-height: 1.25; }
 .lcd .lcd-stack select:hover { color: var(--accent); }
 .record-count { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; line-height: 1; color: var(--text); }
-.toolbar-label { display: inline-flex; align-items: center; gap: 6px; padding-right: 2px; font-size: 13px; color: var(--muted); }
-.toolbar-label.is-off { opacity: 0.5; }
-.toggle-btn[aria-pressed='true'] { color: var(--accent); border-color: var(--accent); }
 .toolbar :disabled { opacity: 0.4; }
 
 @media (max-width: 720px) {
-  .toolbar-row { gap: 10px 14px; }
-  .toolbar-group { padding: 0; }
-  .toolbar-group + .toolbar-group { border-left: 0; }
+  .toolbar { gap: 10px 12px; }
+  .toolbar-zone { flex-wrap: wrap; gap: 8px; }
+  .toolbar-end { margin-left: 0; }
+}
+/* On a phone the zones dissolve into rows: the title with undo and export, the transport with the modes, then the display, then what's selected. */
+@media (max-width: 640px) {
+  .toolbar { gap: 8px; }
+  .toolbar-zone { display: contents; }
+  .toolbar .song-bar { order: 1; flex: 1; }
+  .toolbar-end .toolbar-icons { order: 2; }
+  .toolbar-end .toolbar-icons + .toolbar-icons { padding-left: 0; border-left: 0; }
+  .transport { order: 3; }
+  .toolbar-modes { order: 4; margin-left: auto; }
+  .lcd { order: 5; width: 100%; }
+  .lcd-cell { flex: 1; }
+  .selection { order: 6; width: 100%; }
+  .selection .selection-chord { flex: 1; }
 }
 
 /* Panels */
@@ -203,16 +293,16 @@ main > .panel {
   --strip-y: 25px;
   /* Where the bar and beat lines begin, just under the bar numbers; the track names' column starts there too. */
   --grid-top: 20px;
-  /* Every track is the same height, its blocks filling its row, with only --gap between one row and the next. */
+  /* Every track is the same height, with --gap between one track's blocks and the next; each name's row reaches halfway into the gaps around it. */
   --track-h: 62px;
-  --gap: 2px;
+  --gap: 10px;
   --head: 32px;
   --chord-h: var(--track-h);
   --drum-top: calc(var(--head) + var(--chord-h) + var(--gap));
   --drum-h: var(--track-h);
   /* The drum track, when there is one, sits between the chords and the vocals. */
   --drum-rows: 0;
-  --vocal-top: calc(var(--head) + var(--chord-h) + var(--drum-rows) * (var(--drum-h) + var(--gap)) + 8px);
+  --vocal-top: calc(var(--head) + var(--chord-h) + var(--drum-rows) * (var(--drum-h) + var(--gap)) + var(--gap) + 8px);
   --vocal-h: var(--track-h);
   --lanes: 1;
   position: relative;
@@ -223,7 +313,7 @@ main > .panel {
 .timeline-wrap.has-vocals::after {
   content: '';
   position: absolute;
-  top: calc(var(--vocal-top) - 4px);
+  top: calc(var(--vocal-top) - var(--gap) / 2 - 4px);
   left: 0;
   right: 0;
   height: 1px;
@@ -237,7 +327,7 @@ main > .panel {
   position: relative;
   flex: 1 0 auto;
   min-width: 100%;
-  min-height: calc(var(--vocal-top) - 4px + var(--lanes) * (var(--vocal-h) + var(--gap)));
+  min-height: calc(var(--vocal-top) - var(--gap) / 2 - 4px + var(--lanes) * (var(--vocal-h) + var(--gap)));
   background:
     repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat,
     repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--beat)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat;
@@ -378,18 +468,45 @@ main > .panel {
   pointer-events: none;
 }
 .timeline-empty span { color: var(--text); }
-/* In the track column, where the first vocal track will go, while there are none. */
-.track-header.vocal-hint {
+/* Buttons to add a vocal or drum track, stacked in one row under the vocal tracks. */
+.track-adds {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--vocal-top) - var(--gap) / 2 + var(--row, 0) * (var(--vocal-h) + var(--gap)));
+  height: calc(var(--vocal-h) + var(--gap));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
   gap: 6px;
-  border: 0;
-  border-radius: 0;
-  background: none;
+  padding: 0 8px;
+}
+.track-add {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--raised);
   font-size: 12px;
   font-weight: 500;
   color: var(--muted);
-  text-align: left;
 }
-.track-header.vocal-hint:hover { color: var(--text); background: rgb(255 255 255 / 0.03); }
+.track-add:hover { color: var(--text); border-color: var(--muted); }
+/* A line above the add buttons, across the names and the timeline, setting them apart from the vocal tracks. */
+.timeline-wrap.has-adds::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--vocal-top) - var(--gap) / 2 + var(--adds-row) * (var(--vocal-h) + var(--gap)));
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line-strong);
+  pointer-events: none;
+}
 /* With nothing on it, the grid would only cut through the hint. */
 .timeline.is-empty { background: none; }
 
@@ -425,15 +542,30 @@ main > .panel {
 /* Track names beside the rows: plain text, with mute and solo as small letters. */
 .track-headers { position: relative; flex: none; width: 200px; }
 /* Each header fills its whole slot in the column, gaps between rows included, so the clickable area runs edge to edge. */
-.track-header { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; }
+.track-header { position: absolute; left: 0; right: 0; display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 6px 4px; padding: 0 8px; }
+/* The track's volume, under its name: a thin line filled up to the level, with a small knob. */
+.track-volume {
+  flex-basis: 100%;
+  height: 12px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(to right, var(--muted) var(--fill), var(--line-strong) var(--fill)) center / 100% 3px no-repeat;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.track-volume::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 0; }
+.track-volume::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 0; }
+.track-volume:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.track-header.is-selected .track-volume { background-image: linear-gradient(to right, var(--accent) var(--fill), var(--line-strong) var(--fill)); }
 /* The chords' header reaches up to where the timeline's lines begin, its name centred in it. */
 .track-header.is-chords {
   top: var(--grid-top);
-  height: calc(var(--head) + var(--chord-h) + 1px - var(--grid-top));
+  height: calc(var(--head) + var(--chord-h) + var(--gap) / 2 - var(--grid-top));
 }
-.track-header.is-drums { top: calc(var(--drum-top) - 1px); height: calc(var(--drum-h) + 2px); }
+.track-header.is-drums { top: calc(var(--drum-top) - var(--gap) / 2); height: calc(var(--drum-h) + var(--gap)); }
 .track-header.is-vocal {
-  top: calc(var(--vocal-top) - 1px + var(--row, 0) * (var(--vocal-h) + var(--gap)));
+  top: calc(var(--vocal-top) - var(--gap) / 2 + var(--row, 0) * (var(--vocal-h) + var(--gap)));
   height: calc(var(--vocal-h) + var(--gap));
 }
 .track-header.is-selectable { cursor: pointer; }
@@ -474,7 +606,7 @@ main > .panel {
 .song-bar .save-btn.has-changes::after { top: 4px; right: 4px; }
 .song-title {
   width: 116px;
-  height: 32px;
+  height: 34px;
   padding: 0 6px;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -714,8 +846,7 @@ main > .panel {
 .section-bar::after { bottom: 0; }
 .section-bar-end, .section-add { align-self: center; }
 .section-bar-end { flex: none; margin-left: auto; display: flex; gap: 2px; }
-.section-bar-end .icon-btn { width: 30px; height: 30px; min-height: 0; border: 0; background: none; color: var(--muted); }
-.section-bar-end .icon-btn:not(:disabled):hover { color: var(--text); background: var(--raised); }
+.section-bar-end .icon-btn { width: 30px; height: 30px; }
 .section-bar-end .icon-btn svg { width: 17px; height: 17px; }
 .section-tabs { display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; padding: 0 2px; scrollbar-width: none; }
 .section-tabs::-webkit-scrollbar { display: none; }
@@ -890,7 +1021,6 @@ main > .panel {
   z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   height: 32px;
   padding: 0 max(var(--gutter), calc((100% - var(--site)) / 2));
@@ -906,7 +1036,21 @@ main > .panel {
 .status-keys { margin-left: 14px; }
 .status-main > .status-keys:first-child { margin-left: 0; }
 .status-bar kbd { font-size: 10px; padding: 0 4px; }
-.status-save { flex: none; }
+.status-action {
+  margin-left: 14px;
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+.status-action:hover { color: var(--text); border-color: var(--muted); }
+.status-bar .status-save { flex: none; margin-left: auto; }
+/* All the keyboard shortcuts, from the corner of the status bar; the list opens upwards. */
+.status-bar .icon-btn { width: 26px; height: 26px; margin-right: -6px; }
+.status-bar .icon-btn svg { width: 16px; height: 16px; }
+.status-bar .shortcuts-menu { top: auto; bottom: calc(100% + 8px); right: 0; }
 
 /* Menu */
 .menu-anchor { position: relative; }
@@ -1106,8 +1250,6 @@ main > .panel {
   .panel { padding: 14px; }
   .app { --gutter: 12px; }
   main > .panel { padding-block: 12px; }
-  .toolbar-row { gap: 8px; }
-  .toolbar-group { gap: 4px; }
   .tempo { width: 3ch; }
   .song-title { width: auto; flex: 1; min-width: 0; }
   .song-bar { flex: 1; }
@@ -1117,6 +1259,10 @@ main > .panel {
   .track-header { flex-wrap: wrap; align-content: center; row-gap: 2px; }
   .track-title { flex-basis: 100%; }
   .track-name-input { margin-left: 0; height: 22px; }
+  /* Just the + in the narrow column; the label is in the button's name. */
+  .track-add { width: 40px; justify-content: center; padding: 0; }
+  .track-add-label { display: none; }
+  .track-volume { display: none; }
   /* Menus and panels open as a sheet along the bottom, inside the screen. */
   .menu,
   .sound-panel {

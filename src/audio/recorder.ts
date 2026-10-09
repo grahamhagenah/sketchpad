@@ -77,3 +77,91 @@ export function outputLatency() {
   const raw = Tone.getContext().rawContext as AudioContext
   return (raw.outputLatency || 0) + (raw.baseLatency || 0)
 }
+
+// ---- Measuring the round trip ----
+
+const LATENCY_KEY = 'bounce-latency'
+
+/**
+ * The round trip measured on this device, in seconds: from when a sound is
+ * scheduled to when the microphone's copy of it is captured. It's kept apart
+ * from the song, since it belongs to the device, not the sketch.
+ */
+export function measuredLatency(): number | null {
+  try {
+    const value = Number(localStorage.getItem(LATENCY_KEY))
+    return Number.isFinite(value) && value > 0 ? value : null
+  } catch {
+    return null
+  }
+}
+
+function keepLatency(seconds: number) {
+  try {
+    localStorage.setItem(LATENCY_KEY, String(seconds))
+  } catch {
+    // Not kept; the browser's own estimate is used instead.
+  }
+}
+
+/** How far the take must be moved to line up with the beat: the measured round trip, or the browser's estimate. */
+export function roundTrip(capture: Pick<Capture, 'inputLatency'>) {
+  return measuredLatency() ?? outputLatency() + capture.inputLatency
+}
+
+/**
+ * Where each click was heard in a recording, as seconds after it was played,
+ * and the middle of them, or null when too few were heard clearly or they
+ * disagree. Each click is looked for in the time before the next one.
+ */
+export function findClicks(samples: Float32Array, sampleRate: number, startTime: number, clicks: number[], window: number) {
+  const at = (time: number) => Math.round((time - startTime) * sampleRate)
+  // How loud the room is before the first click.
+  let floor = 0
+  for (let i = Math.max(0, at(clicks[0]) - Math.round(0.2 * sampleRate)); i < Math.max(0, at(clicks[0])); i++) floor = Math.max(floor, Math.abs(samples[i]))
+
+  const heard: number[] = []
+  for (const time of clicks) {
+    const from = Math.max(0, at(time))
+    const to = Math.min(samples.length, at(time + window))
+    let peak = 0
+    for (let i = from; i < to; i++) peak = Math.max(peak, Math.abs(samples[i]))
+    if (peak < Math.max(0.02, floor * 4)) continue
+    // Its start: the first sample at half the click's peak.
+    for (let i = from; i < to; i++) {
+      if (Math.abs(samples[i]) >= peak / 2) {
+        heard.push((i - from) / sampleRate)
+        break
+      }
+    }
+  }
+  if (heard.length < Math.ceil(clicks.length * 0.6)) return null
+  heard.sort((a, b) => a - b)
+  const middle = heard[Math.floor(heard.length / 2)]
+  // Most should agree within a few milliseconds.
+  const agreeing = heard.filter((h) => Math.abs(h - middle) < 0.008)
+  return agreeing.length >= Math.ceil(clicks.length * 0.5) ? middle : null
+}
+
+/**
+ * Plays a few clicks and listens for them on the microphone, to measure how
+ * late recordings arrive on this device, and keeps the result. Resolves to the
+ * round trip in seconds, or null if the clicks couldn't be heard clearly.
+ */
+export async function measureLatency(): Promise<number | null> {
+  await Tone.start()
+  const stream = await openMic()
+  const capture = await startCapture(stream)
+  const click = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.01 } }).toDestination()
+  const COUNT = 8
+  const GAP = 0.45
+  const first = Tone.now() + 0.4
+  const clicks = Array.from({ length: COUNT }, (_, i) => first + i * GAP)
+  clicks.forEach((time) => click.triggerAttackRelease('A5', 0.02, time, 1))
+  await new Promise((r) => setTimeout(r, (first + COUNT * GAP + 0.3 - Tone.immediate()) * 1000))
+  const { startTime, samples } = await capture.stop()
+  click.dispose()
+  const latency = findClicks(samples, Tone.getContext().sampleRate, startTime, clicks, GAP - 0.05)
+  if (latency !== null) keepLatency(latency)
+  return latency
+}

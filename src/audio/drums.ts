@@ -85,6 +85,9 @@ export function grooveHits(groove: GrooveId | null, timeSig: TimeSig, start: num
   return hits
 }
 
+/** The kit's usual level, in dB, which the drum track's volume is added to. */
+export const KIT_VOLUME = -6
+
 export interface Kit {
   kick: Tone.MembraneSynth
   snare: Tone.NoiseSynth
@@ -96,7 +99,7 @@ export interface Kit {
 
 /** A small synthesized kit, built in whichever Tone context is current, so playback and the WAV render match. */
 export function createKit(): Kit {
-  const out = new Tone.Volume(-6).toDestination()
+  const out = new Tone.Volume(KIT_VOLUME).toDestination()
   const kick = new Tone.MembraneSynth({ pitchDecay: 0.04, octaves: 6, envelope: { attack: 0.001, decay: 0.32, sustain: 0, release: 0.1 } }).connect(out)
   const snareTone = new Tone.Filter(1800, 'bandpass').connect(out)
   const snare = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.16, sustain: 0 } }).connect(snareTone)

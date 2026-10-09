@@ -20,6 +20,8 @@ export interface VocalPlacement {
   lane: number | null
   /** Which vocal track it's on, in whichever section, for exporting each track on its own. */
   track: number
+  /** Its track's level, in dB. */
+  db: number
 }
 
 /** Everything the engine and exports need to play: the open section, or the whole song. */
@@ -33,6 +35,9 @@ export interface Playback {
   sound: State['sound']
   arp: State['arp']
   rhythm: State['rhythm']
+  /** The chords' (and bass's) and drums' levels, in dB. */
+  chordsDb: number
+  drumsDb: number
   chords: PlayChord[]
   loop: LoopRegion | null
   vocals: VocalPlacement[]
@@ -72,6 +77,8 @@ export function playbackOf(s: State, view = s.view): Playback {
     sound: s.sound,
     arp: s.arp,
     rhythm: s.rhythm,
+    chordsDb: s.chordsVolume,
+    drumsDb: s.drumsVolume,
   }
   if (view === 'section') {
     const audible = audibleTracks(s)
@@ -82,7 +89,7 @@ export function playbackOf(s: State, view = s.view): Playback {
       drums: audible.drums && s.drumTrack ? grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords)) : [],
       kicks: s.drumTrack ? kicksOf(grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords))) : undefined,
       vocals: s.takes.flatMap((t, lane) =>
-        t && audible.vocals[lane] ? [{ id: t.id, startBeat: t.startBeat, seconds: t.seconds, endBeat: Infinity, lane, track: lane }] : [],
+        t && audible.vocals[lane] ? [{ id: t.id, startBeat: t.startBeat, seconds: t.seconds, endBeat: Infinity, lane, track: lane, db: s.vocalVolume[lane] ?? 0 }] : [],
       ),
     }
   }
@@ -101,7 +108,7 @@ export function playbackOf(s: State, view = s.view): Playback {
     if (audible.drums && s.drumTrack) drums.push(...groove)
     kicks.push(...kicksOf(groove))
     section.takes.forEach((t, lane) => {
-      if (t && audible.vocals[lane]) vocals.push({ id: t.id, startBeat: start + t.startBeat, seconds: t.seconds, endBeat: start + beats, lane: null, track: lane })
+      if (t && audible.vocals[lane]) vocals.push({ id: t.id, startBeat: start + t.startBeat, seconds: t.seconds, endBeat: start + beats, lane: null, track: lane, db: section.vocalVolume?.[lane] ?? 0 })
     })
   }
   return { ...base, chords, loop: null, vocals, drums, kicks: s.drumTrack ? kicks : undefined }
