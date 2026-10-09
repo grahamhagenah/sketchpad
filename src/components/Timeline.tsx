@@ -3,6 +3,7 @@ import { audibleTracks, chordsTrackName, useStore, vocalTrackName, type Chord } 
 import { chordInfo } from '../music/theory'
 import { audition, engine, seek } from '../audio/engine'
 import { LoopLane } from './LoopLane'
+import { AddTrackButton, ZoomButtons } from './Toolbar'
 import type { TakeInfo } from '../audio/take'
 
 interface Drag {
@@ -49,10 +50,13 @@ export function Timeline() {
   const playheadRef = useRef<HTMLDivElement>(null)
   const playhead = useStore((s) => s.playhead)
   const recordingRef = useRef<HTMLDivElement>(null)
-  const { takes, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames } = useStore()
+  const { takes, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames, chordsTrackSelected } = useStore()
   const audible = audibleTracks(useStore())
   // The tracks added so far, plus the one a recording is adding.
   const laneCount = Math.max(vocalTracks, recording === 'off' ? 0 : armedLane + 1)
+  // With chords but no vocal tracks, a row invites you to add one.
+  const vocalHint = laneCount === 0 && chords.length > 0
+  const rows = laneCount || (vocalHint ? 1 : 0)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -198,11 +202,11 @@ export function Timeline() {
   }, [playing, beatPx])
 
   return (
-    <div className="timeline-wrap" style={{ ['--lanes' as string]: laneCount }}>
-      <TrackHeaders laneCount={laneCount} />
+    <div className={`timeline-wrap ${rows ? 'has-vocals' : ''}`} style={{ ['--lanes' as string]: rows }}>
+      <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} />
       <div className="timeline-scroll" ref={scrollRef}>
         <div
-          className={`timeline ${chords.length ? '' : 'is-empty'} ${audible.chords ? '' : 'chords-silent'}`}
+          className={`timeline ${chords.length ? '' : 'is-empty'} ${audible.chords ? '' : 'chords-silent'} ${chordsTrackSelected ? 'chords-selected' : ''}`}
           style={{
             width,
             ['--beat' as string]: `${beatPx}px`,
@@ -419,13 +423,42 @@ function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, b
   )
 }
 
+/** Brings back every muted or soloed-out track at once. */
+function UnmuteAllButton() {
+  const any = useStore((s) => s.chordsMuted || s.chordsSolo || s.vocalMuted.some(Boolean) || s.vocalSolo.some(Boolean))
+  const unmuteAll = useStore((s) => s.unmuteAll)
+  return (
+    <button
+      type="button"
+      className="icon-btn"
+      aria-label="Unmute all tracks"
+      title={any ? 'Unmute all and clear solos' : 'Every track is playing'}
+      disabled={!any}
+      onClick={unmuteAll}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
+      </svg>
+    </button>
+  )
+}
+
 /** Track names with mute and solo, beside each track's row. */
-function TrackHeaders({ laneCount }: { laneCount: number }) {
+function TrackHeaders({ laneCount, vocalHint }: { laneCount: number; vocalHint: boolean }) {
   const s = useStore()
   return (
     <div className="track-headers">
+      <div className="timeline-corner">
+        <span className="timeline-corner-group">
+          <AddTrackButton />
+          <UnmuteAllButton />
+        </span>
+        <span className="timeline-corner-group timeline-corner-zoom">
+          <ZoomButtons />
+        </span>
+      </div>
       <TrackHeader
-        className="is-chords"
+        className={`is-chords ${s.chordsTrackSelected ? 'is-selected' : ''}`}
         icon={<KeysIcon />}
         name={chordsTrackName(s)}
         muted={s.chordsMuted}
@@ -433,6 +466,7 @@ function TrackHeaders({ laneCount }: { laneCount: number }) {
         onMute={s.toggleChordsMute}
         onSolo={s.toggleChordsSolo}
         onRename={s.renameChords}
+        onSelect={s.recording === 'off' && s.chords.length > 0 ? s.selectChordsTrack : undefined}
       />
       {Array.from({ length: laneCount }, (_, lane) => (
         <TrackHeader
@@ -446,8 +480,16 @@ function TrackHeaders({ laneCount }: { laneCount: number }) {
           onMute={() => s.toggleVocalMute(lane)}
           onSolo={() => s.toggleVocalSolo(lane)}
           onRename={(name) => s.renameVocal(lane, name)}
+          onSelect={s.recording === 'off' ? () => s.selectVocal(lane) : undefined}
         />
       ))}
+      {vocalHint && (
+        // Where the first vocal track will go, while there are none.
+        <button type="button" className="track-header is-vocal vocal-hint" onClick={s.addVocalTrack} title="Add a vocal track to record into, or press R to record straight away">
+          <MicIcon />
+          Add vocal track
+        </button>
+      )}
     </div>
   )
 }
@@ -464,14 +506,24 @@ interface TrackHeaderProps {
   onSolo: () => void
   /** An empty name puts the usual one back. */
   onRename: (name: string) => void
+  /** Clicking the header (other than mute and solo) selects the track. */
+  onSelect?: () => void
 }
 
-function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo, onRename }: TrackHeaderProps) {
+function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo, onRename, onSelect }: TrackHeaderProps) {
   const [editing, setEditing] = useState(false)
   // A double tap or double click; timed by hand, since phones don't reliably send dblclick.
   const lastTap = useRef(0)
   return (
-    <div className={`track-header ${className}`} style={style} role="group" aria-label={name}>
+    <div
+      className={`track-header ${className} ${onSelect ? 'is-selectable' : ''}`}
+      style={style}
+      role="group"
+      aria-label={name}
+      onClick={(e) => {
+        if (!(e.target as HTMLElement).closest('.track-btn, input')) onSelect?.()
+      }}
+    >
       <span className="track-title">
         {icon}
         {editing ? (

@@ -3,9 +3,9 @@
   --panel: #1b1e22;
   --raised: #23272c;
   --line: #2c3036;
-  --line-strong: #3a3f46;
+  --line-strong: #454b53;
   --text: #ecedee;
-  --muted: #9aa1aa;
+  --muted: #b0b6be;
   --accent: #5ad8c8;
   --on-accent: #052421;
   --danger: #ff8a7a;
@@ -59,7 +59,7 @@ main > .panel {
   border-bottom: 1px solid var(--line);
 }
 .toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 0; }
-.toolbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 14px; }
+.toolbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 8px; }
 .toolbar-group:first-child { padding-left: 0; }
 .toolbar-group + .toolbar-group { border-left: 1px solid var(--line-strong); }
 .toolbar-end { margin-left: auto; padding-right: 0; }
@@ -88,7 +88,7 @@ main > .panel {
   font-weight: 500;
 }
 .toolbar select { padding: 0 8px; }
-.toolbar .chord-select { font-weight: 700; min-width: 128px; }
+.toolbar .chord-select { font-weight: 700; }
 .tempo-field { display: inline-flex; align-items: center; padding-right: 10px; cursor: text; }
 .tempo-field span { font-size: 12px; color: var(--muted); }
 .tempo {
@@ -116,6 +116,20 @@ main > .panel {
 .chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .record-btn.is-count-in { border-color: var(--text); }
 .record-btn.is-on { background: var(--text); border-color: var(--text); color: var(--bg); }
+.position {
+  min-width: 64px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+}
+.position span { margin-left: 4px; font-size: 12px; color: var(--muted); }
 .record-count { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; line-height: 1; }
 .toolbar-label { display: inline-flex; align-items: center; gap: 6px; padding-right: 2px; font-size: 13px; color: var(--muted); }
 .toolbar-label.is-off { opacity: 0.5; }
@@ -143,28 +157,45 @@ main > .panel {
 /* Timeline */
 .timeline-wrap {
   /* Row positions, shared by the track headers and the timeline beside them. */
-  --lane: 16px;
-  --chord-h: 48px;
-  --vocal-top: calc(var(--lane) + 26px + var(--chord-h) + 8px);
-  --vocal-h: 44px;
+  /* The loop strip runs along the bottom of the ruler, under the bar numbers, so it takes no room of its own. */
+  --ruler-h: 18px;
+  --strip-y: 25px;
+  --head: 36px;
+  --chord-h: 60px;
+  --vocal-top: calc(var(--head) + var(--chord-h) + 12px);
+  --vocal-h: 56px;
   --lanes: 1;
+  position: relative;
   display: flex;
   min-width: 0;
+}
+/* A line between the chords and the vocals, across the names and the timeline. */
+.timeline-wrap.has-vocals::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--head) + var(--chord-h) + 6px);
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line-strong);
+  pointer-events: none;
 }
 .timeline-scroll { flex: 1; min-width: 0; overflow-x: auto; padding-bottom: 6px; }
 .timeline {
   position: relative;
   min-width: 100%;
-  height: calc(var(--lane) + 26px + var(--chord-h) + 6px + var(--lanes) * (var(--vocal-h) + 8px));
+  height: calc(var(--head) + var(--chord-h) + 6px + min(var(--lanes), 1) * 4px + var(--lanes) * (var(--vocal-h) + 8px));
   background:
-    repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 calc(var(--lane) + 20px) / 100% calc(100% - var(--lane) - 20px) no-repeat,
-    repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--beat)) 0 calc(var(--lane) + 20px) / 100% calc(100% - var(--lane) - 20px) no-repeat;
+    repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 20px / 100% calc(100% - 20px) no-repeat,
+    repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--beat)) 0 20px / 100% calc(100% - 20px) no-repeat;
 }
-.ruler { position: absolute; top: var(--lane); left: 0; right: 0; height: 20px; cursor: pointer; }
+.ruler { position: absolute; top: 0; left: 0; right: 0; height: var(--ruler-h); cursor: pointer; }
 .ruler span { pointer-events: none; }
 .ruler span {
   position: absolute;
-  top: 2px;
+  top: 0;
+  /* The row's full height, so the numbers sit on its centre line, as the corner buttons do. */
+  line-height: var(--ruler-h);
   padding-left: 6px;
   font-family: 'DM Mono', monospace;
   font-size: 11px;
@@ -172,7 +203,7 @@ main > .panel {
 }
 .chord {
   position: absolute;
-  top: calc(var(--lane) + 26px);
+  top: var(--head);
   height: var(--chord-h);
   margin-left: 3px;
   border-radius: var(--radius);
@@ -187,7 +218,8 @@ main > .panel {
   opacity: 0.92;
 }
 .chord.is-dragging .chord-body { cursor: grabbing; }
-.chord.is-selected { border-color: var(--accent); }
+.chord.is-selected,
+.timeline.chords-selected .chord { border-color: var(--accent); }
 .chord.is-active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .chord-body {
   width: 100%;
@@ -209,7 +241,7 @@ main > .panel {
   user-select: none;
 }
 .chord-name { font-size: 17px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
-.chord-roman { font-family: 'DM Mono', monospace; font-size: 11px; line-height: 1; opacity: 0.75; white-space: nowrap; }
+.chord-roman { font-family: 'DM Mono', monospace; font-size: 11px; line-height: 1; opacity: 0.85; white-space: nowrap; }
 .resize {
   position: absolute;
   top: 0;
@@ -234,7 +266,7 @@ main > .panel {
 .chord.is-active .resize::after { background: var(--on-accent); }
 .add-slot {
   position: absolute;
-  top: calc(var(--lane) + 26px);
+  top: var(--head);
   height: var(--chord-h);
   margin-left: 3px;
   border-radius: var(--radius);
@@ -258,7 +290,7 @@ main > .panel {
 
 .timeline-empty {
   position: absolute;
-  top: calc(var(--lane) + 26px);
+  top: var(--head);
   height: var(--chord-h);
   margin: 0;
   display: flex;
@@ -268,6 +300,20 @@ main > .panel {
   pointer-events: none;
 }
 .timeline-empty span { color: var(--text); }
+/* In the track column, where the first vocal track will go, while there are none. */
+.track-header.vocal-hint {
+  margin-left: -6px;
+  padding-left: 6px;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: left;
+}
+.track-header.vocal-hint:hover { color: var(--text); background: rgb(255 255 255 / 0.03); }
 /* With nothing on it, the grid would only cut through the hint. */
 .timeline.is-empty { background: none; }
 
@@ -277,8 +323,9 @@ main > .panel {
 }
 .vocal-row {
   position: absolute;
-  left: 0;
-  right: 0;
+  /* Inset like the chord blocks, which sit 3px in from their beat lines. */
+  left: 3px;
+  right: 3px;
   height: var(--vocal-h);
   padding: 0;
   border: 0;
@@ -288,14 +335,63 @@ main > .panel {
 }
 .vocal-row:not(:disabled):hover { background: rgb(255 255 255 / 0.03); }
 .vocal-row:disabled { cursor: default; }
-.vocal-row.is-empty { border: 1px dashed var(--line); }
-.vocal-row.is-empty.is-selected { border-color: var(--accent); }
+/* A selected track keeps a soft highlight, a little stronger than hover, on its row and its name. */
+.vocal-row.is-selected,
+.vocal-row.is-selected:not(:disabled):hover,
+.track-header.is-selectable.is-selected,
+.track-header.is-selectable.is-selected:hover { background: rgb(255 255 255 / 0.05); }
+/* And a green outline: around its take, or around the row when the track is empty. */
+.vocal-take.is-selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.vocal-row.is-empty.is-selected { box-shadow: inset 0 0 0 1px var(--accent); }
+/* Keyboard focus drawn inside the row, on the same rounded edge as its border. */
+.vocal-row:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
 
 /* Track names beside the rows: plain text, with mute and solo as small letters. */
-.track-headers { position: relative; flex: none; width: 116px; margin-right: 10px; }
-.track-header { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 2px; }
-.track-header.is-chords { top: calc(var(--lane) + 26px); height: var(--chord-h); }
+.track-headers { position: relative; flex: none; width: 200px; margin-right: 10px; }
+.track-header { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 4px; padding-right: 6px; }
+.track-header.is-chords { top: var(--head); height: var(--chord-h); }
 .track-header.is-vocal { height: var(--vocal-h); }
+.track-header.is-selectable { cursor: pointer; margin-left: -6px; padding-left: 6px; border-radius: 8px; }
+.track-header.is-selectable:hover { background: rgb(255 255 255 / 0.03); }
+.track-header.is-selectable .track-name { cursor: pointer; }
+/* The corner above the track names, level with the ruler: adding tracks, and zoom. */
+.timeline-corner {
+  position: absolute;
+  /* The ruler's row; the buttons are centred on it, overhanging it equally above and below. */
+  top: 0;
+  height: var(--ruler-h);
+  left: -6px;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.timeline-corner-group { display: flex; gap: 4px; }
+.timeline-corner .icon-btn { width: 30px; height: 30px; min-height: 0; border: 0; background: none; color: var(--muted); }
+.timeline-corner .icon-btn:not(:disabled):hover { color: var(--text); background: var(--raised); }
+.timeline-corner .icon-btn svg { width: 17px; height: 17px; }
+
+/* The sketch's title, leading the toolbar, with the library and save beside it. */
+.song-bar { display: flex; align-items: center; gap: 2px; }
+.song-bar .menu { left: 0; right: auto; }
+.song-bar .save-btn.has-changes::after { top: 4px; right: 4px; }
+.song-title {
+  width: 130px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-overflow: ellipsis;
+}
+.song-title::placeholder { color: var(--muted); font-weight: 500; }
+.song-title:hover { border-color: var(--line); }
+.song-title:focus { outline: none; border-color: var(--accent); background: var(--bg); }
 .track-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; color: var(--muted); }
 .track-header.is-selected .track-title { color: var(--accent); }
 .track-icon { flex: none; }
@@ -340,7 +436,7 @@ main > .panel {
   font-family: 'DM Mono', monospace;
   font-size: 11px;
   font-weight: 500;
-  color: color-mix(in srgb, var(--muted) 60%, transparent);
+  color: color-mix(in srgb, var(--muted) 80%, transparent);
 }
 .track-btn:hover { color: var(--text); }
 .track-btn.is-mute[aria-pressed='true'] { background: var(--raised); color: var(--text); }
@@ -357,7 +453,6 @@ main > .panel {
   pointer-events: none;
 }
 .vocal-take.is-muted { opacity: 0.35; }
-.vocal-take.is-selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .vocal-take { display: flex; align-items: center; gap: 2px; padding: 0 3px; }
 .vocal-take span { flex: none; width: 2px; border-radius: 1px; background: var(--accent); }
 .vocal-recording {
@@ -378,9 +473,9 @@ main > .panel {
 /* Loop */
 .loop-lane {
   position: absolute;
-  top: 0;
+  top: calc(var(--strip-y) - 5px);
   left: 0;
-  height: var(--lane);
+  height: 10px;
   cursor: crosshair;
   touch-action: none;
   user-select: none;
@@ -431,7 +526,7 @@ main > .panel {
 .loop-handle:focus-visible { outline-offset: 0; border-radius: 4px; }
 .loop-dim {
   position: absolute;
-  top: calc(var(--lane) + 20px);
+  top: calc(var(--strip-y) + 5px);
   bottom: 0;
   background: rgb(18 20 22 / 0.45);
   pointer-events: none;
@@ -518,10 +613,54 @@ main > .panel {
 }
 .menu-item:not(:disabled):hover, .menu-item:focus-visible { background: var(--raised); }
 .menu-item-title { font-size: 14px; font-weight: 700; }
+.menu-divider { height: 1px; margin: 4px 6px; background: var(--line); }
+.menu-empty { margin: 6px 12px 8px; font-size: 13px; color: var(--muted); }
+
+/* Saving and the sketch library */
+.save-btn { position: relative; }
+.save-btn.has-changes::after {
+  /* Unsaved changes. */
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.sketches-menu { width: 340px; max-height: min(480px, 70vh); overflow-y: auto; }
+.sketch-row { display: flex; align-items: center; gap: 4px; }
+.sketch-row .menu-item { flex: 1; min-width: 0; }
+.sketch-row .menu-item-title, .sketch-row .menu-item-about { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sketch-row.is-current .menu-item-title { color: var(--accent); }
+.sketch-delete { flex: none; border-color: transparent; color: var(--muted); }
+.sketch-row:not(:hover) .sketch-delete:not(:focus-visible):not(.is-confirming) { opacity: 0; }
+.sketch-delete.is-confirming { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+@media (hover: none) { .sketch-row .sketch-delete { opacity: 1 !important; } }
 .menu-item-about { font-size: 12px; color: var(--muted); }
 
 /* Sound */
 .sound-panel { left: 0; right: auto; width: min(360px, calc(100vw - 32px)); padding: 16px; gap: 16px; }
+.panel-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 9px; background: var(--bg); }
+.panel-tabs button {
+  flex: 1;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.panel-tabs button[aria-selected='true'] { background: var(--raised); color: var(--text); }
+.tab-on, .sound-btn.has-arp::after { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.sound-btn { position: relative; }
+.sound-btn.has-arp::after { content: ''; position: absolute; top: 4px; right: 4px; }
 .sound-section { display: flex; flex-direction: column; gap: 6px; }
 .sound-heading {
   font-family: 'DM Mono', monospace;
@@ -677,6 +816,9 @@ main > .panel {
   .toolbar-row { gap: 8px; }
   .toolbar-group { gap: 4px; }
   .tempo { width: 3ch; }
+  .song-title { width: auto; flex: 1; min-width: 0; }
+  .song-bar { flex: 1; }
+  .timeline-corner-zoom { display: none; }
   /* Icon and name on one line, mute and solo under it. */
   .track-headers { width: 64px; margin-right: 6px; }
   .track-header { flex-wrap: wrap; align-content: center; row-gap: 2px; }

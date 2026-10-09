@@ -3,9 +3,11 @@ import { useDismiss } from '../hooks/useDismiss'
 import { audibleTracks, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
 import { chordInfo, keyLabel, type Mode } from '../music/theory'
 import { audition, deleteTake, engine, togglePlay, toggleRecord } from '../audio/engine'
+import { redo, undo, useHistory } from '../history'
 import { SoundButton } from './SoundPanel'
-import { ArpButton } from './ArpPanel'
 import { ShortcutsButton } from './Shortcuts'
+import { Position } from './Position'
+import { SongTitle } from './SongTitle'
 import { download, exportName, songToMidi, songToWav, takeToWav } from '../audio/export'
 import { LANES } from '../audio/take'
 
@@ -19,6 +21,8 @@ export function Toolbar() {
   const vocalNames = useStore((s) => s.vocalNames)
   const recording = useStore((s) => s.recording)
   const vocalSelected = selectedVocal !== null && recording === 'off'
+  const chordsTrackSelected = useStore((s) => s.chordsTrackSelected) && chords.length > 0
+  const clearChords = useStore((s) => s.clearChords)
 
   const editChord = (c: Chord, patch: Partial<Omit<Chord, 'id'>>) => {
     updateChord(c.id, patch)
@@ -28,6 +32,10 @@ export function Toolbar() {
   return (
     <div className="toolbar">
       <div className="toolbar-row" role="toolbar" aria-label="Playback">
+        <div className="toolbar-group">
+          <SongTitle />
+        </div>
+
         <div className="toolbar-group">
           <button
             type="button"
@@ -46,20 +54,29 @@ export function Toolbar() {
             <Icon d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4" />
           </IconToggle>
           <SoundButton />
-          <ArpButton />
+          <Position />
         </div>
 
         <div className="toolbar-group">
-          <select aria-label="Key" title="Key" value={key} onChange={(e) => setKey(Number(e.target.value))}>
-            {Array.from({ length: 12 }, (_, pc) => (
-              <option key={pc} value={pc}>
-                {keyLabel(pc, mode)}
-              </option>
+          <select
+            aria-label="Key"
+            title="Key"
+            value={`${key}-${mode}`}
+            onChange={(e) => {
+              const [pc, m] = e.target.value.split('-')
+              setKey(Number(pc))
+              setMode(m as Mode)
+            }}
+          >
+            {(['major', 'minor'] as const).map((m) => (
+              <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
+                {Array.from({ length: 12 }, (_, pc) => (
+                  <option key={pc} value={`${pc}-${m}`}>
+                    {keyLabel(pc, m)} {m}
+                  </option>
+                ))}
+              </optgroup>
             ))}
-          </select>
-          <select aria-label="Mode" title="Mode" value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
-            <option value="major">Major</option>
-            <option value="minor">Minor</option>
           </select>
           <select
             aria-label="Time signature"
@@ -83,52 +100,67 @@ export function Toolbar() {
           <TempoField />
         </div>
 
-        <div className="toolbar-group" aria-label="Selected chord" role="group">
-          <select
-            aria-label="Selected chord"
-            title={chord ? 'Change the selected chord' : 'Select a chord to edit it'}
-            className="chord-select"
-            value={chord?.degree ?? ''}
-            disabled={!chord}
-            onChange={(e) => chord && editChord(chord, { degree: Number(e.target.value) })}
-          >
-            {!chord && <option value="">No chord selected</option>}
-            {Array.from({ length: 7 }, (_, d) => {
-              const o = chordInfo(key, mode, d, chord?.seventh ?? false)
-              return (
-                <option key={d} value={d}>
-                  {o.name} — {o.roman}
-                </option>
-              )
-            })}
-          </select>
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={chord?.seventh ?? false}
-            disabled={!chord}
-            onClick={() => chord && editChord(chord, { seventh: !chord.seventh })}
-            title="Add 7th (S)"
-          >
-            7th
-          </button>
-          <button type="button" className="icon-btn" aria-label="Duplicate" title="Duplicate (D)" disabled={!chord} onClick={() => chord && duplicateChord(chord.id)}>
-            <Icon d="M9 9h10v10H9zM5 15V5h10" />
-          </button>
-          <button
-            type="button"
-            className="icon-btn danger"
-            aria-label={vocalSelected ? `Delete ${vocalTrackName({ vocalNames }, selectedVocal!)}` : 'Delete'}
-            title="Delete the selected chord or vocal (⌫)"
-            disabled={!chord && !vocalSelected}
-            onClick={() => (vocalSelected ? void deleteTake(selectedVocal!) : chord && removeChord(chord.id))}
-          >
-            <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
-          </button>
-          <AddTrackButton />
+        <div className="toolbar-group" aria-label="Edit" role="group">
+          <UndoRedo />
         </div>
+
+        {/* Shown only for what's selected, rather than sitting greyed out. */}
+        {(chord || vocalSelected || chordsTrackSelected) && (
+          <div className="toolbar-group" aria-label={chord ? 'Selected chord' : 'Selected track'} role="group">
+            {chord && (
+              <>
+                <select
+                  aria-label="Selected chord"
+                  title="Change the selected chord"
+                  className="chord-select"
+                  value={chord.degree}
+                  onChange={(e) => editChord(chord, { degree: Number(e.target.value) })}
+                >
+                  {Array.from({ length: 7 }, (_, d) => {
+                    const o = chordInfo(key, mode, d, chord.seventh)
+                    return (
+                      <option key={d} value={d}>
+                        {o.name} — {o.roman}
+                      </option>
+                    )
+                  })}
+                </select>
+                <button
+                  type="button"
+                  className="chip"
+                  aria-pressed={chord.seventh}
+                  onClick={() => editChord(chord, { seventh: !chord.seventh })}
+                  title="Add 7th (S)"
+                >
+                  7th
+                </button>
+                <button type="button" className="icon-btn" aria-label="Duplicate" title="Duplicate (D)" onClick={() => duplicateChord(chord.id)}>
+                  <Icon d="M9 9h10v10H9zM5 15V5h10" />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="icon-btn danger"
+              aria-label={
+                vocalSelected ? `Delete ${vocalTrackName({ vocalNames }, selectedVocal!)}` : chordsTrackSelected ? 'Clear the progression' : 'Delete'
+              }
+              title={
+                vocalSelected
+                  ? 'Delete the selected track (⌫)'
+                  : chordsTrackSelected
+                    ? 'Clear every chord (⌫); undo brings them back'
+                    : 'Delete the selected chord (⌫)'
+              }
+              onClick={() =>
+                vocalSelected ? void deleteTake(selectedVocal!) : chordsTrackSelected ? clearChords() : chord && removeChord(chord.id)
+              }
+            >
+              <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
+            </button>
+          </div>
+        )}
         <div className="toolbar-group toolbar-end">
-          <ZoomButtons />
           <ExportButton />
           <ShortcutsButton />
         </div>
@@ -138,7 +170,7 @@ export function Toolbar() {
 }
 
 /** Widens or narrows the beats on the timeline. */
-function ZoomButtons() {
+export function ZoomButtons() {
   const zoom = useStore((s) => s.zoom)
   const zoomBy = useStore((s) => s.zoomBy)
   return (
@@ -153,8 +185,22 @@ function ZoomButtons() {
   )
 }
 
+function UndoRedo() {
+  const { canUndo, canRedo } = useHistory()
+  return (
+    <>
+      <button type="button" className="icon-btn" aria-label="Undo" title="Undo (⌘Z)" disabled={!canUndo} onClick={undo}>
+        <Icon d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+      </button>
+      <button type="button" className="icon-btn" aria-label="Redo" title="Redo (⇧⌘Z)" disabled={!canRedo} onClick={redo}>
+        <Icon d="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+      </button>
+    </>
+  )
+}
+
 /** Adds an empty vocal track, selected and ready to record into. */
-function AddTrackButton() {
+export function AddTrackButton() {
   const full = useStore((s) => s.vocalTracks >= LANES)
   const recording = useStore((s) => s.recording !== 'off')
   const addVocalTrack = useStore((s) => s.addVocalTrack)

@@ -48,26 +48,37 @@ export function toAudioBuffer(take: Take) {
 export const LANES = 4
 
 const DB = 'sketchpad'
+/** The takes of the sketch being worked on, by lane. */
 const STORE = 'takes'
+/** Saved sketches, and (kept apart so listing them stays quick) their takes. */
+export const SKETCHES = 'sketches'
+export const SKETCH_TAKES = 'sketch-takes'
 const key = (lane: number) => `vocal-${lane}`
 
 function db(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB, 1)
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE)
+    const req = indexedDB.open(DB, 2)
+    req.onupgradeneeded = () => {
+      for (const name of [STORE, SKETCHES, SKETCH_TAKES]) {
+        if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name)
+      }
+    }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
   })
 }
 
-async function run<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+/** Runs one request against a store in the app's database. */
+export async function idb<T>(store: string, mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const d = await db()
   return new Promise((resolve, reject) => {
-    const req = fn(d.transaction(STORE, mode).objectStore(STORE))
+    const req = fn(d.transaction(store, mode).objectStore(store))
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
   })
 }
+
+const run = <T,>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>) => idb(STORE, mode, fn)
 
 export const saveTake = (lane: number, take: Take) => run('readwrite', (s) => s.put(take, key(lane)))
 export const deleteSavedTake = (lane: number) => run('readwrite', (s) => s.delete(key(lane)))

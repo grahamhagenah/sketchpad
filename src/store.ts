@@ -64,6 +64,12 @@ interface State extends Song {
   vocalSolo: boolean[]
   chordsMuted: boolean
   chordsSolo: boolean
+  /** The sketch's name; empty until you give it one. */
+  title: string
+  /** Which saved sketch this is, once it's been saved. */
+  sketchId: string | null
+  /** The sketch as last saved (see sketchSignature), to tell whether it has changed since. */
+  savedSignature: string | null
   /** Names given to the tracks; null keeps the usual one. */
   chordsName: string | null
   vocalNames: (string | null)[]
@@ -73,6 +79,8 @@ interface State extends Song {
   armedLane: number
   /** The vocal take that's selected, by lane; a chord and a take are never both selected. */
   selectedVocal: number | null
+  /** The chords track as a whole is selected (deleting then clears the progression). */
+  chordsTrackSelected: boolean
   recording: 'off' | 'count-in' | 'on'
   /** Beats left in the count-in, shown on the record button. */
   countIn: number | null
@@ -96,12 +104,16 @@ interface State extends Song {
   addVocalTrack: () => void
   /** Makes sure at least `count` vocal tracks show. */
   showVocalTracks: (count: number) => void
+  setTitle: (title: string) => void
+  setSaved: (sketchId: string | null, signature: string | null) => void
   renameChords: (name: string) => void
   renameVocal: (lane: number, name: string) => void
   toggleVocalMute: (lane: number) => void
   toggleVocalSolo: (lane: number) => void
   toggleChordsMute: () => void
   toggleChordsSolo: () => void
+  /** Unmutes every track and clears every solo, so everything plays. */
+  unmuteAll: () => void
   setArmedLane: (lane: number) => void
   setRecording: (recording: State['recording']) => void
   setCountIn: (countIn: number | null) => void
@@ -122,11 +134,41 @@ interface State extends Song {
   select: (id: string | null) => void
   /** Selects a lane's vocal take (and records into that lane next), instead of a chord. */
   selectVocal: (lane: number | null) => void
+  selectChordsTrack: () => void
   selectRelative: (dir: -1 | 1) => void
 }
 
 export const chordsTrackName = (s: Pick<State, 'chordsName'>) => s.chordsName ?? 'Chords'
 export const vocalTrackName = (s: Pick<State, 'vocalNames'>, lane: number) => s.vocalNames[lane] ?? `Vocal ${lane + 1}`
+
+/** Everything a saved sketch keeps, apart from the audio of its takes. */
+export function songOf(s: State) {
+  return {
+    key: s.key,
+    mode: s.mode,
+    bpm: s.bpm,
+    timeSig: s.timeSig,
+    chords: s.chords,
+    loop: s.loop,
+    metronome: s.metronome,
+    loopOn: s.loopOn,
+    sound: s.sound,
+    arp: s.arp,
+    vocalMuted: s.vocalMuted,
+    vocalSolo: s.vocalSolo,
+    chordsMuted: s.chordsMuted,
+    chordsSolo: s.chordsSolo,
+    vocalTracks: s.vocalTracks,
+    title: s.title,
+    chordsName: s.chordsName,
+    vocalNames: s.vocalNames,
+  }
+}
+export type SongData = ReturnType<typeof songOf>
+
+/** A fingerprint of the sketch, takes included, to compare against the saved one. */
+export const sketchSignature = (s: State) =>
+  JSON.stringify([songOf(s), s.takes.map((t) => t && [t.startBeat, t.seconds, Math.round(t.peaks.reduce((a, b) => a + b, 0) * 1000)])])
 
 const newId = () => crypto.randomUUID()
 
@@ -165,10 +207,14 @@ export const useStore = create<State>()(
       chordsMuted: false,
       chordsSolo: false,
       vocalTracks: 0,
+      title: '',
+      sketchId: null,
+      savedSignature: null,
       chordsName: null,
       vocalNames: Array(LANES).fill(null),
       armedLane: 0,
       selectedVocal: null,
+      chordsTrackSelected: false,
       recording: 'off',
       countIn: null,
       playing: false,
@@ -210,8 +256,10 @@ export const useStore = create<State>()(
       addVocalTrack: () => {
         const lane = get().vocalTracks
         if (lane >= LANES) return
-        set({ vocalTracks: lane + 1, selectedVocal: lane, armedLane: lane, selectedId: null })
+        set({ vocalTracks: lane + 1, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false })
       },
+      setTitle: (title) => set({ title }),
+      setSaved: (sketchId, savedSignature) => set({ sketchId, savedSignature }),
       renameChords: (name) => set({ chordsName: name.trim() || null }),
       renameVocal: (lane, name) => set({ vocalNames: get().vocalNames.map((n, i) => (i === lane ? name.trim() || null : n)) }),
       showVocalTracks: (count) => set({ vocalTracks: Math.max(get().vocalTracks, Math.min(count, LANES)) }),
@@ -219,6 +267,8 @@ export const useStore = create<State>()(
       toggleVocalSolo: (lane) => set({ vocalSolo: get().vocalSolo.map((m, i) => (i === lane ? !m : m)) }),
       toggleChordsMute: () => set({ chordsMuted: !get().chordsMuted }),
       toggleChordsSolo: () => set({ chordsSolo: !get().chordsSolo }),
+      unmuteAll: () =>
+        set({ chordsMuted: false, chordsSolo: false, vocalMuted: Array(LANES).fill(false), vocalSolo: Array(LANES).fill(false) }),
       setArmedLane: (armedLane) => set({ armedLane }),
       setRecording: (recording) => set({ recording, countIn: recording === 'count-in' ? get().countIn : null }),
       setCountIn: (countIn) => set({ countIn }),
@@ -236,7 +286,7 @@ export const useStore = create<State>()(
         const at = chords.findIndex((c) => c.id === selectedId)
         const next = [...chords]
         next.splice(at === -1 ? chords.length : at + 1, 0, chord)
-        set({ chords: next, selectedId: chord.id, selectedVocal: null })
+        set({ chords: next, selectedId: chord.id, selectedVocal: null, chordsTrackSelected: false })
       },
       updateChord: (id, patch) =>
         set({ chords: get().chords.map((c) => (c.id === id ? { ...c, ...patch } : c)) }),
@@ -256,9 +306,9 @@ export const useStore = create<State>()(
         const copy = { ...chords[i], id: newId() }
         const next = [...chords]
         next.splice(i + 1, 0, copy)
-        set({ chords: next, selectedId: copy.id, selectedVocal: null })
+        set({ chords: next, selectedId: copy.id, selectedVocal: null, chordsTrackSelected: false })
       },
-      clearChords: () => set({ chords: [], selectedId: null, loop: null }),
+      clearChords: () => set({ chords: [], selectedId: null, loop: null, chordsTrackSelected: false }),
       loadProgression: (degrees, seventh) =>
         set({
           chords: degrees.map((degree) => ({ id: newId(), degree, beats: get().timeSig[0], seventh })),
@@ -283,14 +333,16 @@ export const useStore = create<State>()(
         ;[chords[i], chords[j]] = [chords[j], chords[i]]
         set({ chords })
       },
-      select: (selectedId) => set({ selectedId, selectedVocal: null }),
-      selectVocal: (lane) => set(lane === null ? { selectedVocal: null } : { selectedVocal: lane, armedLane: lane, selectedId: null }),
+      select: (selectedId) => set({ selectedId, selectedVocal: null, chordsTrackSelected: false }),
+      selectVocal: (lane) =>
+        set(lane === null ? { selectedVocal: null } : { selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false }),
+      selectChordsTrack: () => set({ chordsTrackSelected: true, selectedId: null, selectedVocal: null }),
       selectRelative: (dir) => {
         const { chords, selectedId } = get()
         if (!chords.length) return
         const i = chords.findIndex((c) => c.id === selectedId)
         const j = i === -1 ? (dir === 1 ? 0 : chords.length - 1) : Math.min(chords.length - 1, Math.max(0, i + dir))
-        set({ selectedId: chords[j].id, selectedVocal: null })
+        set({ selectedId: chords[j].id, selectedVocal: null, chordsTrackSelected: false })
       },
     }),
     {
@@ -306,26 +358,7 @@ export const useStore = create<State>()(
         const vocalNames = Array.from({ length: LANES }, (_, i) => p.vocalNames?.[i] ?? null)
         return { ...current, ...p, sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp }, vocalMuted, vocalSolo, vocalNames }
       },
-      partialize: (s) => ({
-        key: s.key,
-        mode: s.mode,
-        bpm: s.bpm,
-        timeSig: s.timeSig,
-        chords: s.chords,
-        loop: s.loop,
-        metronome: s.metronome,
-        loopOn: s.loopOn,
-        zoom: s.zoom,
-        sound: s.sound,
-        arp: s.arp,
-        vocalMuted: s.vocalMuted,
-        vocalSolo: s.vocalSolo,
-        chordsMuted: s.chordsMuted,
-        chordsSolo: s.chordsSolo,
-        vocalTracks: s.vocalTracks,
-        chordsName: s.chordsName,
-        vocalNames: s.vocalNames,
-      }),
+      partialize: (s) => ({ ...songOf(s), zoom: s.zoom, sketchId: s.sketchId, savedSignature: s.savedSignature }),
     },
   ),
 )

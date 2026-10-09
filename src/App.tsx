@@ -4,12 +4,27 @@ import { deleteTake, seek, togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
 import { Palette } from './components/Palette'
+import { redo, undo } from './history'
+import { isDirty, saveSketch } from './library'
 
 function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
-      if (target.closest('input, select, textarea') || e.metaKey || e.ctrlKey) return
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        // Even from inside a text field, as in any editor.
+        e.preventDefault()
+        if (isDirty()) void saveSketch()
+        return
+      }
+      if (target.closest('input, select, textarea')) return
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y')) {
+        e.preventDefault()
+        if (e.key === 'y' || e.shiftKey) redo()
+        else undo()
+        return
+      }
+      if (e.metaKey || e.ctrlKey) return
       const s = useStore.getState()
       const sel = s.chords.find((c) => c.id === s.selectedId)
 
@@ -25,7 +40,13 @@ function useShortcuts() {
         else s.selectRelative(dir)
       } else if ((e.key === 'Backspace' || e.key === 'Delete') && s.selectedVocal !== null && s.recording === 'off') {
         e.preventDefault()
+        // The focused row now belongs to the track that moved up; don't leave a focus ring on it.
+        if (target.closest('.vocal-row, .track-header')) target.blur()
         void deleteTake(s.selectedVocal)
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && s.chordsTrackSelected) {
+        e.preventDefault()
+        if (target.closest('.track-header')) target.blur()
+        s.clearChords()
       } else if ((e.key === 'Backspace' || e.key === 'Delete') && sel) {
         e.preventDefault()
         s.removeChord(sel.id)

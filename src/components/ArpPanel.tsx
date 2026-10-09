@@ -1,48 +1,16 @@
-import { useCallback, useRef, useState } from 'react'
-import { useDismiss } from '../hooks/useDismiss'
 import { useStore } from '../store'
 import { ARP_PATTERNS, ARP_RATES } from '../audio/arrange'
 import { Slider } from './SoundPanel'
 
 const OCTAVES = [1, 2, 3] as const
 
-export function ArpButton() {
-  const on = useStore((s) => s.arp.on)
-  const [open, setOpen] = useState(false)
-  const close = useCallback(() => setOpen(false), [])
-  const ref = useRef<HTMLDivElement>(null)
-  useDismiss(open, close, ref)
-
-  return (
-    <div className="menu-anchor" ref={ref}>
-      <button
-        type="button"
-        className={`icon-btn toggle-btn ${on ? 'is-on' : ''}`}
-        aria-label={`Arpeggiator, ${on ? 'on' : 'off'}`}
-        aria-expanded={open}
-        aria-controls="arp-panel"
-        onClick={() => setOpen(!open)}
-        title={`Arpeggiator: ${on ? 'on' : 'off'} (A to toggle)`}
-      >
-        {/* Rising notes on a piano roll. */}
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <rect x="2.5" y="16.5" width="5" height="3" rx="1.5" />
-          <rect x="7.5" y="12" width="5" height="3" rx="1.5" />
-          <rect x="12.5" y="7.5" width="5" height="3" rx="1.5" />
-          <rect x="17.5" y="3" width="4" height="3" rx="1.5" />
-        </svg>
-      </button>
-      {open && <ArpPanel />}
-    </div>
-  )
-}
-
-function ArpPanel() {
+/** The arpeggiator's switch and settings, shown as a tab of the sound panel. */
+export function ArpSettings() {
   const arp = useStore((s) => s.arp)
   const setArp = useStore((s) => s.setArp)
 
   return (
-    <div className="menu sound-panel" id="arp-panel" role="group" aria-label="Arpeggiator">
+    <>
       <label className="arp-switch">
         <span>
           <span className="arp-switch-title">Arpeggiator</span>
@@ -103,6 +71,6 @@ function ArpPanel() {
           />
         </div>
       </fieldset>
-    </div>
+    </>
   )
 }

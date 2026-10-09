@@ -453,6 +453,18 @@ export async function deleteTake(lane: number) {
   await renumberTakes(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane))
 }
 
+/** Swaps in a whole set of takes, as when opening a saved sketch. */
+export async function replaceTakes(takes: (Take | null)[]) {
+  const s = useStore.getState()
+  for (let lane = 0; lane < LANES; lane++) {
+    const take = takes[lane] ?? null
+    engine.setTake(lane, take)
+    s.setTake(lane, take ? takeInfo(take) : null)
+    if (take) await saveTake(lane, take)
+    else await deleteSavedTake(lane)
+  }
+}
+
 /** Lanes up to and including the last one with a take. */
 const takeCount = (takes: readonly (Take | null)[]) => takes.reduce((n, t, lane) => (t ? lane + 1 : n), 0)
 

@@ -9,10 +9,11 @@ type ExportSong = Pick<Song, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'so
 
 const PPQ = 480
 
-/** e.g. "sketchpad-F#m-96bpm" */
-export function exportName(song: ExportSong) {
+/** e.g. "night-drive-F#m-96bpm", or "sketchpad-F#m-96bpm" before the sketch has a title. */
+export function exportName(song: ExportSong & { title?: string }) {
   const key = keyLabel(song.key, song.mode).replace('♯', '#').replace('♭', 'b')
-  return `sketchpad-${key}${song.mode === 'minor' ? 'm' : ''}-${song.bpm}bpm`
+  const name = (song.title ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sketchpad'
+  return `${name}-${key}${song.mode === 'minor' ? 'm' : ''}-${song.bpm}bpm`
 }
 
 export function download(blob: Blob, filename: string) {
