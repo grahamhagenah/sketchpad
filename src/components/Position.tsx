@@ -41,9 +41,20 @@ export function Position() {
       title="Back to the start (↵)"
       aria-label={`Bar ${bar}, beat ${inBar}, of ${bars} bars. Go back to the start`}
     >
-      <span className="lcd-value">
-        {bar}.{inBar}
-        <small> / {total ? bars : '–'}</small>
+      {/*
+        The widest reading this song can show sits invisibly under the real
+        one, so the cell has room for every bar number, and doesn't change
+        width as the digits tick over while playing. Digits are all one width.
+      */}
+      <span className="lcd-value lcd-position-value">
+        <span className="lcd-position-widest" aria-hidden="true">
+          {'0'.repeat(String(bars + 1).length)}.{'0'.repeat(String(perBar).length)}
+          <small> / {total ? bars : '–'}</small>
+        </span>
+        <span>
+          {bar}.{inBar}
+          <small> / {total ? bars : '–'}</small>
+        </span>
       </span>
       <span className="lcd-label">Bar</span>
     </button>

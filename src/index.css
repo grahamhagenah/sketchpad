@@ -263,6 +263,10 @@ main > .panel {
 .lcd .tempo::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .lcd-label { font-size: 9px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .lcd-position { min-width: 88px; }
+/* The reading and the widest it can be, in the same place: the cell takes the widest's width. */
+.lcd-position-value { display: grid; }
+.lcd-position-value > span { grid-area: 1 / 1; }
+.lcd-position-widest { visibility: hidden; }
 /* Sized to their values: a select is otherwise as wide as its longest option or group heading. */
 .lcd-meter select { width: 5ch; text-align-last: center; }
 .lcd-key select { width: 9ch; text-align-last: center; }
@@ -288,7 +292,8 @@ main > .panel {
   .toolbar-modes { order: 4; margin-left: auto; }
   .lcd { order: 5; width: 100%; }
   .lcd-cell { flex: 1; padding: 0 6px; }
-  .lcd-position { min-width: 0; }
+  /* The bar takes the room its longest reading needs; the others share what's left. */
+  .lcd-position { flex: none; min-width: 0; padding: 0 10px; }
   .selection { order: 6; width: 100%; }
   .selection .selection-chord { flex: 1; }
 }
