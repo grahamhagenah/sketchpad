@@ -5,7 +5,7 @@ import { arrange, type Arp, type Hit } from './arrange'
 import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
 import type { Sound } from './sound'
 import { openMic, outputLatency, startCapture, type Capture } from './recorder'
-import { LANES, deleteSavedTake, loadTakes, saveTake, takeInfo, toAudioBuffer, type Take, type TakeInfo } from './take'
+import { LANES, deleteSavedTake, keepStorage, loadTakes, quantize, saveTake, storageErrorMessage, takeInfo, toAudioBuffer, type Take, type TakeInfo } from './take'
 
 export interface Song {
   key: number
@@ -302,7 +302,7 @@ class Engine {
     if (samples.length - skip < sampleRate * 0.25) return { lane: rec.lane, take: null }
     const aligned =
       skip >= 0 ? samples.slice(skip) : Float32Array.from({ length: samples.length - skip }, (_, i) => (i < -skip ? 0 : samples[i + skip]))
-    return { lane: rec.lane, take: { startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: aligned } }
+    return { lane: rec.lane, take: { id: crypto.randomUUID(), startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: quantize(aligned) } }
   }
 
   /** Current loop position in beats, or null when stopped. */
@@ -363,7 +363,6 @@ engine.onEnd = () => {
   useStore.getState().setPlaying(false)
 }
 
-/** Plays from the playhead, or pauses and leaves the playhead where it stopped. */
 /**
  * On iPhones, web audio counts as ringer sound and goes quiet with the silent
  * switch; calling it playback, like a music app, keeps it audible.
@@ -373,6 +372,7 @@ function setAudioSession(type: 'playback' | 'play-and-record') {
   if (session) session.type = type
 }
 
+/** Plays from the playhead, or pauses and leaves the playhead where it stopped. */
 export async function togglePlay() {
   const s = useStore.getState()
   if (s.recording !== 'off') {
@@ -443,14 +443,25 @@ async function stopRecording() {
     engine.setTake(lane, take)
     s.setTake(lane, takeInfo(take))
     s.showVocalTracks(lane + 1)
-    await saveTake(lane, take)
+    keepStorage()
+    try {
+      await saveTake(lane, take)
+    } catch (error) {
+      console.error(error)
+      window.alert(`This take plays now, but Sketchpad couldn’t store it, so it will be gone if the page reloads. ${storageErrorMessage(error)}`)
+    }
   }
 }
 
 /** Deletes a vocal track and its take; the tracks after it move up, so they stay numbered 1, 2, 3… */
 export async function deleteTake(lane: number) {
   const tracks = Math.max(useStore.getState().vocalTracks, takeCount(engine.allTakes))
-  await renumberTakes(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane))
+  try {
+    await renumberTakes(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane))
+  } catch (error) {
+    console.error(error)
+    window.alert(`The track is deleted, but Sketchpad couldn’t store the change, so it may come back if the page reloads. ${storageErrorMessage(error)}`)
+  }
 }
 
 /** Swaps in a whole set of takes, as when opening a saved sketch. */

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { sketchSignature, songOf, useStore, type SongData } from './store'
 import { engine, replaceTakes } from './audio/engine'
-import { SKETCHES, SKETCH_TAKES, LANES, idb, type Take } from './audio/take'
+import { SKETCHES, LANES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage } from './audio/take'
 import { clearHistory } from './history'
 
 /** A saved sketch as listed; its takes are stored apart, under the same id. */
@@ -25,19 +25,36 @@ export function isDirty(s = useStore.getState()) {
   return sketchSignature(s) !== s.savedSignature
 }
 
+/** Tells the person that something they did wasn't stored, e.g. "save the sketch". */
+export function reportStorageError(doing: string) {
+  return (error: unknown) => {
+    console.error(error)
+    window.alert(`Sketchpad couldn’t ${doing}. ${storageErrorMessage(error)}`)
+  }
+}
+
 /** Saves the sketch being worked on, as a new one the first time. */
 export async function saveSketch() {
+  keepStorage()
   const s = useStore.getState()
   const id = s.sketchId ?? crypto.randomUUID()
   await idb(SKETCHES, 'readwrite', (store) => store.put({ id, updated: Date.now(), song: songOf(s) } satisfies SketchRecord, id))
-  await idb(SKETCH_TAKES, 'readwrite', (store) => store.put([...engine.allTakes], id))
+  await saveSketchTakes(id, engine.allTakes)
   s.setSaved(id, sketchSignature(useStore.getState()))
   await refreshLibrary()
 }
 
-/** Before switching away, keeps unsaved work by saving it. */
+/** Before switching away, keeps unsaved work by saving it; false if that failed. */
 async function keepCurrent() {
-  if (isDirty()) await saveSketch()
+  if (!isDirty()) return true
+  try {
+    await saveSketch()
+    return true
+  } catch (error) {
+    // Leave the unsaved sketch open rather than lose it.
+    reportStorageError('save your current sketch, so it’s still open')(error)
+    return false
+  }
 }
 
 function stopEverything() {
@@ -48,10 +65,10 @@ function stopEverything() {
 export async function openSketch(id: string) {
   const s = useStore.getState()
   if (s.recording !== 'off' || id === s.sketchId) return
-  await keepCurrent()
+  if (!(await keepCurrent())) return
   const record = await idb<SketchRecord | undefined>(SKETCHES, 'readonly', (store) => store.get(id))
   if (!record) return
-  const takes = (await idb<(Take | null)[] | undefined>(SKETCH_TAKES, 'readonly', (store) => store.get(id))) ?? []
+  const takes = await loadSketchTakes(id)
   stopEverything()
   useStore.setState({ ...record.song })
   await replaceTakes(takes)
@@ -62,7 +79,7 @@ export async function openSketch(id: string) {
 /** Starts an empty sketch, keeping the sound and arpeggiator settings. */
 export async function newSketch() {
   if (useStore.getState().recording !== 'off') return
-  await keepCurrent()
+  if (!(await keepCurrent())) return
   stopEverything()
   useStore.setState({
     chords: [],
@@ -83,7 +100,7 @@ export async function newSketch() {
 
 export async function deleteSketch(id: string) {
   await idb(SKETCHES, 'readwrite', (store) => store.delete(id))
-  await idb(SKETCH_TAKES, 'readwrite', (store) => store.delete(id))
+  await deleteSketchTakes(id)
   // The open sketch stays on screen, as unsaved work.
   if (useStore.getState().sketchId === id) useStore.getState().setSaved(null, null)
   await refreshLibrary()
