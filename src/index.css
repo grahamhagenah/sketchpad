@@ -286,23 +286,6 @@ main > .panel {
   .toolbar-zone { flex-wrap: wrap; gap: 8px; }
   .toolbar-end { margin-left: 0; }
 }
-/* On a phone the zones dissolve into rows: the title with undo and export, the transport with the modes, then the display, then what's selected. */
-@media (max-width: 640px) {
-  .toolbar { gap: 8px; }
-  .toolbar-zone { display: contents; }
-  /* The title keeps room enough to read, so the transport goes to the next line rather than squeezing it. */
-  .toolbar .song-bar { order: 1; flex: 1 1 120px; min-width: 0; }
-  .toolbar-end .toolbar-icons { order: 2; }
-  .toolbar-end .toolbar-icons + .toolbar-icons { padding-left: 0; border-left: 0; }
-  .transport { order: 3; }
-  .toolbar-modes { order: 4; margin-left: auto; }
-  .lcd { order: 5; width: 100%; }
-  .lcd-cell { flex: 1; padding: 0 6px; }
-  /* The bar takes the room its longest reading needs; the others share what's left. */
-  .lcd-position { flex: none; min-width: 0; padding: 0 10px; }
-  .selection { order: 6; width: 100%; }
-  .selection .selection-chord { flex: 1; }
-}
 
 /* Panels */
 .panel {
@@ -328,13 +311,18 @@ main > .panel {
   --track-h: 62px;
   --gap: 10px;
   --head: 32px;
+  /* Room above each track for its name: none beside a column of names, as on a wide screen; a line's worth on a phone. */
+  --label-h: 0px;
+  --chord-top: calc(var(--head) + var(--label-h));
   --chord-h: var(--track-h);
-  --drum-top: calc(var(--head) + var(--chord-h) + var(--gap));
+  --drum-top: calc(var(--chord-top) + var(--chord-h) + var(--gap) + var(--label-h));
   --drum-h: var(--track-h);
   /* The drum track, when there is one, sits between the chords and the vocals. */
   --drum-rows: 0;
-  --vocal-top: calc(var(--head) + var(--chord-h) + var(--drum-rows) * (var(--drum-h) + var(--gap)) + var(--gap) + 8px);
+  --vocal-top: calc(var(--chord-top) + var(--chord-h) + var(--drum-rows) * (var(--drum-h) + var(--gap) + var(--label-h)) + var(--gap) + 8px + var(--label-h));
   --vocal-h: var(--track-h);
+  /* From one vocal track to the next. */
+  --vocal-step: calc(var(--vocal-h) + var(--gap) + var(--label-h));
   --lanes: 1;
   position: relative;
   display: flex;
@@ -344,7 +332,7 @@ main > .panel {
 .timeline-wrap.has-vocals::after {
   content: '';
   position: absolute;
-  top: calc(var(--vocal-top) - var(--gap) / 2 - 4px);
+  top: calc(var(--vocal-top) - var(--label-h) - var(--gap) / 2 - 4px);
   left: 0;
   right: 0;
   height: 1px;
@@ -358,7 +346,7 @@ main > .panel {
   position: relative;
   flex: 1 0 auto;
   min-width: 100%;
-  min-height: calc(var(--vocal-top) - var(--gap) / 2 - 4px + var(--lanes) * (var(--vocal-h) + var(--gap)));
+  min-height: calc(var(--vocal-top) - var(--gap) / 2 - 4px + var(--lanes) * var(--vocal-step));
   /* A line down from each bar; the beats are only notches along the foot of the bar numbers, so the tracks stay clear. */
   background:
     repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat,
@@ -379,7 +367,7 @@ main > .panel {
 .chord {
   --track: var(--track-chords);
   position: absolute;
-  top: var(--head);
+  top: var(--chord-top);
   height: var(--chord-h);
   margin-left: 3px;
   border-radius: var(--radius);
@@ -448,7 +436,7 @@ main > .panel {
 .chord.is-active .resize::after { background: var(--text); }
 .add-slot {
   position: absolute;
-  top: var(--head);
+  top: var(--chord-top);
   height: var(--chord-h);
   margin-left: 3px;
   border-radius: var(--radius);
@@ -497,7 +485,7 @@ main > .panel {
 
 .timeline-empty {
   position: absolute;
-  top: var(--head);
+  top: var(--chord-top);
   height: var(--chord-h);
   margin: 0;
   display: flex;
@@ -514,7 +502,7 @@ main > .panel {
   left: var(--gap);
   right: var(--gap);
   /* Set down a little more than a track would be, so the space above the first, under the divider, matches the gap between them. */
-  top: calc(var(--vocal-top) + var(--adds-shift, 0px) + var(--row, 0) * (var(--vocal-h) + var(--gap)));
+  top: calc(var(--vocal-top) - var(--label-h) + var(--adds-shift, 0px) + var(--row, 0) * var(--vocal-step));
   height: var(--vocal-h);
   display: flex;
   align-items: center;
@@ -532,7 +520,7 @@ main > .panel {
 .timeline-wrap.has-adds::before {
   content: '';
   position: absolute;
-  top: calc(var(--vocal-top) - var(--gap) / 2 + var(--adds-row) * (var(--vocal-h) + var(--gap)));
+  top: calc(var(--vocal-top) - var(--label-h) - var(--gap) / 2 + var(--adds-row) * var(--vocal-step));
   left: 0;
   right: 0;
   height: 1px;
@@ -544,7 +532,7 @@ main > .panel {
 
 /* Vocal lanes: each item sets --row to its lane. */
 .vocal-row, .vocal-take, .vocal-recording {
-  top: calc(var(--vocal-top) + var(--row, 0) * (var(--vocal-h) + var(--gap)));
+  top: calc(var(--vocal-top) + var(--row, 0) * var(--vocal-step));
 }
 .vocal-row {
   position: absolute;
@@ -610,7 +598,7 @@ main > .panel {
 }
 .track-header.is-drums { top: calc(var(--drum-top) - var(--gap) / 2); height: calc(var(--drum-h) + var(--gap)); }
 .track-header.is-vocal {
-  top: calc(var(--vocal-top) - var(--gap) / 2 + var(--row, 0) * (var(--vocal-h) + var(--gap)));
+  top: calc(var(--vocal-top) - var(--gap) / 2 + var(--row, 0) * var(--vocal-step));
   height: calc(var(--vocal-h) + var(--gap));
 }
 .track-header.is-selectable { cursor: pointer; }
@@ -1320,13 +1308,30 @@ main > .panel {
 .chord-pad-replace { border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); }
 
 /* On a phone, the top bar folded to one row: play and record, where you are and the key, and a button for the rest. */
-.toolbar.toolbar-compact { flex-wrap: nowrap; gap: 8px; }
-.toolbar-compact .transport,
-.toolbar-compact .lcd { order: 0; }
-.toolbar-compact .lcd { flex: 1; width: auto; min-width: 0; }
-.toolbar-compact .lcd-cell { flex: 1; padding: 0 8px; }
-.toolbar-compact .lcd-value.is-own-key { color: var(--accent); }
+/*
+ * On a phone, the top bar is one row that stays put (play and record, where
+ * you are and the key), with the rest sliding open beneath it on demand.
+ */
+.toolbar.toolbar-compact { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0; }
+.toolbar-compact-row,
+.toolbar-extra-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.toolbar-compact .lcd { flex: 1; min-width: 0; }
+.toolbar-compact .lcd-cell { flex: 1; min-width: 0; padding: 0 8px; }
+.toolbar-compact .lcd-position { flex: none; padding: 0 10px; }
 .toolbar-more { flex: none; }
+.toolbar-more svg { transition: transform 0.2s ease; }
+.toolbar-compact.is-expanded .toolbar-more svg { transform: rotate(180deg); }
+.toolbar-compact.is-expanded .toolbar-more { color: var(--text); background: var(--raised); }
+/* Opens by growing from no height to its own, so nothing above it moves. */
+.toolbar-extra { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.22s ease; }
+.toolbar-compact.is-expanded .toolbar-extra { grid-template-rows: 1fr; }
+.toolbar-extra-inner { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+.toolbar-compact.is-expanded .toolbar-extra-inner { padding-top: 10px; }
+.toolbar-extra-row .song-bar { flex: 1; min-width: 0; }
+.toolbar-extra-row .song-title { flex: 1; width: auto; min-width: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-extra, .toolbar-more svg { transition: none; }
+}
 
 /* Recording on a phone: a sheet over the bottom of the screen, to read and hit from a step back. */
 .app.has-record-sheet { padding-bottom: 240px; }
@@ -1614,17 +1619,32 @@ main > .panel {
   .song-bar { flex: 1; }
   /* No zoom on a phone; the section's settings stay. */
   .section-bar-end .icon-btn { display: none; }
-  /* Icon and name on one line, mute and solo under it. */
-  .track-headers { width: 86px; }
-  .track-header { flex-wrap: wrap; align-content: center; row-gap: 2px; }
-  .track-title { flex-basis: 100%; gap: 4px; }
+  /*
+   * Each track's name on a line above it rather than in a column beside it,
+   * so the tracks have the screen's whole width. The names float over the
+   * timeline and stay put while it scrolls sideways.
+   */
+  .timeline-wrap { --label-h: 24px; }
+  .track-headers { position: absolute; inset: 0; width: auto; z-index: 4; pointer-events: none; }
+  .track-header, .track-add, .timeline-corner > * { pointer-events: auto; }
+  .track-header {
+    right: auto;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 0 18px 0 8px;
+    background: linear-gradient(to right, var(--panel) 75%, transparent);
+  }
+  .track-header.is-chords { top: calc(var(--chord-top) - var(--label-h) - 1px); height: var(--label-h); }
+  .track-header.is-drums { top: calc(var(--drum-top) - var(--label-h) - 1px); height: var(--label-h); }
+  .track-header.is-vocal { top: calc(var(--vocal-top) - var(--label-h) - 1px + var(--row, 0) * var(--vocal-step)); height: var(--label-h); }
+  .track-header::before { top: 5px; bottom: 5px; }
+  .track-title { flex: none; gap: 4px; }
   .track-title .track-color { width: 22px; height: 22px; margin: -2px 0 -2px -2px; }
-  .track-name { font-size: 11px; }
-  .track-name-input { margin-left: 0; height: 22px; }
-  /* Just the + in the narrow column; the label is in the button's name. */
-  .track-add { justify-content: center; padding: 0; }
-  .track-add-label { display: none; }
+  .track-name { font-size: 12px; }
+  .track-name-input { height: 22px; }
+  .track-btn.is-mute { margin-left: 6px; }
   .track-volume { display: none; }
+  .timeline-corner { left: auto; }
   /* Just the gear, to leave the tabs room. */
   .section-settings-label { display: none; }
   .section-settings { padding: 0 7px; margin-right: 0; }

@@ -55,31 +55,122 @@ export function Toolbar() {
     return () => window.removeEventListener('scroll', onScroll, true)
   }, [narrow, expanded])
 
+  const meterCell = (
+    <label className="lcd-cell lcd-meter" title="Time signature">
+      <select
+        aria-label="Time signature"
+        value={timeSig.join('/')}
+        onChange={(e) => {
+          const sig = TIME_SIGS.find((s) => s.join('/') === e.target.value)
+          if (sig) setTimeSig(sig)
+        }}
+      >
+        {TIME_SIG_GROUPS.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.sigs.map((s) => (
+              <option key={s.join('/')} value={s.join('/')}>
+                {s.join('/')}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <span className="lcd-label" aria-hidden="true">
+        Time
+      </span>
+    </label>
+  )
+  const keyCell = (
+    <label
+      className={`lcd-cell lcd-key ${ownKey ? 'is-own-key' : ''}`}
+      title={ownKey ? `This section’s own key; the song is in ${keyLabel(songKey, songMode)} ${songMode}` : 'Key'}
+    >
+      <select
+        aria-label={ownKey ? 'This section’s key' : 'Key'}
+        value={`${key}-${mode}`}
+        onChange={(e) => {
+          const [pc, m] = e.target.value.split('-')
+          if (ownKey) return setSectionKey(activeSection, { key: Number(pc), mode: m as Mode })
+          setKey(Number(pc))
+          setMode(m as Mode)
+        }}
+      >
+        {(['major', 'minor'] as const).map((m) => (
+          <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
+            {Array.from({ length: 12 }, (_, pc) => (
+              <option key={pc} value={`${pc}-${m}`}>
+                {keyLabel(pc, m)} {m}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <span className="lcd-label" aria-hidden="true">
+        {ownKey ? 'Section key' : 'Key'}
+      </span>
+    </label>
+  )
+  const modes = (
+    <div className="toolbar-icons toolbar-modes">
+      <IconToggle label="Cycle (L)" pressed={loopOn} onClick={toggleLoop}>
+        <Icon d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4" />
+      </IconToggle>
+      <IconToggle label="Metronome (M)" pressed={metronome} onClick={toggleMetronome}>
+        <Icon d="M9 3h6l4 18H5zM12 15l5-8" />
+      </IconToggle>
+      <SoundButton />
+    </div>
+  )
   const playButton = (
     <button type="button" className={`play ${playing ? 'is-playing' : ''}`} onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'} title="Play / pause (Space)">
       {playing ? <PauseIcon /> : <PlayIcon />}
     </button>
   )
 
-  if (narrow && !expanded) {
+  if (narrow) {
     return (
-      <div className="toolbar toolbar-compact" role="toolbar" aria-label="Song">
-        <div className="transport" role="group" aria-label="Transport">
-          {playButton}
-          <RecordButton />
-        </div>
-        <div className="lcd" role="group" aria-label="Position and key">
-          <Position />
-          <button type="button" className="lcd-cell" onClick={() => setExpanded(true)} title={ownKey ? 'This section’s key' : 'Key'}>
-            <span className={`lcd-value ${ownKey ? 'is-own-key' : ''}`}>
-              {keyLabel(key, mode)} {mode === 'major' ? 'maj' : 'min'}
-            </span>
-            <span className="lcd-label">{ownKey ? 'Section key' : 'Key'}</span>
+      <div className={`toolbar toolbar-compact ${expanded ? 'is-expanded' : ''}`} role="toolbar" aria-label="Song">
+        {/* The row that's always there: play and record, where you are and the key, and a button for the rest. */}
+        <div className="toolbar-compact-row">
+          <div className="transport" role="group" aria-label="Transport">
+            {playButton}
+            <RecordButton />
+          </div>
+          <div className="lcd" role="group" aria-label="Position and key">
+            <Position />
+            {keyCell}
+          </div>
+          <button
+            type="button"
+            className="icon-btn toolbar-more"
+            aria-label={expanded ? 'Fewer controls' : 'More controls'}
+            aria-expanded={expanded}
+            aria-controls="toolbar-extra"
+            onClick={() => setExpanded(!expanded)}
+            title="Title, save, undo, export, tempo, meter and sound"
+          >
+            <Icon d="M6 9l6 6 6-6" />
           </button>
         </div>
-        <button type="button" className="icon-btn toolbar-more" aria-label="Show all controls" aria-expanded={false} onClick={() => setExpanded(true)} title="Tempo, meter, key, sound, save and export">
-          <Icon d="M6 9l6 6 6-6" />
-        </button>
+        {/* The rest, sliding open under the row, which stays just as it was. */}
+        <div className="toolbar-extra" id="toolbar-extra" inert={!expanded}>
+          <div className="toolbar-extra-inner">
+            <div className="toolbar-extra-row">
+              <SongTitle />
+              <div className="toolbar-icons">
+                <UndoRedo />
+                <ExportButton />
+              </div>
+            </div>
+            <div className="toolbar-extra-row">
+              <div className="lcd" role="group" aria-label="Tempo and meter">
+                <TempoField />
+                {meterCell}
+              </div>
+              {modes}
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -107,68 +198,11 @@ export function Toolbar() {
           <Position />
           <TempoField />
           {/* Meter and key, each a readout of its own, labelled like the bar and tempo. */}
-          <label className="lcd-cell lcd-meter" title="Time signature">
-            <select
-              aria-label="Time signature"
-              value={timeSig.join('/')}
-              onChange={(e) => {
-                const sig = TIME_SIGS.find((s) => s.join('/') === e.target.value)
-                if (sig) setTimeSig(sig)
-              }}
-            >
-              {TIME_SIG_GROUPS.map((g) => (
-                <optgroup key={g.label} label={g.label}>
-                  {g.sigs.map((s) => (
-                    <option key={s.join('/')} value={s.join('/')}>
-                      {s.join('/')}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <span className="lcd-label" aria-hidden="true">
-              Time
-            </span>
-          </label>
-          <label
-            className={`lcd-cell lcd-key ${ownKey ? 'is-own-key' : ''}`}
-            title={ownKey ? `This section’s own key; the song is in ${keyLabel(songKey, songMode)} ${songMode}` : 'Key'}
-          >
-            <select
-              aria-label={ownKey ? 'This section’s key' : 'Key'}
-              value={`${key}-${mode}`}
-              onChange={(e) => {
-                const [pc, m] = e.target.value.split('-')
-                if (ownKey) return setSectionKey(activeSection, { key: Number(pc), mode: m as Mode })
-                setKey(Number(pc))
-                setMode(m as Mode)
-              }}
-            >
-              {(['major', 'minor'] as const).map((m) => (
-                <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
-                  {Array.from({ length: 12 }, (_, pc) => (
-                    <option key={pc} value={`${pc}-${m}`}>
-                      {keyLabel(pc, m)} {m}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <span className="lcd-label" aria-hidden="true">
-              {ownKey ? 'Section key' : 'Key'}
-            </span>
-          </label>
+          {meterCell}
+          {keyCell}
         </div>
 
-        <div className="toolbar-icons toolbar-modes">
-          <IconToggle label="Cycle (L)" pressed={loopOn} onClick={toggleLoop}>
-            <Icon d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4" />
-          </IconToggle>
-          <IconToggle label="Metronome (M)" pressed={metronome} onClick={toggleMetronome}>
-            <Icon d="M9 3h6l4 18H5zM12 15l5-8" />
-          </IconToggle>
-          <SoundButton />
-        </div>
+        {modes}
       </div>
 
       <div className="toolbar-zone toolbar-end">
@@ -249,11 +283,6 @@ export function Toolbar() {
         </div>
         <div className="toolbar-icons">
           <ExportButton />
-          {narrow && (
-            <button type="button" className="icon-btn" aria-label="Fewer controls" aria-expanded={true} onClick={() => setExpanded(false)} title="Fold the bar back to one row">
-              <Icon d="M6 15l6-6 6 6" />
-            </button>
-          )}
         </div>
       </div>
     </div>
