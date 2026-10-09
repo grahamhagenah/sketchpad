@@ -1,14 +1,17 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Mode } from './music/theory'
+import type { ChordSpec, Mode } from './music/theory'
 import { DEFAULT_SOUND, type Sound } from './audio/sound'
 import { DEFAULT_ARP, type Arp } from './audio/arrange'
 import { LANES, type TakeInfo } from './audio/take'
 
 export type TimeSig = [number, number]
 export const TIME_SIG_GROUPS: { label: string; sigs: TimeSig[] }[] = [
-  { label: 'Common', sigs: [[4, 4], [3, 4], [2, 4], [6, 8], [12, 8]] },
-  { label: 'Odd', sigs: [[5, 4], [7, 4], [5, 8], [7, 8], [9, 8], [11, 8], [13, 8], [15, 16]] },
+  // Simple meters split each beat in two, compound ones in three; asymmetric
+  // ones mix groups of two and three (5/8 as 2+3, 7/8 as 2+2+3, and so on).
+  { label: 'Simple', sigs: [[4, 4], [3, 4], [2, 4]] },
+  { label: 'Compound', sigs: [[6, 8], [9, 8], [12, 8]] },
+  { label: 'Asymmetric', sigs: [[5, 4], [7, 4], [5, 8], [7, 8], [11, 8], [13, 8], [15, 16]] },
 ]
 export const TIME_SIGS: TimeSig[] = TIME_SIG_GROUPS.flatMap((g) => g.sigs)
 export const MIN_BPM = 30
@@ -16,13 +19,10 @@ export const MAX_BPM = 300
 /** Timeline zoom steps, as a multiple of the normal beat width. */
 export const ZOOMS = [0.5, 0.75, 1, 1.5, 2, 3]
 
-export interface Chord {
+export interface Chord extends ChordSpec {
   id: string
-  /** Scale degree, 0–6. */
-  degree: number
   /** Length in beats of the time signature (eighths in 6/8). */
   beats: number
-  seventh: boolean
 }
 
 /** Loop region in beats; null loops the whole progression. */
@@ -122,7 +122,8 @@ interface State extends Song {
   setLoop: (loop: LoopRegion | null) => void
   zoomBy: (dir: -1 | 1) => void
 
-  addChord: (degree: number) => void
+  /** Adds a chord after the selected one (or at the end), borrowed from the parallel key if asked. */
+  addChord: (degree: number, borrowed?: boolean) => void
   updateChord: (id: string, patch: Partial<Omit<Chord, 'id'>>) => void
   removeChord: (id: string) => void
   duplicateChord: (id: string) => void
@@ -280,9 +281,9 @@ export const useStore = create<State>()(
         set({ zoom: ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, (i === -1 ? ZOOMS.indexOf(1) : i) + dir))] })
       },
 
-      addChord: (degree) => {
+      addChord: (degree, borrowed) => {
         const { chords, selectedId, timeSig } = get()
-        const chord: Chord = { id: newId(), degree, beats: timeSig[0], seventh: false }
+        const chord: Chord = { id: newId(), degree, beats: timeSig[0], seventh: false, ...(borrowed ? { borrowed } : {}) }
         const at = chords.findIndex((c) => c.id === selectedId)
         const next = [...chords]
         next.splice(at === -1 ? chords.length : at + 1, 0, chord)

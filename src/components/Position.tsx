@@ -27,14 +27,23 @@ export function Position() {
     }
   }, [playing])
 
-  // Nothing to count until there are chords, as with the ruler.
-  if (!total) return null
   const beat = (playing ? live : null) ?? playhead
   const bars = Math.max(1, Math.ceil(total / perBar))
+  const bar = Math.floor(beat / perBar) + 1
+  const inBar = Math.floor(beat % perBar) + 1
   return (
-    <button type="button" className="position" onClick={() => void seek(0)} title="Back to the start (↵)" aria-label={`Bar ${Math.floor(beat / perBar) + 1}, beat ${Math.floor(beat % perBar) + 1}, of ${bars} bars. Go back to the start`}>
-      {Math.floor(beat / perBar) + 1}.{Math.floor(beat % perBar) + 1}
-      <span>/ {bars}</span>
+    <button
+      type="button"
+      className="lcd-cell lcd-position"
+      onClick={() => void seek(0)}
+      title="Back to the start (↵)"
+      aria-label={`Bar ${bar}, beat ${inBar}, of ${bars} bars. Go back to the start`}
+    >
+      <span className="lcd-value">
+        {bar}.{inBar}
+        <small> / {total ? bars : '–'}</small>
+      </span>
+      <span className="lcd-label">Bar</span>
     </button>
   )
 }

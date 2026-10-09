@@ -1,6 +1,6 @@
 import * as Tone from 'tone'
 import { audibleTracks, useStore, loopRange, type Chord, type LoopRegion, type TimeSig } from '../store'
-import { bassNote, chordInfo, voiceChord, type Mode } from '../music/theory'
+import { bassNote, chordOf, voiceChord, type Mode } from '../music/theory'
 import { arrange, type Arp, type Hit } from './arrange'
 import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
 import type { Sound } from './sound'
@@ -319,10 +319,10 @@ class Engine {
   async audition(song: Song, chord: Chord) {
     await Tone.start()
     this.setup()
-    const info = chordInfo(song.key, song.mode, chord.degree, chord.seventh)
+    const info = chordOf(song.key, song.mode, chord)
     const now = Tone.now()
     this.pad.triggerAttackRelease(voiceChord(info.pcs, null).map(midiToHz), 0.9, now, 0.8)
-    this.bass.triggerAttackRelease(midiToHz(bassNote(info.rootPc)), 0.9, now, 0.9)
+    this.bass.triggerAttackRelease(midiToHz(bassNote(info.bassPc)), 0.9, now, 0.9)
   }
 }
 

@@ -4,35 +4,10 @@ import { useStore, totalBeats } from '../store'
 import { keyLabel } from '../music/theory'
 import { deleteSketch, isDirty, newSketch, openSketch, refreshLibrary, saveSketch, useLibrary, type SketchRecord } from '../library'
 
-/** Saves the sketch; a dot on it means there are unsaved changes. */
-export function SaveButton() {
-  const dirty = useStore(isDirty)
-  const [saving, setSaving] = useState(false)
-  const save = async () => {
-    setSaving(true)
-    try {
-      await saveSketch()
-    } finally {
-      setSaving(false)
-    }
-  }
-  return (
-    <button
-      type="button"
-      className={`icon-btn save-btn ${dirty ? 'has-changes' : ''}`}
-      aria-label={dirty ? 'Save' : 'Saved'}
-      title={dirty ? 'Save (⌘S)' : 'Nothing new to save'}
-      disabled={saving || !dirty}
-      onClick={() => void save()}
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
-        <path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6" />
-      </svg>
-    </button>
-  )
-}
-
-/** Lists the saved sketches to open or delete, and starts new ones. */
+/**
+ * One button for the sketch file: save, start a new sketch, or open a saved
+ * one. A dot on it means there are unsaved changes; ⌘S saves without opening it.
+ */
 export function SketchesButton() {
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
@@ -40,6 +15,7 @@ export function SketchesButton() {
   useDismiss(open, close, ref)
   const sketches = useLibrary((s) => s.sketches)
   const current = useStore((s) => s.sketchId)
+  const dirty = useStore(isDirty)
 
   useEffect(() => {
     if (open) void refreshLibrary()
@@ -49,9 +25,9 @@ export function SketchesButton() {
     <div className="menu-anchor" ref={ref}>
       <button
         type="button"
-        className="icon-btn"
-        aria-label="Sketches"
-        title="Your sketches"
+        className={`icon-btn save-btn ${dirty ? 'has-changes' : ''}`}
+        aria-label={`Sketches${dirty ? ', unsaved changes' : ''}`}
+        title={dirty ? 'Save, open or start a sketch (unsaved changes)' : 'Save, open or start a sketch'}
         aria-expanded={open}
         aria-controls="sketches-menu"
         onClick={() => setOpen(!open)}
@@ -62,6 +38,21 @@ export function SketchesButton() {
       </button>
       {open && (
         <div className="menu sketches-menu" id="sketches-menu" role="dialog" aria-label="Your sketches">
+          <button
+            type="button"
+            className="menu-item"
+            disabled={!dirty}
+            onClick={() => {
+              void saveSketch()
+              close()
+            }}
+          >
+            <span className="menu-item-title">
+              {dirty ? 'Save' : 'Saved'}
+              <kbd>⌘S</kbd>
+            </span>
+            <span className="menu-item-about">{dirty ? 'Keep the changes to this sketch' : 'Nothing new since the last save'}</span>
+          </button>
           <button
             type="button"
             className="menu-item"

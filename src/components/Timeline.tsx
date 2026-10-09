@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { audibleTracks, chordsTrackName, useStore, vocalTrackName, type Chord } from '../store'
-import { chordInfo } from '../music/theory'
+import { chordOf } from '../music/theory'
 import { audition, engine, seek } from '../audio/engine'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
@@ -254,8 +254,8 @@ export function Timeline() {
                 chord={c}
                 left={lefts.get(c.id) ?? 0}
                 beatPx={beatPx}
-                name={chordInfo(key, mode, c.degree, c.seventh).name}
-                roman={chordInfo(key, mode, c.degree, c.seventh).roman}
+                name={chordOf(key, mode, c).name}
+                roman={chordOf(key, mode, c).roman}
                 selected={c.id === selectedId}
                 active={c.id === activeId}
                 dragging={isDragged}

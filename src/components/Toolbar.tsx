@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
 import { audibleTracks, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
-import { chordInfo, keyLabel, type Mode } from '../music/theory'
-import { audition, deleteTake, engine, togglePlay, toggleRecord } from '../audio/engine'
+import { chordOf, keyLabel, type Mode } from '../music/theory'
+import { audition, deleteTake, engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
 import { SoundButton } from './SoundPanel'
 import { ShortcutsButton } from './Shortcuts'
@@ -36,68 +36,81 @@ export function Toolbar() {
           <SongTitle />
         </div>
 
+        {/* Laid out like a DAW's control bar: transport, then a display of where you are and the song's settings, then modes. */}
         <div className="toolbar-group">
-          <button
-            type="button"
-            className={`play ${playing ? 'is-playing' : ''}`}
-            onClick={togglePlay}
-            aria-label={playing ? 'Pause' : 'Play'}
-            title="Play / pause (Space)"
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <RecordButton />
+          <div className="transport" role="group" aria-label="Transport">
+            <button type="button" className="to-start" onClick={() => void seek(0)} aria-label="Go to the start" title="Go to the start (↵)">
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="5" width="2.5" height="14" rx="1" fill="currentColor" />
+                <path d="M19 5.5v13L9 12z" fill="currentColor" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={`play ${playing ? 'is-playing' : ''}`}
+              onClick={togglePlay}
+              aria-label={playing ? 'Pause' : 'Play'}
+              title="Play / pause (Space)"
+            >
+              {playing ? <PauseIcon /> : <PlayIcon />}
+            </button>
+            <RecordButton />
+          </div>
+
+          <div className="lcd" role="group" aria-label="Position and song settings">
+            <Position />
+            <TempoField />
+            {/* Meter over key, stacked in one cell as Logic shows them. */}
+            <div className="lcd-cell lcd-stack">
+              <select
+                aria-label="Time signature"
+                title="Time signature"
+                value={timeSig.join('/')}
+                onChange={(e) => {
+                  const sig = TIME_SIGS.find((s) => s.join('/') === e.target.value)
+                  if (sig) setTimeSig(sig)
+                }}
+              >
+                {TIME_SIG_GROUPS.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.sigs.map((s) => (
+                      <option key={s.join('/')} value={s.join('/')}>
+                        {s.join('/')}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <select
+                aria-label="Key"
+                title="Key"
+                value={`${key}-${mode}`}
+                onChange={(e) => {
+                  const [pc, m] = e.target.value.split('-')
+                  setKey(Number(pc))
+                  setMode(m as Mode)
+                }}
+              >
+                {(['major', 'minor'] as const).map((m) => (
+                  <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
+                    {Array.from({ length: 12 }, (_, pc) => (
+                      <option key={pc} value={`${pc}-${m}`}>
+                        {keyLabel(pc, m)} {m === 'major' ? 'maj' : 'min'}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <IconToggle label="Cycle (L)" pressed={loopOn} onClick={toggleLoop}>
+            <Icon d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4" />
+          </IconToggle>
           <IconToggle label="Metronome (M)" pressed={metronome} onClick={toggleMetronome}>
             <Icon d="M9 3h6l4 18H5zM12 15l5-8" />
           </IconToggle>
-          <IconToggle label="Loop (L)" pressed={loopOn} onClick={toggleLoop}>
-            <Icon d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4" />
-          </IconToggle>
           <SoundButton />
-          <Position />
-        </div>
-
-        <div className="toolbar-group">
-          <select
-            aria-label="Key"
-            title="Key"
-            value={`${key}-${mode}`}
-            onChange={(e) => {
-              const [pc, m] = e.target.value.split('-')
-              setKey(Number(pc))
-              setMode(m as Mode)
-            }}
-          >
-            {(['major', 'minor'] as const).map((m) => (
-              <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
-                {Array.from({ length: 12 }, (_, pc) => (
-                  <option key={pc} value={`${pc}-${m}`}>
-                    {keyLabel(pc, m)} {m}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <select
-            aria-label="Time signature"
-            title="Time signature"
-            value={timeSig.join('/')}
-            onChange={(e) => {
-              const sig = TIME_SIGS.find((s) => s.join('/') === e.target.value)
-              if (sig) setTimeSig(sig)
-            }}
-          >
-            {TIME_SIG_GROUPS.map((g) => (
-              <optgroup key={g.label} label={g.label}>
-                {g.sigs.map((s) => (
-                  <option key={s.join('/')} value={s.join('/')}>
-                    {s.join('/')}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <TempoField />
         </div>
 
         <div className="toolbar-group" aria-label="Edit" role="group">
@@ -117,7 +130,7 @@ export function Toolbar() {
                   onChange={(e) => editChord(chord, { degree: Number(e.target.value) })}
                 >
                   {Array.from({ length: 7 }, (_, d) => {
-                    const o = chordInfo(key, mode, d, chord.seventh)
+                    const o = chordOf(key, mode, { ...chord, degree: d })
                     return (
                       <option key={d} value={d}>
                         {o.name} — {o.roman}
@@ -134,6 +147,27 @@ export function Toolbar() {
                 >
                   7th
                 </button>
+                <select
+                  aria-label="Chord colour"
+                  title="Sus or added note"
+                  value={chord.color ?? ''}
+                  onChange={(e) => editChord(chord, { color: (e.target.value || undefined) as Chord['color'] })}
+                >
+                  <option value="">Triad</option>
+                  <option value="sus2">sus2</option>
+                  <option value="sus4">sus4</option>
+                  <option value="add9">add9</option>
+                </select>
+                <select
+                  aria-label="Bass note"
+                  title="Bass note (slash chord)"
+                  value={chord.bass ?? ''}
+                  onChange={(e) => editChord(chord, { bass: (e.target.value || undefined) as Chord['bass'] })}
+                >
+                  <option value="">Root</option>
+                  <option value="third">/3rd</option>
+                  <option value="fifth">/5th</option>
+                </select>
                 <button type="button" className="icon-btn" aria-label="Duplicate" title="Duplicate (D)" onClick={() => duplicateChord(chord.id)}>
                   <Icon d="M9 9h10v10H9zM5 15V5h10" />
                 </button>
@@ -337,7 +371,7 @@ function TempoField() {
   useEffect(() => setText(String(bpm)), [bpm])
 
   return (
-    <label className="tempo-field" title="Tempo">
+    <label className="lcd-cell" title="Tempo">
       <input
         className="tempo"
         type="number"
@@ -356,7 +390,9 @@ function TempoField() {
           if (e.key === 'Enter') e.currentTarget.blur()
         }}
       />
-      <span aria-hidden="true">bpm</span>
+      <span className="lcd-label" aria-hidden="true">
+        Tempo
+      </span>
     </label>
   )
 }

@@ -1,7 +1,7 @@
 import { useStore } from '../store'
-import { SaveButton, SketchesButton } from './Library'
+import { SketchesButton } from './Library'
 
-/** The sketch's name, typed straight in (it also names exported files), with saving and the library beside it. */
+/** The sketch's name, typed straight in (it also names exported files), with the sketch menu (save, new, open) beside it. */
 export function SongTitle() {
   const title = useStore((s) => s.title)
   const setTitle = useStore((s) => s.setTitle)
@@ -22,7 +22,6 @@ export function SongTitle() {
         }}
       />
       <SketchesButton />
-      <SaveButton />
     </div>
   )
 }
