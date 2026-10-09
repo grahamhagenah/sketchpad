@@ -38,16 +38,6 @@ export function Toolbar() {
 
         {/* Laid out like a DAW's control bar: transport, then a display of where you are and the song's settings, then modes. */}
         <div className="toolbar-group">
-          <button
-            type="button"
-            className={`transport-btn play ${playing ? 'is-playing' : ''}`}
-            onClick={togglePlay}
-            aria-label={playing ? 'Pause' : 'Play'}
-            title="Play / pause (Space)"
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <RecordButton />
           <div className="transport" role="group" aria-label="Transport">
             <button type="button" className="to-start" onClick={() => void seek(0)} aria-label="Go to the start" title="Go to the start (↵)">
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -354,7 +344,7 @@ function RecordButton() {
   return (
     <button
       type="button"
-      className={`transport-btn record-btn is-${recording}`}
+      className={`icon-btn record-btn is-${recording}`}
       aria-label={label}
       aria-pressed={recording !== 'off'}
       title={recording === 'off' ? 'Record a vocal over the loop (R). Headphones help keep the chords out of the take.' : label}

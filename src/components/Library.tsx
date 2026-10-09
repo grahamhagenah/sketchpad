@@ -4,37 +4,6 @@ import { useStore, totalBeats } from '../store'
 import { keyLabel } from '../music/theory'
 import { deleteSketch, isDirty, newSketch, openSketch, refreshLibrary, reportStorageError, saveSketch, useLibrary, type SketchRecord } from '../library'
 
-/** Saves the sketch; a dot on it means there are unsaved changes. */
-export function SaveButton() {
-  const dirty = useStore(isDirty)
-  const [saving, setSaving] = useState(false)
-  const save = async () => {
-    setSaving(true)
-    try {
-      await saveSketch()
-    } catch (error) {
-      reportStorageError('save the sketch')(error)
-    } finally {
-      setSaving(false)
-    }
-  }
-  return (
-    <button
-      type="button"
-      className={`icon-btn save-btn ${dirty ? 'has-changes' : ''}`}
-      aria-label={dirty ? 'Save' : 'Saved'}
-      title={dirty ? 'Save (⌘S)' : 'Nothing new to save'}
-      disabled={saving || !dirty}
-      onClick={() => void save()}
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
-        <path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6" />
-      </svg>
-    </button>
-  )
-}
-
-/** Lists the saved sketches to open or delete, and starts new ones. */
 /**
  * One button for the sketch file: save, start a new sketch, or open a saved
  * one. A dot on it means there are unsaved changes; ⌘S saves without opening it.
@@ -74,7 +43,7 @@ export function SketchesButton() {
             className="menu-item"
             disabled={!dirty}
             onClick={() => {
-              void saveSketch()
+              void saveSketch().catch(reportStorageError('save the sketch'))
               close()
             }}
           >
