@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { sketchSignature, songOf, useStore, type SongData } from './store'
 import { engine, replaceTakes } from './audio/engine'
-import { SKETCHES, SKETCH_TAKES, LANES, idb, keepStorage, storageErrorMessage, type Take } from './audio/take'
+import { SKETCHES, LANES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage } from './audio/take'
 import { clearHistory } from './history'
 
 /** A saved sketch as listed; its takes are stored apart, under the same id. */
@@ -39,7 +39,7 @@ export async function saveSketch() {
   const s = useStore.getState()
   const id = s.sketchId ?? crypto.randomUUID()
   await idb(SKETCHES, 'readwrite', (store) => store.put({ id, updated: Date.now(), song: songOf(s) } satisfies SketchRecord, id))
-  await idb(SKETCH_TAKES, 'readwrite', (store) => store.put([...engine.allTakes], id))
+  await saveSketchTakes(id, engine.allTakes)
   s.setSaved(id, sketchSignature(useStore.getState()))
   await refreshLibrary()
 }
@@ -68,7 +68,7 @@ export async function openSketch(id: string) {
   if (!(await keepCurrent())) return
   const record = await idb<SketchRecord | undefined>(SKETCHES, 'readonly', (store) => store.get(id))
   if (!record) return
-  const takes = (await idb<(Take | null)[] | undefined>(SKETCH_TAKES, 'readonly', (store) => store.get(id))) ?? []
+  const takes = await loadSketchTakes(id)
   stopEverything()
   useStore.setState({ ...record.song })
   await replaceTakes(takes)
@@ -100,7 +100,7 @@ export async function newSketch() {
 
 export async function deleteSketch(id: string) {
   await idb(SKETCHES, 'readwrite', (store) => store.delete(id))
-  await idb(SKETCH_TAKES, 'readwrite', (store) => store.delete(id))
+  await deleteSketchTakes(id)
   // The open sketch stays on screen, as unsaved work.
   if (useStore.getState().sketchId === id) useStore.getState().setSaved(null, null)
   await refreshLibrary()

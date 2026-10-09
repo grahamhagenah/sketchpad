@@ -5,7 +5,7 @@ import { arrange, type Arp, type Hit } from './arrange'
 import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
 import type { Sound } from './sound'
 import { openMic, outputLatency, startCapture, type Capture } from './recorder'
-import { LANES, deleteSavedTake, keepStorage, loadTakes, saveTake, storageErrorMessage, takeInfo, toAudioBuffer, type Take, type TakeInfo } from './take'
+import { LANES, deleteSavedTake, keepStorage, loadTakes, quantize, saveTake, storageErrorMessage, takeInfo, toAudioBuffer, type Take, type TakeInfo } from './take'
 
 export interface Song {
   key: number
@@ -302,7 +302,7 @@ class Engine {
     if (samples.length - skip < sampleRate * 0.25) return { lane: rec.lane, take: null }
     const aligned =
       skip >= 0 ? samples.slice(skip) : Float32Array.from({ length: samples.length - skip }, (_, i) => (i < -skip ? 0 : samples[i + skip]))
-    return { lane: rec.lane, take: { startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: aligned } }
+    return { lane: rec.lane, take: { id: crypto.randomUUID(), startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: quantize(aligned) } }
   }
 
   /** Current loop position in beats, or null when stopped. */

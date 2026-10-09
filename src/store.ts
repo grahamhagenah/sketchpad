@@ -168,7 +168,7 @@ export type SongData = ReturnType<typeof songOf>
 
 /** A fingerprint of the sketch, takes included, to compare against the saved one. */
 export const sketchSignature = (s: State) =>
-  JSON.stringify([songOf(s), s.takes.map((t) => t && [t.startBeat, t.seconds, Math.round(t.peaks.reduce((a, b) => a + b, 0) * 1000)])])
+  JSON.stringify([songOf(s), s.takes.map((t) => t?.id ?? null)])
 
 const newId = () => crypto.randomUUID()
 

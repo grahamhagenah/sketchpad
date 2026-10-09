@@ -21,7 +21,7 @@ describe('audibleTracks', () => {
     chordsSolo: false,
     vocalMuted: [false, false],
     vocalSolo: [false, false],
-    takes: [{ startBeat: 0, bpm: 96, seconds: 1, peaks: [] }, null],
+    takes: [{ id: 'a', startBeat: 0, bpm: 96, seconds: 1, peaks: [] }, null],
   }
 
   it('plays everything with a take by default', () => {
