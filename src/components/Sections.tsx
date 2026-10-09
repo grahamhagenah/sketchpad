@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '../store'
-import { chordOf, keyLabel, type Mode } from '../music/theory'
+import { keyLabel, type Mode } from '../music/theory'
 import { engine } from '../audio/engine'
 import { songSpans } from '../song'
 import { Icon, ZoomButtons } from './Toolbar'
@@ -349,11 +349,10 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
   )
 }
 
-/** Each place in the song is a row this tall, with this gap under it, below a ruler of bar numbers. */
-const ROW_H = 64
-const ROW_GAP = 8
-const RULER_H = 24
-const rowTop = (i: number) => RULER_H + i * (ROW_H + ROW_GAP)
+/** Each place in the song is a slim row this tall, with this gap under it. */
+const ROW_H = 40
+const ROW_GAP = 6
+const rowTop = (i: number) => i * (ROW_H + ROW_GAP)
 
 /** An element's width, kept up to date as it changes. */
 function useWidth(ref: RefObject<HTMLElement | null>) {
@@ -378,29 +377,27 @@ function rowAt(spans: ReturnType<typeof songSpans>, beat: number) {
 }
 
 /**
- * The whole song as a lead sheet: each place a section plays is a row, in
- * order from the top, its chords on a bar grid shared by every row, so bar 1
- * of each section lines up. Click a row to edit its section; drag it (or ⌥↑
- * ⌥↓) to reorder; play to hear the song through, the playhead running along
- * each row in turn.
+ * The whole song from above: each place a section plays is a slim row, in
+ * order from the top, with its name and a bar as long as it is. The detail
+ * (chords, drums, vocals) is in the section itself: click a row to open it.
+ * Drag a row (or ⌥↑ ⌥↓) to reorder; play to hear the song through, the
+ * playhead running along each row in turn.
  */
 export function SongView() {
   const state = useStore()
-  const { key, mode, timeSig, zoom, playing, playhead, arrangement, openSection, addToSong, addSection, moveInSong } = state
+  const { timeSig, zoom, playing, playhead, arrangement, openSection, addToSong, addSection, moveInSong } = state
   // Worked out here rather than in a selector, since they're new arrays each time.
   const sections = sectionsNow(state)
   const spans = songSpans(state)
-  const [num, den] = timeSig
+  const [num] = timeSig
   const total = spans.reduce((n, span) => n + span.beats, 0)
-  // The grid is as wide as the longest section, and at least four bars.
-  const gridBars = Math.max(4, ...spans.map((span) => Math.ceil(span.beats / num)))
-  // At normal zoom the grid fills the width beside the names, so the chords get the room; zooming scales it from there.
+  // The longest section's bar fills the width beside the names (at normal zoom), and the others are to scale.
+  const longest = Math.max(4 * num, ...spans.map((span) => span.beats))
   const scrollRef = useRef<HTMLDivElement>(null)
   const sheetWidth = useWidth(scrollRef)
-  const headPx = sheetWidth && sheetWidth < 640 ? 128 : 200
-  const fitPx = sheetWidth ? (sheetWidth - headPx - 24) / (gridBars * num) : 0
-  // Never so narrow a chord name can't fit, though; a long section then scrolls sideways.
-  const beatPx = Math.max(fitPx, den === 16 ? 5 : den === 8 ? 7 : 10) * zoom
+  const headPx = sheetWidth && sheetWidth < 640 ? 120 : 180
+  // Room is left at the end of each row for its menu button.
+  const beatPx = (sheetWidth ? (sheetWidth - headPx - 44) / longest : 8) * zoom
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
   const uses = new Map<string, number>()
   for (const entry of arrangement) uses.set(entry.section, (uses.get(entry.section) ?? 0) + 1)
@@ -511,25 +508,14 @@ export function SongView() {
 
   const bars = (beats: number) => Math.ceil(beats / num)
   return (
-    <div className="song-view" style={{ ['--beat' as string]: `${beatPx}px`, ['--bar' as string]: `${num * beatPx}px`, ['--song-head' as string]: `${headPx}px` }}>
+    <div className="song-view" style={{ ['--song-head' as string]: `${headPx}px` }}>
       <div className="song-scroll" ref={scrollRef}>
-        <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${gridBars * num * beatPx + 24}px)`, height: rowTop(spans.length) + ROW_H + 8 }}>
-          {/* Bar numbers within a section, over the grid every row shares. */}
-          <div className="song-ruler" aria-hidden="true">
-            {Array.from({ length: gridBars }, (_, bar) => (
-              <span key={bar} style={{ left: bar * num * beatPx }}>
-                {bar + 1}
-              </span>
-            ))}
-          </div>
-
+        <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + 44}px)`, height: rowTop(spans.length) + 44 }}>
           {order.map((span) => {
             const { entry, start, beats } = span
             const section = byId.get(entry.section)
             if (!section) return null
             const index = spans.findIndex((s) => s.entry.id === entry.id)
-            const shared = (uses.get(section.id) ?? 0) > 1
-            const own = section.sectionKey
             return (
               <div
                 key={entry.id}
@@ -556,44 +542,21 @@ export function SongView() {
                   title={`Edit ${section.name} (⌥↑ ⌥↓ to move it)`}
                 >
                   <span className="song-row-head">
-                    <span className="song-row-name">
-                      <span className="section-dot" aria-hidden="true" />
-                      <span className="song-row-title">{section.name}</span>
-                      {shared && <span className="song-row-shared" title="Plays more than once; changing it changes every place it plays">⧉</span>}
-                      {own && (
-                        <span className="song-row-key" title={`In its own key: ${keyLabel(own.key, own.mode)} ${own.mode}`}>
-                          {keyLabel(own.key, own.mode)}
-                          {own.mode === 'minor' ? 'm' : ''}
-                        </span>
-                      )}
-                      {section.takes.some(Boolean) && (
-                        <svg className="song-row-mic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-label="Has vocals">
-                          <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className="song-row-meta">{beats ? `Bar ${bars(start) + 1} · ${bars(beats)} ${bars(beats) === 1 ? 'bar' : 'bars'}` : 'Empty'}</span>
+                    <span className="section-dot" aria-hidden="true" />
+                    <span className="song-row-title">{section.name}</span>
+                    <span className="song-row-meta">{beats ? bars(beats) : '–'}</span>
                   </span>
-                  {/* Each chord where it falls in the section, as in the editor. */}
-                  <span className="song-row-chords" style={{ width: beats ? beats * beatPx : undefined }} aria-hidden={beats > 0}>
-                    {beats
-                      ? section.chords.map((c, i) => {
-                          const at = section.chords.slice(0, i).reduce((n, prev) => n + prev.beats, 0)
-                          return (
-                            <span key={c.id} className="song-chord" style={{ left: at * beatPx, width: c.beats * beatPx }}>
-                              {chordOf(own?.key ?? key, own?.mode ?? mode, c).name}
-                            </span>
-                          )
-                        })
-                      : 'No chords yet'}
+                  {/* The section's length, to scale with the others. */}
+                  <span className="song-row-track">
+                    <span className="song-row-bar" style={{ width: beats ? beats * beatPx : undefined }} />
                   </span>
                 </button>
-                <BlockMenu entryId={entry.id} section={section} index={index} count={spans.length} shared={shared} />
+                <BlockMenu entryId={entry.id} section={section} index={index} count={spans.length} shared={(uses.get(section.id) ?? 0) > 1} />
               </div>
             )
           })}
 
-          {/* As wide as the view, even when a long section makes the grid scroll sideways. */}
+          {/* As wide as the view, even when zooming in makes the rows scroll sideways. */}
           <div className="song-add" style={{ top: rowTop(spans.length), width: sheetWidth || undefined }}>
             <MenuButton label="Add to the song" title="Add a section to the end of the song" className="song-add-btn" menu={(close) => (
               <>
@@ -609,7 +572,7 @@ export function SongView() {
                 <NewSectionItems onPick={(name) => { addSection(name); close() }} />
               </>
             )}>
-              <span aria-hidden="true">+</span> {spans.length ? 'Add a section to the song' : 'The song is empty: add its first section'}
+              <span aria-hidden="true">+</span> {spans.length ? 'Add a section' : 'The song is empty: add its first section'}
             </MenuButton>
           </div>
 
