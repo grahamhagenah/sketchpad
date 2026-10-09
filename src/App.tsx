@@ -3,7 +3,6 @@ import { useStore } from './store'
 import { deleteTake, seek, togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
-import { Palette } from './components/Palette'
 import { SectionBar, SongView } from './components/Sections'
 import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
@@ -99,8 +98,6 @@ export default function App() {
           <SectionBar />
           {view === 'song' ? <SongView /> : <Timeline />}
         </section>
-        {/* Chords are picked for a section, so the palette shows while one is open. */}
-        {view === 'section' && <Palette />}
       </main>
     </div>
   )

@@ -3,8 +3,12 @@ import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { BORROWED, chordInfo, FUNCTIONS } from '../music/theory'
 import { audition } from '../audio/engine'
+import { Progressions } from './Palette'
 
 const WIDTH = 300
+
+/** The tab last shown, so the menu opens where it was left. */
+let lastTab: 'chords' | 'progressions' = 'chords'
 
 /**
  * The key's chords, grouped by function, in a popover beside the + slot.
@@ -17,6 +21,11 @@ export function AddChordMenu({ anchor, onClose }: { anchor: RefObject<HTMLElemen
   const chords = useStore((s) => s.chords)
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  const [tab, setTabState] = useState(lastTab)
+  const setTab = (next: typeof tab) => {
+    lastTab = next
+    setTabState(next)
+  }
 
   useLayoutEffect(() => {
     const r = anchor.current?.getBoundingClientRect()
@@ -62,40 +71,60 @@ export function AddChordMenu({ anchor, onClose }: { anchor: RefObject<HTMLElemen
   if (!pos) return null
   return createPortal(
     <div className="menu add-chord-menu" ref={ref} role="dialog" aria-label="Add a chord" style={{ left: pos.left, top: pos.top, width: WIDTH }}>
-      {FUNCTIONS.map((fn) => (
-        <div key={fn.id} className="add-chord-group" role="group" aria-label={fn.label}>
-          <span className="palette-group-label" title={fn.about}>
-            {fn.label}
-          </span>
-          <div className="add-chord-chords">
-            {fn.degrees.map((degree) => {
-              const info = chordInfo(key, mode, degree, false)
-              return (
-                <button type="button" key={degree} className="add-chord" onClick={() => add(degree)} title={`Add ${info.name} (${degree + 1})`}>
-                  <span className="add-chord-name">{info.name}</span>
-                  <span className="add-chord-roman">{info.roman}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-      <div className="add-chord-group" role="group" aria-label="Borrowed">
-        <span className="palette-group-label" title={`From the parallel ${mode === 'major' ? 'minor' : 'major'} key`}>
-          Borrowed
-        </span>
-        <div className="add-chord-chords">
-          {BORROWED[mode].map((degree) => {
-            const info = chordInfo(key, mode, degree, false, { borrowed: true })
-            return (
-              <button type="button" key={degree} className="add-chord" onClick={() => add(degree, true)} title={`Add ${info.name}, borrowed`}>
-                <span className="add-chord-name">{info.name}</span>
-                <span className="add-chord-roman">{info.roman}</span>
-              </button>
-            )
-          })}
-        </div>
+      <div className="panel-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === 'chords'} onClick={() => setTab('chords')}>
+          Chords
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'progressions'} onClick={() => setTab('progressions')}>
+          Progressions
+        </button>
       </div>
+      {tab === 'chords' ? (
+        <>
+          {FUNCTIONS.map((fn) => (
+            <div key={fn.id} className="add-chord-group" role="group" aria-label={fn.label}>
+              <span className="palette-group-label" title={fn.about}>
+                {fn.label}
+              </span>
+              <div className="add-chord-chords">
+                {fn.degrees.map((degree) => {
+                  const info = chordInfo(key, mode, degree, false)
+                  return (
+                    <button type="button" key={degree} className="add-chord" onClick={() => add(degree)} title={`Add ${info.name} (${degree + 1})`}>
+                      <span className="add-chord-name">{info.name}</span>
+                      <span className="add-chord-roman">{info.roman}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="add-chord-group" role="group" aria-label="Borrowed">
+            <span className="palette-group-label" title={`From the parallel ${mode === 'major' ? 'minor' : 'major'} key`}>
+              Borrowed
+            </span>
+            <div className="add-chord-chords">
+              {BORROWED[mode].map((degree) => {
+                const info = chordInfo(key, mode, degree, false, { borrowed: true })
+                return (
+                  <button type="button" key={degree} className="add-chord" onClick={() => add(degree, true)} title={`Add ${info.name}, borrowed`}>
+                    <span className="add-chord-name">{info.name}</span>
+                    <span className="add-chord-roman">{info.roman}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      ) : (
+        // Or start over from a ready-made one.
+        <div className="add-chord-group" role="tabpanel" aria-label="Progressions">
+          <span className="add-chord-note" id="add-chord-progressions">
+            Replaces this section’s chords
+          </span>
+          <Progressions keyNum={key} mode={mode} labelledBy="add-chord-progressions" onPicked={onClose} />
+        </div>
+      )}
     </div>,
     document.body,
   )

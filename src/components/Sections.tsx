@@ -2,15 +2,18 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { createPortal } from 'react-dom'
 import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '../store'
 import { chordOf } from '../music/theory'
-import { engine, seek } from '../audio/engine'
+import { engine } from '../audio/engine'
 import { songSpans } from '../song'
 import { Icon, ZoomButtons } from './Toolbar'
 
 const KIND_COLORS = ['#8fa8c8', '#5ad8c8', '#e8c46a', '#ff8fa3', '#b39cff', '#9aa5b1']
 
+/** What kind of section a name is: "Verse 2" is a verse. */
+const sectionKind = (name: string) => name.replace(/\s+\d+$/, '').toLowerCase()
+
 /** A colour for each kind of section, so a song's repeats are easy to pick out; "Verse 2" takes Verse's. */
 function sectionColor(name: string) {
-  const base = name.replace(/\s+\d+$/, '').toLowerCase()
+  const base = sectionKind(name)
   const kind = SECTION_KINDS.findIndex((k) => k.toLowerCase() === base)
   if (kind !== -1) return KIND_COLORS[kind]
   let hash = 0
@@ -146,7 +149,6 @@ export function SectionBar() {
           <Icon d="M4 6h4v12H4zM10 6h4v12h-4zM16 6h4v12h-4z" />
           Song
         </button>
-        <span className="section-tabs-divider" aria-hidden="true" />
         {sections.map((sec) => {
           const open = view === 'section' && sec.id === activeSection
           return (
@@ -168,7 +170,12 @@ export function SectionBar() {
                   {sec.name}
                 </button>
               )}
-              {open && renaming !== sec.id && <SectionMenu section={sec} onRename={() => setRenaming(sec.id)} />}
+              {open && renaming !== sec.id ? (
+                <SectionMenu section={sec} onRename={() => setRenaming(sec.id)} />
+              ) : (
+                // The menu button's room, kept on every tab so opening one doesn't shift the rest.
+                renaming !== sec.id && <span className="section-more-space" aria-hidden="true" />
+              )}
             </div>
           )
         })}
@@ -284,28 +291,30 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
   )
 }
 
-/** Where each place in the song is drawn; an empty section still gets some width, to be seen and picked. */
-function layout(spans: ReturnType<typeof songSpans>, beatPx: number, barBeats: number) {
+/** The narrowest a place in the song is drawn, so a short section's name and chords stay readable. */
+const MIN_BLOCK = 170
+
+/**
+ * Where each place in the song is drawn. Each is sized to its length, but
+ * never narrower than MIN_BLOCK, so a short one is stretched; `scale` is its
+ * own pixels per beat. An empty section still gets that width, to be seen and picked.
+ */
+function layout(spans: ReturnType<typeof songSpans>, beatPx: number) {
   let x = 0
   return spans.map((span) => {
-    const width = span.beats ? span.beats * beatPx : Math.max(2 * barBeats * beatPx, 110)
-    const placed = { ...span, x, width }
+    const width = Math.max(span.beats * beatPx, MIN_BLOCK)
+    const placed = { ...span, x, width, scale: span.beats ? width / span.beats : beatPx }
     x += width
     return placed
   })
 }
 type Placed = ReturnType<typeof layout>[number]
 
-/** The x of a beat of the song, and back. */
-function beatToX(placed: Placed[], beat: number, beatPx: number) {
-  for (const p of placed) if (p.beats && beat < p.start + p.beats) return p.x + Math.max(0, beat - p.start) * beatPx
+/** The x of a beat of the song, through each place's own scale. */
+function beatToX(placed: Placed[], beat: number) {
+  for (const p of placed) if (p.beats && beat < p.start + p.beats) return p.x + Math.max(0, beat - p.start) * p.scale
   const last = placed[placed.length - 1]
   return last ? last.x + last.width : 0
-}
-function xToBeat(placed: Placed[], x: number, beatPx: number) {
-  for (const p of placed) if (x < p.x + p.width) return p.beats ? p.start + Math.min(p.beats, Math.max(0, (x - p.x) / beatPx)) : p.start
-  const last = placed[placed.length - 1]
-  return last ? last.start + last.beats : 0
 }
 
 /**
@@ -321,8 +330,8 @@ export function SongView() {
   const spans = songSpans(state)
   const [num, den] = timeSig
   // Narrower than the section editor: a song runs much longer than one section.
-  const beatPx = (den === 16 ? 8 : den === 8 ? 11 : 16) * zoom
-  const placed = layout(spans, beatPx, num)
+  const beatPx = (den === 16 ? 12 : den === 8 ? 16 : 24) * zoom
+  const placed = layout(spans, beatPx)
   const total = spans.reduce((n, span) => n + span.beats, 0)
   const width = (placed.length ? placed[placed.length - 1].x + placed[placed.length - 1].width : 0)
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
@@ -343,7 +352,7 @@ export function SongView() {
     const frame = () => {
       const beat = engine.position()
       if (beat !== null) {
-        if (playheadRef.current) playheadRef.current.style.transform = `translateX(${beatToX(placedRef.current, beat, beatPx)}px)`
+        if (playheadRef.current) playheadRef.current.style.transform = `translateX(${beatToX(placedRef.current, beat)}px)`
         setCurrent(placedRef.current.find((p) => p.beats && beat >= p.start && beat < p.start + p.beats)?.entry.id ?? null)
       }
       raf = requestAnimationFrame(frame)
@@ -425,30 +434,10 @@ export function SongView() {
     moveInSong(id, index + (e.key === 'ArrowLeft' ? -1 : 1))
   }
 
-  const bars = Math.ceil(total / num)
   return (
     <div className="song-view">
       <div className="song-scroll">
         <div className="song-lane" style={{ width: width + 140 }}>
-          {total > 0 && (
-            <div
-              className="song-ruler"
-              title="Click to move the playhead"
-              style={{ width }}
-              onPointerDown={(e) => {
-                const x = e.clientX - e.currentTarget.getBoundingClientRect().left
-                // To the nearest bar.
-                const beat = xToBeat(placed, x, beatPx)
-                void seek(Math.min(total, Math.round(beat / num) * num))
-              }}
-            >
-              {Array.from({ length: bars }, (_, bar) => bar).filter((bar) => bar % (zoom < 1 ? 8 : 4) === 0).map((bar) => (
-                <span key={bar} style={{ left: beatToX(placed, bar * num, beatPx) }}>
-                  {bar + 1}
-                </span>
-              ))}
-            </div>
-          )}
 
           {order.map((p) => {
             const section = byId.get(p.entry.section)
@@ -459,7 +448,7 @@ export function SongView() {
               <div
                 key={p.entry.id}
                 className={`song-block ${p.entry.id === current ? 'is-playing' : ''} ${p.entry.id === drag?.id ? 'is-dragging' : ''} ${p.beats ? '' : 'is-empty'}`}
-                style={{ ...colorStyle(section.name), left: lefts.get(p.entry.id), width: p.width - 4 }}
+                style={{ ...colorStyle(section.name), left: lefts.get(p.entry.id), width: p.width - 6 }}
                 onPointerDown={(e) => startPress(p.entry.id, e)}
               >
                 <button
@@ -477,6 +466,7 @@ export function SongView() {
                   title={`Edit ${section.name} (⌥← ⌥→ to move it)`}
                 >
                   <span className="song-block-name">
+                    <span className="section-dot" aria-hidden="true" />
                     {section.name}
                     {(uses.get(section.id) ?? 0) > 1 && <span className="song-block-shared" title="Plays more than once; changing it changes every place it plays">⧉</span>}
                     {hasVocals && (
@@ -491,7 +481,7 @@ export function SongView() {
                       ? section.chords.map((c, i) => {
                           const at = section.chords.slice(0, i).reduce((n, prev) => n + prev.beats, 0)
                           return (
-                            <span key={c.id} className="song-chord" style={{ left: at * beatPx, width: c.beats * beatPx }}>
+                            <span key={c.id} className="song-chord" style={{ left: at * p.scale, width: c.beats * p.scale }}>
                               {chordOf(key, mode, c).name}
                             </span>
                           )
@@ -527,7 +517,7 @@ export function SongView() {
           {placed.length === 0 && <p className="song-empty">The song is empty. Add sections with +, in the order they play.</p>}
 
           {total > 0 && (playing || playhead > 0) && (
-            <div className="playhead song-playhead" ref={playheadRef} style={{ transform: `translateX(${beatToX(placed, playhead, beatPx)}px)` }} aria-hidden="true" />
+            <div className="playhead song-playhead" ref={playheadRef} style={{ transform: `translateX(${beatToX(placed, playhead)}px)` }} aria-hidden="true" />
           )}
         </div>
       </div>

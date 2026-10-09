@@ -43,8 +43,10 @@ kbd {
   gap: 16px;
 }
 main { display: flex; flex-direction: column; }
-/* The editor and palette run edge to edge as bands, their contents kept to the site width. */
+/* The editor runs edge to edge as a band, its contents kept to the site width. */
 .app { --site: 1200px; --gutter: 24px; }
+/* The bands' full-bleed edges reach past the window; don't let them make the page scroll sideways. */
+.app { overflow-x: clip; }
 main > .panel {
   border-width: 0 0 1px;
   border-radius: 0;
@@ -57,7 +59,6 @@ main > .panel {
   flex-direction: column;
   gap: 10px;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
 }
 .toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 0; }
 .toolbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 6px; }
@@ -105,14 +106,15 @@ main > .panel {
 .transport .play { color: var(--accent); }
 .transport .play.is-playing { background: var(--accent); color: var(--on-accent); }
 .transport .record-btn { color: var(--record); }
-.transport .record-btn.is-count-in { background: color-mix(in srgb, var(--record) 14%, transparent); box-shadow: inset 0 0 0 1px var(--record); }
+/* A tint, not an outline: the transport's rounded corner would clip a ring. */
+.transport .record-btn.is-count-in { background: color-mix(in srgb, var(--record) 24%, transparent); }
 .transport .record-btn.is-on { background: var(--record); color: #fff; }
 /* Each state keeps its colour when hovered. Only where there's a pointer, so a tap doesn't leave a button looking hovered. */
 @media (hover: hover) {
   .transport > button:not(:disabled):hover { background: rgb(255 255 255 / 0.06); border-color: var(--line-strong); }
   .transport .play.is-playing:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 82%, #fff); }
   .transport .record-btn:not(:disabled):hover { background: color-mix(in srgb, var(--record) 12%, transparent); }
-  .transport .record-btn.is-count-in:not(:disabled):hover { background: color-mix(in srgb, var(--record) 24%, transparent); }
+  .transport .record-btn.is-count-in:not(:disabled):hover { background: color-mix(in srgb, var(--record) 32%, transparent); }
   .transport .record-btn.is-on:not(:disabled):hover { background: color-mix(in srgb, var(--record) 82%, #000); }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -197,6 +199,8 @@ main > .panel {
   /* The loop strip runs along the bottom of the ruler, under the bar numbers, so it takes no room of its own. */
   --ruler-h: 18px;
   --strip-y: 25px;
+  /* Where the bar and beat lines begin, just under the bar numbers; the track names' column starts there too. */
+  --grid-top: 20px;
   --head: 36px;
   --chord-h: 60px;
   --vocal-top: calc(var(--head) + var(--chord-h) + 12px);
@@ -223,8 +227,8 @@ main > .panel {
   min-width: 100%;
   height: calc(var(--head) + var(--chord-h) + 6px + min(var(--lanes), 1) * 4px + var(--lanes) * (var(--vocal-h) + 8px));
   background:
-    repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 20px / 100% calc(100% - 20px) no-repeat,
-    repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--beat)) 0 20px / 100% calc(100% - 20px) no-repeat;
+    repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat,
+    repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--beat)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat;
 }
 .ruler { position: absolute; top: 0; left: 0; right: 0; height: var(--ruler-h); cursor: pointer; }
 .ruler span { pointer-events: none; }
@@ -332,6 +336,11 @@ main > .panel {
 .add-chord-name { font-size: 15px; font-weight: 700; }
 .add-chord-roman { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
 .add-chord:active .add-chord-roman { color: inherit; }
+/* Ready-made progressions under the chords, two to a row to fit the menu. */
+.add-chord-menu .progressions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.add-chord-menu .progression { min-width: 0; padding: 7px 10px; border-radius: 8px; }
+.add-chord-menu .progression-numerals { white-space: normal; }
+.add-chord-note { font-size: 12px; color: var(--muted); }
 .add-slot:not(.is-moved):hover { border-color: var(--muted); color: var(--text); }
 .playhead {
   position: absolute;
@@ -405,7 +414,11 @@ main > .panel {
 .track-headers { position: relative; flex: none; width: 200px; }
 /* Each header fills its whole slot in the column, gaps between rows included, so the clickable area runs edge to edge. */
 .track-header { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; }
-.track-header.is-chords { top: calc(var(--head) - 4px); height: calc(var(--chord-h) + 8px); }
+/* The chords' header reaches up to where the timeline's lines begin, its name centred in it. */
+.track-header.is-chords {
+  top: var(--grid-top);
+  height: calc(var(--head) + var(--chord-h) + 4px - var(--grid-top));
+}
 .track-header.is-vocal {
   top: calc(var(--vocal-top) - 4px + var(--row, 0) * (var(--vocal-h) + 8px));
   height: calc(var(--vocal-h) + 8px);
@@ -441,16 +454,6 @@ main > .panel {
 }
 .unmute-all svg { width: 16px; height: 16px; }
 .unmute-all:hover { color: var(--text); background: var(--raised); }
-/* Sets the corner's controls apart from the track names below. */
-.track-headers::before {
-  content: '';
-  position: absolute;
-  top: calc(var(--head) - 5px);
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--line);
-}
 
 /* The sketch's title, leading the toolbar, with the library and save beside it. */
 .song-bar { display: flex; align-items: center; gap: 2px; }
@@ -611,7 +614,6 @@ main > .panel {
 }
 
 /* Palette */
-.palette-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .palette-group { display: flex; flex-direction: column; gap: 8px; }
 .palette-group-label {
   font-family: 'DM Mono', monospace;
@@ -642,25 +644,63 @@ main > .panel {
 .progression-numerals { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
 
 /* Sections: tabs for the song and each of its sections, above the editor. */
-.section-bar { display: flex; align-items: center; gap: 12px; min-width: 0; margin-top: -2px; }
+.section-bar {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 0;
+  /* A darker strip under the toolbar, edge to edge, that the tabs sit in. */
+  margin-top: -14px;
+  padding-top: 10px;
+  background: var(--bg);
+  box-shadow: 0 0 0 100vmax var(--bg);
+  clip-path: inset(0 -100vmax);
+}
+/* The strip's edges, top and bottom; the open tab breaks through the lower one to join the timeline below. */
+.section-bar::before,
+.section-bar::after {
+  content: '';
+  position: absolute;
+  /* Past the window's edges; .app clips what overhangs. */
+  left: -100vmax;
+  right: -100vmax;
+  height: 1px;
+  background: var(--line);
+}
+.section-bar::before { top: 0; }
+.section-bar::after { bottom: 0; }
+.section-bar-end, .section-add { align-self: center; }
 .section-bar-end { flex: none; margin-left: auto; display: flex; gap: 2px; }
 .section-bar-end .icon-btn { width: 30px; height: 30px; min-height: 0; border: 0; background: none; color: var(--muted); }
 .section-bar-end .icon-btn:not(:disabled):hover { color: var(--text); background: var(--raised); }
 .section-bar-end .icon-btn svg { width: 17px; height: 17px; }
-.section-tabs { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; padding: 2px; scrollbar-width: none; }
+.section-tabs { display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; padding: 0 2px; scrollbar-width: none; }
 .section-tabs::-webkit-scrollbar { display: none; }
-.section-tabs-divider { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line-strong); }
-.section-tab-wrap { flex: none; display: flex; align-items: center; border-radius: 8px; }
-.section-tab-wrap.is-open { background: color-mix(in srgb, var(--section) 16%, var(--raised)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--section) 55%, transparent); }
+.section-tab-wrap { flex: none; display: flex; align-items: center; }
+/* Tabs: the ones behind are muted on the dark strip; the open one is the same
+   colour as the timeline, outlined on three sides and open at the bottom, so it
+   reads as the top layer with the timeline its page. */
+.section-tab-wrap,
+.section-tab.is-song {
+  position: relative;
+  z-index: 1;
+  height: 36px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+}
+.section-tab-wrap.is-open,
+.section-tab.is-song[aria-selected='true'] { background: var(--panel); border-color: var(--line); }
 .section-tab {
   flex: none;
-  height: 30px;
+  height: 35px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 0 12px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9px 9px 0 0;
   background: none;
   color: var(--muted);
   font-size: 13px;
@@ -669,13 +709,14 @@ main > .panel {
 }
 .section-tab svg { width: 15px; height: 15px; }
 .section-tab[aria-selected='true'] { color: var(--text); }
-.section-tab.is-song[aria-selected='true'] { background: var(--raised); box-shadow: inset 0 0 0 1px var(--line-strong); }
 /* A section that isn't in the song yet. */
 .section-tab.is-unused { font-style: italic; }
 .section-tab.is-unused .section-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--section); }
 .section-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--section); }
-.section-tab-wrap.is-open .section-tab { padding-right: 4px; }
+/* A square button, inset from the tab's edge so its hover has room around it. */
 .section-more,
+.section-more-space { flex: none; width: 26px; height: 26px; margin: 0 6px 0 -6px; }
+.section-more { min-height: 0; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); }
 .section-add {
   flex: none;
   height: 28px;
@@ -704,7 +745,9 @@ main > .panel {
 }
 .section-rename:focus-visible { outline: none; }
 @media (hover: hover) {
-  .section-tab:not(:disabled):not([aria-selected='true']):hover { color: var(--text); background: rgb(255 255 255 / 0.04); }
+  .section-tab-wrap:not(.is-open):hover,
+  .section-tab.is-song:not([aria-selected='true']):hover { background: rgb(255 255 255 / 0.04); }
+  .section-tab:not(:disabled):not([aria-selected='true']):hover { color: var(--text); }
   .section-more:not(:disabled):hover, .section-add:not(:disabled):hover { color: var(--text); background: rgb(255 255 255 / 0.06); border-color: transparent; }
 }
 .section-menu { width: 280px; z-index: 30; }
@@ -716,34 +759,22 @@ main > .panel {
 /* The song: each place a section plays, in order, sized to its length. */
 .song-view { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .song-scroll { overflow-x: auto; padding-bottom: 6px; }
-.song-lane { position: relative; min-width: 100%; height: 126px; }
-.song-ruler { position: absolute; top: 0; left: 0; height: 18px; cursor: pointer; }
-.song-ruler span {
-  position: absolute;
-  top: 0;
-  padding-left: 4px;
-  border-left: 1px solid var(--line-strong);
-  font-family: 'DM Mono', monospace;
-  font-size: 11px;
-  line-height: 18px;
-  color: var(--muted);
-  pointer-events: none;
-}
+.song-lane { position: relative; min-width: 100%; height: 118px; }
 .song-block {
   position: absolute;
-  top: 26px;
-  height: 92px;
-  margin-left: 2px;
+  top: 4px;
+  height: 110px;
+  margin-left: 3px;
   display: flex;
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--section) 13%, var(--raised));
-  border: 1px solid color-mix(in srgb, var(--section) 40%, var(--line));
-  border-top: 3px solid var(--section);
+  /* Neutral, like the chord blocks; the section's colour is only its dot. */
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
   touch-action: pan-x;
   transition: left 0.16s ease, background 0.08s, border-color 0.08s;
 }
-.song-block.is-empty { border-style: dashed; border-top-style: solid; border-top-color: color-mix(in srgb, var(--section) 45%, transparent); background: color-mix(in srgb, var(--section) 6%, var(--panel)); }
-.song-block.is-playing { background: color-mix(in srgb, var(--section) 30%, var(--raised)); border-color: var(--section); }
+.song-block.is-empty { border-style: dashed; background: none; }
+.song-block.is-playing { background: color-mix(in srgb, var(--text) 8%, var(--raised)); border-color: var(--muted); }
 .song-block.is-dragging { z-index: 4; transition: none; box-shadow: 0 10px 28px rgb(0 0 0 / 0.5); opacity: 0.92; }
 .song-block-body {
   flex: 1;
@@ -751,8 +782,8 @@ main > .panel {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 5px;
-  padding: 10px 10px 8px;
+  gap: 6px;
+  padding: 12px 12px 10px;
   border: 0;
   background: none;
   text-align: left;
@@ -793,12 +824,13 @@ main > .panel {
 @media (hover: hover) {
   .song-block:not(:hover):not(:focus-within) .song-block-more:not([aria-expanded='true']) { opacity: 0; }
   .song-block-more:hover { color: var(--text); background: rgb(255 255 255 / 0.06); }
-  .song-block:not(.is-playing):hover { border-color: color-mix(in srgb, var(--section) 70%, var(--line)); }
+  .song-block:not(.is-playing):hover { border-color: var(--muted); }
 }
-.song-add { position: absolute; top: 26px; margin-left: 6px; }
+.song-add { position: absolute; top: 4px; margin-left: 6px; }
 .song-add-btn {
   width: 76px;
-  height: 92px;
+  /* As tall as the section blocks beside it. */
+  height: 110px;
   border: 1.5px dashed var(--line-strong);
   border-radius: var(--radius);
   background: none;
@@ -806,7 +838,7 @@ main > .panel {
   font-size: 22px;
 }
 .song-add-btn:hover, .song-add-btn[aria-expanded='true'] { border-color: var(--accent); color: var(--accent); }
-.song-empty { position: absolute; top: 56px; left: 96px; margin: 0; font-size: 14px; color: var(--muted); }
+.song-empty { position: absolute; top: 46px; left: 96px; margin: 0; font-size: 14px; color: var(--muted); }
 .song-playhead { top: 0; height: 118px; }
 .song-hint { min-height: 1em; }
 
@@ -984,42 +1016,6 @@ main > .panel {
 .arp-options { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 14px 0 0; border: 0; border-top: 1px solid var(--line); min-width: 0; }
 .arp-options:disabled { opacity: 0.45; }
 .arp-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: end; }
-
-/* Function info */
-.info { position: relative; }
-.info-btn {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  color: var(--muted);
-}
-.info-btn:hover, .info-btn[aria-expanded='true'] { background: var(--raised); color: var(--text); }
-.info-pop {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 20;
-  width: min(360px, calc(100vw - 48px));
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border-radius: 12px;
-  border: 1px solid var(--line-strong);
-  background: var(--panel);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
-  font-size: 13px;
-  line-height: 1.45;
-}
-.info-title { margin: 0; font-weight: 700; font-size: 14px; }
-.info-row { display: flex; flex-direction: column; gap: 2px; }
-.info-label { display: flex; align-items: baseline; gap: 8px; font-weight: 700; }
-.info-numerals { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 400; color: var(--muted); }
-.info-foot { margin: 0; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); }
 
 /* Touch screens: no keyboard to list shortcuts for, and handles big enough for a finger. */
 @media (hover: none) and (pointer: coarse) {
