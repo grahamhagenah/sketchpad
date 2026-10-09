@@ -133,13 +133,13 @@ main { display: flex; flex-direction: column; gap: 16px; }
   gap: 14px;
   min-width: 0;
 }
-.empty { margin: 0; padding: 40px 0; text-align: center; color: var(--muted); }
 
 /* Timeline */
 .timeline-scroll { overflow-x: auto; padding-bottom: 6px; }
 .timeline {
   position: relative;
   --lane: 16px;
+  min-width: 100%;
   height: calc(152px + var(--lane));
   background:
     repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 calc(var(--lane) + 20px) / 100% calc(100% - var(--lane) - 20px) no-repeat,
@@ -235,6 +235,21 @@ main { display: flex; flex-direction: column; gap: 16px; }
   will-change: transform;
   z-index: 3;
 }
+
+.timeline-empty {
+  position: absolute;
+  top: calc(var(--lane) + 26px);
+  bottom: 6px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 14px;
+  pointer-events: none;
+}
+.timeline-empty span { color: var(--text); }
+/* With nothing on it, the grid would only cut through the hint. */
+.timeline.is-empty { background: none; }
 
 /* Loop */
 .loop-lane {

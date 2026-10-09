@@ -49,18 +49,13 @@ function useShortcuts() {
 
 export default function App() {
   useShortcuts()
-  const chords = useStore((s) => s.chords)
 
   return (
     <div className="app">
       <main>
         <section className="panel editor" aria-label="Progression">
           <Toolbar />
-          {chords.length ? (
-            <Timeline />
-          ) : (
-            <p className="empty">Pick a chord below, or press 1–7, to start a progression.</p>
-          )}
+          <Timeline />
         </section>
         <Palette />
       </main>

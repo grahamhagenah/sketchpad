@@ -140,7 +140,7 @@ export function Timeline() {
   return (
     <div className="timeline-scroll" ref={scrollRef}>
       <div
-        className="timeline"
+        className={`timeline ${chords.length ? '' : 'is-empty'}`}
         style={{
           width,
           ['--beat' as string]: `${beatPx}px`,
@@ -150,15 +150,23 @@ export function Timeline() {
           if (e.target === e.currentTarget) select(null)
         }}
       >
-        <div className="ruler" aria-hidden="true">
-          {Array.from({ length: bars + 1 }, (_, i) => (
-            <span key={i} style={{ left: i * barPx }}>
-              {i + 1}
-            </span>
-          ))}
-        </div>
+        {chords.length > 0 && (
+          <div className="ruler" aria-hidden="true">
+            {Array.from({ length: bars + 1 }, (_, i) => (
+              <span key={i} style={{ left: i * barPx }}>
+                {i + 1}
+              </span>
+            ))}
+          </div>
+        )}
 
-        {loopOn && <LoopLane beatPx={beatPx} total={totalBeats} perBar={num} />}
+        {loopOn && totalBeats > 0 && <LoopLane beatPx={beatPx} total={totalBeats} perBar={num} />}
+
+        {chords.length === 0 && (
+          <p className="timeline-empty" style={{ left: barPx + 16 }}>
+            <span>Pick a chord below, or press 1–7, to start a progression.</span>
+          </p>
+        )}
 
         {chords.map((c) => {
           const isDragged = c.id === drag?.id
