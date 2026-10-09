@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chordInfo, keyLabel, keySignature, voiceChord, voiceProgression } from './theory'
+import { chordInfo, keyLabel, keySignature, nextChords, voiceChord, voiceProgression } from './theory'
 
 const C = 0
 const A = 9
@@ -70,5 +70,24 @@ describe('voiceProgression', () => {
   it('gives each chord its root in the bass', () => {
     const voiced = voiceProgression(C, 'major', [0, 4, 5, 3].map((degree) => ({ degree, seventh: false })))
     expect(voiced.map((v) => v.bass)).toEqual([36, 43, 45, 41])
+  })
+})
+
+describe('nextChords', () => {
+  const degrees = (list: { degree: number; borrowed?: boolean }[]) => list.map((c) => `${c.borrowed ? 'b' : ''}${c.degree}`)
+
+  it('starts on the tonic', () => {
+    expect(degrees(nextChords('major', null))).toEqual(['0'])
+  })
+
+  it('leads on as functional harmony does', () => {
+    // V goes home to I, or deceptively to vi.
+    expect(degrees(nextChords('major', { degree: 4 }))).toEqual(['0', '5'])
+    // In minor, ii° leads to v, or to the major V borrowed from major.
+    expect(degrees(nextChords('minor', { degree: 1 }))).toEqual(['4', 'b4'])
+  })
+
+  it('knows where borrowed chords go', () => {
+    expect(degrees(nextChords('major', { degree: 6, borrowed: true }))).toEqual(['0'])
   })
 })

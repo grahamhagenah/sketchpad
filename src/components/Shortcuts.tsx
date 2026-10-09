@@ -10,6 +10,7 @@ const SHORTCUTS: [ReactNode, string][] = [
   [<><kbd>[</kbd><kbd>]</kbd></>, 'Length'],
   [<kbd>S</kbd>, '7th'],
   [<kbd>D</kbd>, 'Duplicate'],
+  [<><kbd>⌘</kbd><kbd>C</kbd><kbd>V</kbd></>, 'Copy, paste chords'],
   [<kbd>⌫</kbd>, 'Delete'],
   [<><kbd>⌘</kbd><kbd>S</kbd></>, 'Save'],
   [<><kbd>⌘</kbd><kbd>Z</kbd></>, 'Undo'],

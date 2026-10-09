@@ -173,6 +173,49 @@ export function keySignature(key: number, mode: Mode) {
  */
 export const BORROWED: Record<Mode, number[]> = { major: [3, 5, 6, 2], minor: [3, 4] }
 
+/** A chord by its place in the key, and whether it's borrowed from the parallel one. */
+export type ChordPlace = { degree: number; borrowed?: boolean }
+
+const p = (degree: number, borrowed = false): ChordPlace => ({ degree, borrowed })
+
+/**
+ * Where each chord most often goes next, by its place in the key: the moves
+ * that sound like progress, tonic to predominant to dominant and home again.
+ * Keyed by degree, with a b prefix for a borrowed chord.
+ */
+const NEXT: Record<Mode, Record<string, ChordPlace[]>> = {
+  major: {
+    0: [p(3), p(4), p(5)], // I → IV, V, vi
+    1: [p(4), p(6)], // ii → V, vii°
+    2: [p(5), p(3)], // iii → vi, IV
+    3: [p(4), p(0), p(1)], // IV → V, I, ii
+    4: [p(0), p(5)], // V → I, vi
+    5: [p(3), p(1), p(4)], // vi → IV, ii, V
+    6: [p(0), p(2)], // vii° → I, iii
+    b3: [p(0)], // iv → I
+    b5: [p(6, true), p(4)], // ♭VI → ♭VII, V
+    b6: [p(0)], // ♭VII → I
+    b2: [p(3)], // ♭III → IV
+  },
+  minor: {
+    0: [p(3), p(5), p(6)], // i → iv, VI, VII
+    1: [p(4), p(4, true)], // ii° → v, V
+    2: [p(5), p(3)], // III → VI, iv
+    3: [p(4), p(0), p(6)], // iv → v, i, VII
+    4: [p(0), p(5)], // v → i, VI
+    5: [p(6), p(3), p(2)], // VI → VII, iv, III
+    6: [p(0), p(2)], // VII → i, III
+    b3: [p(0), p(4, true)], // IV → i, V
+    b4: [p(0)], // V → i
+  },
+}
+
+/** The chords that most often follow `last`; with nothing before, the tonic. */
+export function nextChords(mode: Mode, last: ChordPlace | null): ChordPlace[] {
+  if (!last) return [p(0)]
+  return NEXT[mode][`${last.borrowed ? 'b' : ''}${last.degree}`] ?? []
+}
+
 export const FUNCTIONS: { id: string; label: string; about: string; degrees: number[] }[] = [
   { id: 'tonic', label: 'Tonic', about: 'Stable and at rest. Progressions tend to start and end here.', degrees: [0, 2, 5] },
   { id: 'predominant', label: 'Predominant', about: 'Moves away from the tonic and sets up the dominant.', degrees: [1, 3] },

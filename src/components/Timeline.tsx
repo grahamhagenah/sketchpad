@@ -77,6 +77,14 @@ export function Timeline() {
   const rows = laneCount + (vocalHint ? 1 : 0) + (drumHint ? 1 : 0)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const timelineRef = useRef<HTMLDivElement>(null)
+  // A click in the timeline's open space moves the playhead there, to the nearest beat, as the bar numbers do.
+  const seekAt = (clientX: number | null) => {
+    const el = timelineRef.current
+    if (clientX === null || !el || !totalBeats || recording !== 'off') return
+    const x = clientX - el.getBoundingClientRect().left
+    void seek(Math.min(totalBeats, Math.max(0, Math.round(x / beatPx))))
+  }
   const [activeId, setActiveId] = useState<string | null>(null)
   // The + slot moves whenever the progression's length changes. When it slides
   // under a still pointer it shouldn't light up as if picked, so its hover
@@ -241,6 +249,7 @@ export function Timeline() {
       <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumTrack={drumTrack} drumHint={drumHint} />
       <div className="timeline-scroll" ref={scrollRef}>
         <div
+          ref={timelineRef}
           className={`timeline ${chords.length ? '' : 'is-empty'} ${audible.chords ? '' : 'chords-silent'} ${chordsTrackSelected ? 'chords-selected' : ''}`}
           style={{
             width,
@@ -248,7 +257,9 @@ export function Timeline() {
             ['--bar' as string]: `${barPx}px`,
           }}
           onPointerDown={(e) => {
-            if (e.target === e.currentTarget) select(null)
+            if (e.target !== e.currentTarget) return
+            select(null)
+            seekAt(e.clientX)
           }}
         >
           {chords.length > 0 && (
@@ -338,7 +349,10 @@ export function Timeline() {
               muted={!audible.vocals[lane]}
               locked={recording !== 'off'}
               selected={lane === selectedVocal}
-              onSelect={() => selectVocal(lane)}
+              onSelect={(clientX) => {
+                selectVocal(lane)
+                seekAt(clientX)
+              }}
               bpm={bpm}
               beatPx={beatPx}
               beatsPerQuarter={den / 4}
@@ -418,7 +432,8 @@ interface VocalLaneProps {
   locked: boolean
   /** Its take is selected, for deleting or recording over. */
   selected: boolean
-  onSelect: () => void
+  /** Selects the track; with where it was clicked, to move the playhead there too. */
+  onSelect: (clientX: number | null) => void
   bpm: number
   beatPx: number
   /** Beats per quarter note: 1 in x/4, 2 in x/8. */
@@ -461,7 +476,8 @@ function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, b
         aria-label={take ? `${name}: select` : `${name}, empty: select to record into it`}
         title={take && take.bpm !== bpm ? `${name}, recorded at ${take.bpm} BPM; it won't follow tempo changes` : name}
         disabled={locked}
-        onClick={onSelect}
+        // A click (not a key press, which has no place) also moves the playhead to where it was.
+        onClick={(e) => onSelect(e.detail ? e.clientX : null)}
       />
       {content}
     </>

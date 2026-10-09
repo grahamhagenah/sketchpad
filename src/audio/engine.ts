@@ -9,6 +9,7 @@ import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startC
 import { newId } from '../id'
 import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take } from './take'
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
+import { keepVocals } from '../history'
 
 interface HitEvent extends Hit {
   time: string
@@ -520,6 +521,8 @@ async function stopRecording() {
   if (result?.take) {
     const { lane, take } = result
     keepStorage()
+    // Recording over a take can be undone, as deleting one can.
+    if (s.takes[lane]) keepVocals()
     // The audio first, so it's there to store when the lane changes.
     engine.addTake(take)
     s.setTake(lane, takeInfo(take))
@@ -534,6 +537,8 @@ const takeCount = (takes: readonly unknown[]) => takes.reduce<number>((n, t, lan
 export async function deleteTake(lane: number) {
   const s = useStore.getState()
   const tracks = Math.max(s.vocalTracks, takeCount(s.takes))
+  // Undo brings the track and its take back.
+  keepVocals()
   s.renumberVocals(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane))
 }
 

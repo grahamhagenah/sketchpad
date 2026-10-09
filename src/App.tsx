@@ -8,6 +8,9 @@ import { StatusBar } from './components/StatusBar'
 import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
 import { colorHex, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR } from './colors'
+import { ChordPad } from './components/ChordPad'
+import { RecordingSheet } from './components/RecordingSheet'
+import { useNarrow } from './hooks/useNarrow'
 
 function useShortcuts() {
   useEffect(() => {
@@ -20,6 +23,28 @@ function useShortcuts() {
         return
       }
       if (target.closest('input, select, textarea')) return
+      // Copy, cut and paste chords: the selected one, or with the chords track selected, all of them.
+      if ((e.metaKey || e.ctrlKey) && ['c', 'x', 'v'].includes(e.key.toLowerCase()) && !e.shiftKey && !e.altKey) {
+        const s = useStore.getState()
+        if (s.view !== 'section' || s.recording !== 'off') return
+        const sel = s.chords.find((c) => c.id === s.selectedId)
+        const picked = sel ? [sel] : s.chordsTrackSelected ? s.chords : []
+        const k = e.key.toLowerCase()
+        if (k === 'v') {
+          if (!s.clipboard.length) return
+          e.preventDefault()
+          s.pasteChords()
+          return
+        }
+        if (!picked.length || window.getSelection()?.toString()) return
+        e.preventDefault()
+        s.copyChords(picked)
+        if (k === 'x') {
+          if (sel) s.removeChord(sel.id)
+          else s.clearChords()
+        }
+        return
+      }
       if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y')) {
         e.preventDefault()
         if (e.key === 'y' || e.shiftKey) redo()
@@ -98,9 +123,13 @@ export default function App() {
   // The chords' and drums' colours, as chosen, for everything drawn in them.
   const chordsColor = useStore((s) => s.chordsColor) ?? DEFAULT_CHORDS_COLOR
   const drumsColor = useStore((s) => s.drumsColor) ?? DEFAULT_DRUMS_COLOR
+  // On a phone, a section gets a chord pad along the bottom, to build its chords by touch.
+  const narrow = useNarrow()
+  const recording = useStore((s) => s.recording !== 'off')
+  const chordPad = narrow && view === 'section' && !recording
 
   return (
-    <div className="app" style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
+    <div className={`app ${chordPad ? 'has-chord-pad' : ''} ${narrow && recording ? 'has-record-sheet' : ''}`} style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
       <main>
         <section className="panel editor" aria-label={view === 'song' ? 'Song' : 'Section'}>
           <Toolbar />
@@ -109,6 +138,9 @@ export default function App() {
         </section>
       </main>
       <StatusBar />
+      {chordPad && <ChordPad />}
+      {/* On a phone, recording takes over the bottom of the screen. */}
+      {narrow && recording && <RecordingSheet />}
     </div>
   )
 }

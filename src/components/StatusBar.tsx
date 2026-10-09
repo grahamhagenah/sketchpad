@@ -55,7 +55,7 @@ function Status() {
     if (!s.arrangement.length) return <>Add sections to the song with +, in the order they play.</>
     return (
       <>
-        Click a section to edit it, or drag it to reorder.
+        Click a name to edit its section, or its chords to play from there. Drag a row to reorder.
         {shared && ' A section that plays more than once is the same each time; its ⋯ menu can make one place a copy.'}
       </>
     )
@@ -72,7 +72,7 @@ function Status() {
           {sel.beats} {sel.beats === 1 ? 'beat' : 'beats'}
         </span>
         <Keys>
-          <kbd>[</kbd> <kbd>]</kbd> length · <kbd>S</kbd> 7th · <kbd>D</kbd> duplicate · <kbd>⌥←</kbd> <kbd>⌥→</kbd> move · <kbd>⌫</kbd> delete
+          <kbd>[</kbd> <kbd>]</kbd> length · <kbd>S</kbd> 7th · <kbd>D</kbd> duplicate · <kbd>⌘C</kbd> copy · <kbd>⌥←</kbd> <kbd>⌥→</kbd> move · <kbd>⌫</kbd> delete
         </Keys>
       </>
     )
@@ -127,10 +127,21 @@ function Status() {
     )
   }
 
-  if (!s.chords.length) return <>Click + or press 1–7 to add a chord, or pick a progression from +.</>
+  const paste = s.clipboard.length > 0 && (
+    <>
+      <kbd>⌘V</kbd> paste {s.clipboard.length === 1 ? 'the copied chord' : `${s.clipboard.length} copied chords`}
+    </>
+  )
+  if (!s.chords.length) {
+    return (
+      <>
+        Click + or press 1–7 to add a chord, or pick a progression from +.<Keys>{paste}</Keys>
+      </>
+    )
+  }
   return (
     <Keys>
-      <kbd>Space</kbd> play · <kbd>R</kbd> record · <kbd>1</kbd>–<kbd>7</kbd> add a chord · <kbd>L</kbd> loop
+      <kbd>Space</kbd> play · <kbd>R</kbd> record · <kbd>1</kbd>–<kbd>7</kbd> add a chord · <kbd>L</kbd> loop{paste && <> · {paste}</>}
     </Keys>
   )
 }

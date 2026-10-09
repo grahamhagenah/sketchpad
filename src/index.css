@@ -290,7 +290,8 @@ main > .panel {
 @media (max-width: 640px) {
   .toolbar { gap: 8px; }
   .toolbar-zone { display: contents; }
-  .toolbar .song-bar { order: 1; flex: 1; }
+  /* The title keeps room enough to read, so the transport goes to the next line rather than squeezing it. */
+  .toolbar .song-bar { order: 1; flex: 1 1 120px; min-width: 0; }
   .toolbar-end .toolbar-icons { order: 2; }
   .toolbar-end .toolbar-icons + .toolbar-icons { padding-left: 0; border-left: 0; }
   .transport { order: 3; }
@@ -576,21 +577,21 @@ main > .panel {
 .track-headers { position: relative; flex: none; width: 200px; }
 /* Each header fills its whole slot in the column, gaps between rows included, so the clickable area runs edge to edge. */
 .track-header { position: absolute; left: 0; right: 0; display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 6px 4px; padding: 0 8px; }
-/* The track's volume, under its name: a thin line filled up to the level, with a small knob. */
+/* The track's volume, under its name: a thin line with a small knob. */
 .track-volume {
   flex-basis: 100%;
   height: 12px;
   margin: 0;
   appearance: none;
   -webkit-appearance: none;
-  background: linear-gradient(to right, var(--muted) var(--fill), var(--line-strong) var(--fill)) center / 100% 3px no-repeat;
+  /* One plain line; the knob shows the level. */
+  background: linear-gradient(var(--line-strong), var(--line-strong)) center / 100% 3px no-repeat;
   border-radius: 2px;
   cursor: pointer;
 }
 .track-volume::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 0; }
 .track-volume::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 0; }
 .track-volume:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.track-header.is-selected .track-volume { background-image: linear-gradient(to right, var(--accent) var(--fill), var(--line-strong) var(--fill)); }
 /* Every track's header is the same: its track's height, and half a gap above and below. */
 .track-header.is-chords { top: calc(var(--head) - var(--gap) / 2); height: calc(var(--chord-h) + var(--gap)); }
 .track-header.is-chords { --track: var(--track-chords); }
@@ -1093,7 +1094,7 @@ main > .panel {
  * faint strip where its vocals are.
  */
 /* The chords' bar in the middle of every row, level with its name; the drums' ticks just under it, the vocals just over it. */
-.song-row-track { position: relative; flex: none; align-self: stretch; }
+.song-row-track { position: relative; flex: none; align-self: stretch; cursor: pointer; }
 .song-row-bar,
 .song-row-drums,
 .song-row-vocals { position: absolute; left: 0; right: 0; overflow: hidden; }
@@ -1176,10 +1177,16 @@ main > .panel {
 }
 .song-add-btn svg { width: 14px; height: 14px; }
 .song-add-btn:hover, .song-add-btn[aria-expanded='true'] { color: var(--text); border-color: var(--muted); }
-/* The playhead runs along the row being played, from the start of the grid. */
+/* On a phone each row is stacked: its name and menu on a line, its chords the full width under them. */
+.song-view.is-narrow .song-row-body { flex-direction: column; align-items: stretch; }
+.song-view.is-narrow .song-row-head { width: auto; height: 32px; padding: 0 44px 0 8px; }
+.song-view.is-narrow .song-row-track { flex: 1; align-self: flex-start; margin-left: var(--song-head); }
+.song-view.is-narrow .song-row-more { top: 16px; }
+
+/* The playhead runs along the row being played, from the start of the grid (under the name, on a phone). */
 .song-playhead {
   position: absolute;
-  top: 0;
+  top: var(--song-track-top, 0px);
   left: var(--song-head);
   width: 2px;
   background: var(--text);
@@ -1187,6 +1194,184 @@ main > .panel {
   will-change: transform;
   z-index: 3;
 }
+
+/*
+ * The chord pad, on a phone: docked along the bottom of a section, over the
+ * status bar, with room left under the page for it.
+ */
+.app.has-chord-pad { padding-bottom: var(--chord-pad-h, 0px); }
+/* Chords are added from the pad, so the timeline's + slot steps aside. */
+.app.has-chord-pad .add-slot { display: none; }
+.chord-pad {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-strong);
+  border-radius: 16px 16px 0 0;
+  background: var(--toolbar-bg);
+  box-shadow: 0 -10px 30px rgb(0 0 0 / 0.45);
+  transition: transform 0.2s ease;
+  touch-action: manipulation;
+}
+.chord-pad.is-folded { gap: 0; padding: 0 0 env(safe-area-inset-bottom); }
+/* The grab handle along the top: drag it down to fold the sheet, or tap it. */
+.chord-pad-handle,
+.chord-pad-unfold { width: 100%; padding: 0; border: 0; background: none; touch-action: none; cursor: grab; }
+.chord-pad-handle { height: 18px; display: grid; place-items: center; margin-bottom: -8px; }
+.chord-pad-grip { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); }
+.chord-pad-unfold { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 16px 12px; }
+.chord-pad-unfold-row { align-self: stretch; display: flex; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 700; color: var(--text); }
+.chord-pad-head { display: flex; align-items: center; gap: 6px; }
+.chord-pad-title { margin-right: auto; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.chord-pad-key { font-size: 12px; font-weight: 500; color: var(--muted); }
+.chord-pad-chip {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 15px;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.chord-pad-chip[aria-expanded='true'] { color: var(--text); border-color: var(--muted); }
+.chord-pad-chip[aria-pressed='true'] { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+/* "Added Fm · Undo", floating just above the sheet for a few seconds. */
+.chord-pad-note {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 20px;
+  background: var(--text);
+  color: var(--on-track);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.4);
+}
+.chord-pad-note button { padding: 4px 10px; border: 0; border-radius: 12px; background: rgb(0 0 0 / 0.12); font-size: 13px; font-weight: 700; color: inherit; }
+.chord-pad-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; }
+.chord-pad-pad {
+  position: relative;
+  height: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--text);
+  touch-action: manipulation;
+}
+.chord-pad-pad.is-borrowed { border-style: dashed; }
+.chord-pad-pad:active { background: color-mix(in srgb, var(--text) 12%, var(--raised)); }
+.chord-pad-pad.is-picked { border: 2px solid var(--text); background: color-mix(in srgb, var(--text) 10%, var(--raised)); }
+/* A chord that usually comes next: a dot in its corner, and a slightly brighter edge. */
+.chord-pad-pad.is-hinted { border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong)); }
+.chord-pad-pad.is-hinted::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.chord-pad-name { font-size: 16px; font-weight: 700; }
+.chord-pad-roman { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+/* The picked chord's options, scrolling sideways if they don't fit. */
+.chord-pad-options { display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.chord-pad-options::-webkit-scrollbar { display: none; }
+.chord-pad-options .chip { flex: none; min-height: 34px; }
+.chord-pad-seg,
+.chord-pad-length { flex: none; display: inline-flex; height: 34px; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--raised); }
+.chord-pad-seg button,
+.chord-pad-length button { min-width: 38px; padding: 0 9px; border: 0; background: none; font-size: 13px; font-weight: 500; color: var(--text); }
+.chord-pad-seg button + button { border-left: 1px solid var(--line-strong); }
+.chord-pad-seg button[aria-pressed='true'] { background: var(--text); color: var(--on-track); }
+.chord-pad-length span { display: flex; align-items: center; padding: 0 6px; font-size: 13px; white-space: nowrap; }
+.chord-pad-length button { font-size: 17px; }
+/* The selected chord: its name, then duplicate, delete and done. */
+.chord-pad-selected {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--text);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text) 6%, var(--raised));
+}
+.chord-pad-selected-name { display: flex; align-items: baseline; gap: 6px; font-size: 16px; font-weight: 700; }
+.chord-pad-selected-label { margin-right: auto; margin-left: 8px; font-size: 12px; color: var(--muted); }
+.chord-pad-replace:disabled { opacity: 0.4; }
+.chord-pad-actions { display: flex; gap: 8px; }
+.chord-pad-add,
+.chord-pad-replace { flex: 1; height: 46px; border-radius: 10px; font-size: 15px; font-weight: 700; }
+.chord-pad-add { border: 0; background: var(--accent); color: var(--on-accent); }
+.chord-pad-replace { border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); }
+
+/* On a phone, the top bar folded to one row: play and record, where you are and the key, and a button for the rest. */
+.toolbar.toolbar-compact { flex-wrap: nowrap; gap: 8px; }
+.toolbar-compact .transport,
+.toolbar-compact .lcd { order: 0; }
+.toolbar-compact .lcd { flex: 1; width: auto; min-width: 0; }
+.toolbar-compact .lcd-cell { flex: 1; padding: 0 8px; }
+.toolbar-compact .lcd-value.is-own-key { color: var(--accent); }
+.toolbar-more { flex: none; }
+
+/* Recording on a phone: a sheet over the bottom of the screen, to read and hit from a step back. */
+.app.has-record-sheet { padding-bottom: 240px; }
+.record-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-strong);
+  border-radius: 18px 18px 0 0;
+  background: var(--toolbar-bg);
+  box-shadow: 0 -10px 30px rgb(0 0 0 / 0.5);
+  text-align: center;
+}
+.record-sheet.is-recording { border-top-color: var(--record); }
+.record-sheet-count { font-family: 'DM Mono', monospace; font-size: 72px; font-weight: 500; line-height: 1; color: var(--record); min-height: 72px; }
+.record-sheet-title { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; }
+.record-sheet-tip { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.record-sheet-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--record); animation: record-pulse 1.2s ease-in-out infinite; }
+@keyframes record-pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .record-sheet-dot { animation: none; } }
+.record-sheet .lcd { order: 0; width: auto; }
+.record-sheet .lcd-cell { padding: 0 22px; }
+.record-sheet-stop {
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--record);
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+}
+.record-sheet.is-counting .record-sheet-stop { background: var(--raised); color: var(--text); border: 1px solid var(--line-strong); }
+.record-sheet-square { width: 14px; height: 14px; border-radius: 3px; background: #fff; }
 
 /* Status bar: along the bottom of the window, staying in view when the editor is taller. */
 .status-bar {
@@ -1430,14 +1615,19 @@ main > .panel {
   /* No zoom on a phone; the section's settings stay. */
   .section-bar-end .icon-btn { display: none; }
   /* Icon and name on one line, mute and solo under it. */
-  .track-headers { width: 64px; }
+  .track-headers { width: 86px; }
   .track-header { flex-wrap: wrap; align-content: center; row-gap: 2px; }
-  .track-title { flex-basis: 100%; }
+  .track-title { flex-basis: 100%; gap: 4px; }
+  .track-title .track-color { width: 22px; height: 22px; margin: -2px 0 -2px -2px; }
+  .track-name { font-size: 11px; }
   .track-name-input { margin-left: 0; height: 22px; }
   /* Just the + in the narrow column; the label is in the button's name. */
   .track-add { justify-content: center; padding: 0; }
   .track-add-label { display: none; }
   .track-volume { display: none; }
+  /* Just the gear, to leave the tabs room. */
+  .section-settings-label { display: none; }
+  .section-settings { padding: 0 7px; margin-right: 0; }
   /* Menus and panels open as a sheet along the bottom, inside the screen. */
   .menu,
   .sound-panel {

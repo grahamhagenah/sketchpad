@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
+import { useNarrow } from '../hooks/useNarrow'
 import { chordsTrackName, drumsTrackName, sectionsNow, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { audition, deleteTake, engine, seek, togglePlay, toggleRecord } from '../audio/engine'
@@ -21,6 +22,10 @@ export function Toolbar() {
   const { key, mode } = ownKey ?? { key: songKey, mode: songMode }
   const { updateChord, removeChord, duplicateChord } = useStore()
   const chord = chords.find((c) => c.id === selectedId)
+  // On a phone the selected chord is edited in the chord pad along the bottom, not here.
+  const narrow = useNarrow()
+  const inSection = useStore((s) => s.view === 'section')
+  const padEdits = narrow && inSection
   const selectedVocal = useStore((s) => s.selectedVocal)
   const vocalNames = useStore((s) => s.vocalNames)
   const recording = useStore((s) => s.recording)
@@ -37,6 +42,48 @@ export function Toolbar() {
 
   const trackSelected = vocalSelected || chordsTrackSelected || drumsTrackSelected
 
+  // On a phone the bar is one slim row (play, record, where you are, the key) unless opened up for the rest.
+  const [expanded, setExpanded] = useState(false)
+  useEffect(() => {
+    if (!narrow || !expanded) return
+    // Opened up, it folds back as soon as you scroll on to work, but not for a scroll inside its own menus.
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Element && e.target.closest('.toolbar, .menu, .sound-panel')) return
+      setExpanded(false)
+    }
+    window.addEventListener('scroll', onScroll, true)
+    return () => window.removeEventListener('scroll', onScroll, true)
+  }, [narrow, expanded])
+
+  const playButton = (
+    <button type="button" className={`play ${playing ? 'is-playing' : ''}`} onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'} title="Play / pause (Space)">
+      {playing ? <PauseIcon /> : <PlayIcon />}
+    </button>
+  )
+
+  if (narrow && !expanded) {
+    return (
+      <div className="toolbar toolbar-compact" role="toolbar" aria-label="Song">
+        <div className="transport" role="group" aria-label="Transport">
+          {playButton}
+          <RecordButton />
+        </div>
+        <div className="lcd" role="group" aria-label="Position and key">
+          <Position />
+          <button type="button" className="lcd-cell" onClick={() => setExpanded(true)} title={ownKey ? 'This section’s key' : 'Key'}>
+            <span className={`lcd-value ${ownKey ? 'is-own-key' : ''}`}>
+              {keyLabel(key, mode)} {mode === 'major' ? 'maj' : 'min'}
+            </span>
+            <span className="lcd-label">{ownKey ? 'Section key' : 'Key'}</span>
+          </button>
+        </div>
+        <button type="button" className="icon-btn toolbar-more" aria-label="Show all controls" aria-expanded={false} onClick={() => setExpanded(true)} title="Tempo, meter, key, sound, save and export">
+          <Icon d="M6 9l6 6 6-6" />
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="toolbar" role="toolbar" aria-label="Song">
       <div className="toolbar-zone">
@@ -52,15 +99,7 @@ export function Toolbar() {
               <path d="M19 5.5v13L9 12z" fill="currentColor" />
             </svg>
           </button>
-          <button
-            type="button"
-            className={`play ${playing ? 'is-playing' : ''}`}
-            onClick={togglePlay}
-            aria-label={playing ? 'Pause' : 'Play'}
-            title="Play / pause (Space)"
-          >
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
+          {playButton}
           <RecordButton />
         </div>
 
@@ -134,7 +173,7 @@ export function Toolbar() {
 
       <div className="toolbar-zone toolbar-end">
         {/* What's selected, as one joined unit, shown only while something is. */}
-        {chord && (
+        {chord && !padEdits && (
           <div className="selection" role="group" aria-label="Selected chord">
             <select
               aria-label="Selected chord"
@@ -210,6 +249,11 @@ export function Toolbar() {
         </div>
         <div className="toolbar-icons">
           <ExportButton />
+          {narrow && (
+            <button type="button" className="icon-btn" aria-label="Fewer controls" aria-expanded={true} onClick={() => setExpanded(false)} title="Fold the bar back to one row">
+              <Icon d="M6 15l6-6 6 6" />
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -147,6 +147,8 @@ interface State extends SectionParts {
   /** How late recordings arrive on this device, in seconds, once measured; kept with the device, not the song. */
   latency: number | null
   playing: boolean
+  /** Chords copied with ⌘C (or cut with ⌘X), to paste with ⌘V into any section. */
+  clipboard: Chord[]
   /** What's playing: the whole song or the open section, as it was when play started; it carries on while you look elsewhere. */
   playingView: 'section' | 'song'
   /** Where playback starts next, in beats; it stays where you paused. */
@@ -218,6 +220,10 @@ interface State extends SectionParts {
   moveChord: (id: string, dir: -1 | 1) => void
   reorderChord: (id: string, toIndex: number) => void
   clearChords: () => void
+  /** Copies chords to the clipboard. */
+  copyChords: (chords: Chord[]) => void
+  /** Puts the clipboard's chords after the selected chord (or at the end), and selects the last of them. */
+  pasteChords: () => void
   /** Replaces the progression with these scale degrees, a bar each. */
   loadProgression: (degrees: number[], seventh: boolean) => void
   select: (id: string | null) => void
@@ -464,6 +470,7 @@ export const useStore = create<State>()(
       countIn: null,
       latency: null,
       playing: false,
+      clipboard: [],
       playingView: 'section',
       playhead: 0,
       zoom: 1,
@@ -606,6 +613,16 @@ export const useStore = create<State>()(
         const next = [...chords]
         next.splice(i + 1, 0, copy)
         set({ chords: next, selectedId: copy.id, selectedVocal: null, chordsTrackSelected: false, drumsTrackSelected: false })
+      },
+      copyChords: (chords) => set({ clipboard: chords.map((c) => ({ ...c })) }),
+      pasteChords: () => {
+        const { chords, clipboard, selectedId } = get()
+        if (!clipboard.length) return
+        const pasted = clipboard.map((c) => ({ ...c, id: newId() }))
+        const at = chords.findIndex((c) => c.id === selectedId)
+        const next = [...chords]
+        next.splice(at === -1 ? chords.length : at + 1, 0, ...pasted)
+        set({ chords: next, selectedId: pasted[pasted.length - 1].id, selectedVocal: null, chordsTrackSelected: false, drumsTrackSelected: false })
       },
       clearChords: () => set({ chords: [], selectedId: null, loop: null, chordsTrackSelected: false, drumsTrackSelected: false }),
       loadProgression: (degrees, seventh) =>

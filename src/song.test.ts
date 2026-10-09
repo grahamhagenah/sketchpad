@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { songState, useStore } from './store'
 import { playbackOf, sectionBeatOf, songBeatOf, songSpans, takeIdsBySection } from './song'
-import { undo, redo, clearHistory } from './history'
+import { undo, redo, clearHistory, keepVocals } from './history'
 import { LANES } from './audio/take'
 
 const get = () => useStore.getState()
@@ -161,5 +161,51 @@ describe('following the song from a section', () => {
 
   it('places a beat of the open section in the song', () => {
     expect(songBeatOf(get(), 3)).toBe(19)
+  })
+})
+
+describe('copying chords', () => {
+  it('pastes after the selected chord, as new chords, and selects the last', () => {
+    // The open chorus has two chords; copy the first and paste it after the first.
+    const [first] = get().chords
+    get().copyChords([first])
+    get().select(first.id)
+    get().pasteChords()
+    const chords = get().chords
+    expect(chords.map((c) => c.degree)).toEqual([3, 3, 4])
+    expect(chords[1].id).not.toBe(first.id)
+    expect(get().selectedId).toBe(chords[1].id)
+  })
+
+  it('pastes into another section, with the numerals kept', () => {
+    get().copyChords(get().chords)
+    get().openSection(id('Verse'))
+    get().select(null)
+    get().pasteChords()
+    expect(get().chords.map((c) => c.degree)).toEqual([0, 4, 5, 3, 3, 4])
+  })
+})
+
+describe('undoing a deleted take', () => {
+  it('brings the track and its take back, and redo deletes it again', () => {
+    get().openSection(id('Verse'))
+    clearHistory()
+    keepVocals()
+    get().renumberVocals([])
+    expect(get().takes[0]).toBeNull()
+    undo()
+    expect(get().takes[0]?.id).toBe('verse-vocal')
+    redo()
+    expect(get().takes[0]).toBeNull()
+  })
+
+  it('brings it back in its own section, from another', () => {
+    get().openSection(id('Verse'))
+    clearHistory()
+    keepVocals()
+    get().renumberVocals([])
+    get().openSection(id('Chorus'))
+    undo()
+    expect(get().sections.find((sec) => sec.name === 'Verse')!.takes[0]?.id).toBe('verse-vocal')
   })
 })

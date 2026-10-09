@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { createPortal } from 'react-dom'
 import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
-import { engine } from '../audio/engine'
+import { engine, seek } from '../audio/engine'
 import { songBeatOf, songSpans } from '../song'
 import { grooveHits } from '../audio/drums'
 import { Icon, ZoomButtons } from './Toolbar'
@@ -342,15 +342,18 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
       </>
     )}>
       <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-      Section
+      <span className="section-settings-label">Section</span>
     </MenuButton>
   )
 }
 
 /** Each place in the song is a row this tall, with this gap under it: room for its chords, and a strip each for its drums and vocals. */
 const ROW_H = 58
+/** On a phone a row is stacked: its name on a line of its own, its chords the full width under it. */
+const NARROW_ROW_H = 92
+const NARROW_HEAD_H = 32
 const ROW_GAP = 6
-const rowTop = (i: number) => i * (ROW_H + ROW_GAP)
+const rowTop = (i: number, rowH = ROW_H) => i * (rowH + ROW_GAP)
 
 /** An element's width, kept up to date as it changes. */
 function useWidth(ref: RefObject<HTMLElement | null>) {
@@ -397,9 +400,13 @@ export function SongView() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const sheetWidth = useWidth(scrollRef)
   // Just room for the names, so the chords start close to them.
-  const headPx = sheetWidth && sheetWidth < 640 ? 112 : 136
+  // On a phone the name sits above the chords, so they get the full width.
+  const narrow = sheetWidth > 0 && sheetWidth < 640
+  const rowH = narrow ? NARROW_ROW_H : ROW_H
+  const headPx = narrow ? 8 : 136
   // Room is left at the end of each row for its menu button.
-  const beatPx = (sheetWidth ? (sheetWidth - headPx - 44) / longest : 8) * zoom
+  // A phone has no zoom buttons, so there the song always fits the screen.
+  const beatPx = (sheetWidth ? (sheetWidth - headPx - (narrow ? 16 : 44)) / longest : 8) * (narrow ? 1 : zoom)
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
   const uses = new Map<string, number>()
   for (const entry of arrangement) uses.set(entry.section, (uses.get(entry.section) ?? 0) + 1)
@@ -413,7 +420,7 @@ export function SongView() {
   const placePlayhead = (el: HTMLElement | null, beat: number) => {
     if (!el) return
     const { i, along } = rowAt(spansRef.current, beat)
-    el.style.transform = `translate(${along * beatPx}px, ${rowTop(i)}px)`
+    el.style.transform = `translate(${along * beatPx}px, ${rowTop(i, rowH)}px)`
   }
   useEffect(() => {
     if (!playing) {
@@ -447,7 +454,7 @@ export function SongView() {
   const suppressClick = useRef(false)
   const dropIndex = (id: string, dy: number) => {
     const from = spans.findIndex((span) => span.entry.id === id)
-    return Math.min(spans.length - 1, Math.max(0, from + Math.round(dy / (ROW_H + ROW_GAP))))
+    return Math.min(spans.length - 1, Math.max(0, from + Math.round(dy / (rowH + ROW_GAP))))
   }
   const order = (() => {
     if (!drag) return spans
@@ -459,7 +466,7 @@ export function SongView() {
   const tops = new Map(
     order.map((span, i) => {
       const id = span.entry.id
-      return [id, id === drag?.id ? rowTop(spans.findIndex((s) => s.entry.id === id)) + drag.dy : rowTop(i)]
+      return [id, id === drag?.id ? rowTop(spans.findIndex((s) => s.entry.id === id), rowH) + drag.dy : rowTop(i, rowH)]
     }),
   )
 
@@ -514,9 +521,12 @@ export function SongView() {
 
   const bars = (beats: number) => Math.ceil(beats / num)
   return (
-    <div className="song-view" style={{ ['--song-head' as string]: `${headPx}px` }}>
+    <div
+      className={`song-view ${narrow ? 'is-narrow' : ''}`}
+      style={{ ['--song-head' as string]: `${headPx}px`, ['--song-track-top' as string]: narrow ? `${NARROW_HEAD_H}px` : '0px' }}
+    >
       <div className="song-scroll" ref={scrollRef}>
-        <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + 44}px)`, height: rowTop(spans.length) + 44 }}>
+        <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + (narrow ? 16 : 44)}px)`, height: rowTop(spans.length, rowH) + 44 }}>
           {order.map((span) => {
             const { entry, start, beats } = span
             const section = byId.get(entry.section)
@@ -530,22 +540,29 @@ export function SongView() {
                   else rowRefs.current.delete(entry.id)
                 }}
                 className={`song-row ${entry.id === current ? 'is-playing' : ''} ${entry.id === drag?.id ? 'is-dragging' : ''} ${beats ? '' : 'is-empty'}`}
-                style={{ top: tops.get(entry.id), height: ROW_H }}
+                style={{ top: tops.get(entry.id), height: rowH }}
                 onPointerDown={(e) => startPress(entry.id, e)}
               >
                 <button
                   type="button"
                   className="song-row-body"
-                  onClick={() => {
+                  onClick={(e) => {
                     if (suppressClick.current) {
                       suppressClick.current = false
+                      return
+                    }
+                    // A click on its chords moves the playhead there; anywhere else on the row opens the section.
+                    const bar = (e.target as HTMLElement).closest('.song-row-track')
+                    if (bar && e.detail && beats) {
+                      const along = (e.clientX - bar.getBoundingClientRect().left) / beatPx
+                      void seek(start + Math.min(beats, Math.max(0, Math.round(along))))
                       return
                     }
                     openSection(section.id)
                   }}
                   onKeyDown={(e) => onRowKey(e, index, entry.id)}
                   aria-label={`${section.name}, from bar ${bars(start) + 1}, ${beats ? `${bars(beats)} bars` : 'empty'}. Edit it`}
-                  title={`Edit ${section.name} (⌥↑ ⌥↓ to move it)`}
+                  title={`Click the name to edit ${section.name}, or its chords to play from there (⌥↑ ⌥↓ to move it)`}
                 >
                   <span className="song-row-head">
                     {/* A grip to show the row can be dragged; the whole row drags, though. */}
@@ -602,7 +619,7 @@ export function SongView() {
             )
           })}
 
-          <div className="song-add" style={{ top: rowTop(spans.length) }}>
+          <div className="song-add" style={{ top: rowTop(spans.length, rowH) }}>
             <MenuButton label="Add to the song" title="Add a section to the end of the song" className="song-add-btn" menu={(close) => (
               <>
                 {sections.map((sec) => (
@@ -629,7 +646,8 @@ export function SongView() {
                 playheadRef.current = el
                 if (!playing) placePlayhead(el, playhead)
               }}
-              style={{ height: ROW_H }}
+              // Along the chords: under the name, on a phone.
+              style={{ height: rowH - (narrow ? NARROW_HEAD_H : 0) }}
               aria-hidden="true"
             />
           )}
