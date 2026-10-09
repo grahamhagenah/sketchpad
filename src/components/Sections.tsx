@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '../store'
-import { keyLabel, type Mode } from '../music/theory'
+import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { engine } from '../audio/engine'
 import { songSpans } from '../song'
 import { Icon, ZoomButtons } from './Toolbar'
@@ -385,7 +385,7 @@ function rowAt(spans: ReturnType<typeof songSpans>, beat: number) {
  */
 export function SongView() {
   const state = useStore()
-  const { timeSig, zoom, playing, playhead, arrangement, openSection, addToSong, addSection, moveInSong } = state
+  const { key, mode, timeSig, zoom, playing, playhead, arrangement, openSection, addToSong, addSection, moveInSong } = state
   // Worked out here rather than in a selector, since they're new arrays each time.
   const sections = sectionsNow(state)
   const spans = songSpans(state)
@@ -395,7 +395,7 @@ export function SongView() {
   const longest = Math.max(4 * num, ...spans.map((span) => span.beats))
   const scrollRef = useRef<HTMLDivElement>(null)
   const sheetWidth = useWidth(scrollRef)
-  const headPx = sheetWidth && sheetWidth < 640 ? 120 : 180
+  const headPx = sheetWidth && sheetWidth < 640 ? 140 : 190
   // Room is left at the end of each row for its menu button.
   const beatPx = (sheetWidth ? (sheetWidth - headPx - 44) / longest : 8) * zoom
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
@@ -542,13 +542,27 @@ export function SongView() {
                   title={`Edit ${section.name} (⌥↑ ⌥↓ to move it)`}
                 >
                   <span className="song-row-head">
+                    {/* A grip to show the row can be dragged; the whole row drags, though. */}
+                    <svg className="song-row-grip" width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
+                      {[2, 8, 14].flatMap((y) => [2, 8].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" fill="currentColor" />))}
+                    </svg>
                     <span className="section-dot" aria-hidden="true" />
                     <span className="song-row-title">{section.name}</span>
                     <span className="song-row-meta">{beats ? bars(beats) : '–'}</span>
                   </span>
                   {/* The section's length, to scale with the others. */}
+                  {/* The section's chords, each as long as it plays, to scale with the other sections. */}
                   <span className="song-row-track">
-                    <span className="song-row-bar" style={{ width: beats ? beats * beatPx : undefined }} />
+                    <span className="song-row-bar" style={{ width: beats ? beats * beatPx : undefined }}>
+                      {section.chords.map((c, i) => {
+                        const at = section.chords.slice(0, i).reduce((n, prev) => n + prev.beats, 0)
+                        return (
+                          <span key={c.id} className="song-chord" style={{ left: at * beatPx, width: c.beats * beatPx }}>
+                            {chordOf(section.sectionKey?.key ?? key, section.sectionKey?.mode ?? mode, c).name}
+                          </span>
+                        )
+                      })}
+                    </span>
                   </span>
                 </button>
                 <BlockMenu entryId={entry.id} section={section} index={index} count={spans.length} shared={(uses.get(section.id) ?? 0) > 1} />
