@@ -4,6 +4,7 @@ import { deleteTake, seek, togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
 import { SectionBar, SongView } from './components/Sections'
+import { StatusBar } from './components/StatusBar'
 import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
 
@@ -47,6 +48,10 @@ function useShortcuts() {
         // The focused row now belongs to the track that moved up; don't leave a focus ring on it.
         if (target.closest('.vocal-row, .track-header')) target.blur()
         void deleteTake(s.selectedVocal)
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && s.drumsTrackSelected && s.drumTrack) {
+        e.preventDefault()
+        if (target.closest('.track-header')) target.blur()
+        s.removeDrumTrack()
       } else if ((e.key === 'Backspace' || e.key === 'Delete') && s.chordsTrackSelected) {
         e.preventDefault()
         if (target.closest('.track-header')) target.blur()
@@ -99,6 +104,7 @@ export default function App() {
           {view === 'song' ? <SongView /> : <Timeline />}
         </section>
       </main>
+      <StatusBar />
     </div>
   )
 }

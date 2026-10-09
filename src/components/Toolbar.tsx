@@ -23,6 +23,8 @@ export function Toolbar() {
   const vocalSelected = selectedVocal !== null && recording === 'off'
   const chordsTrackSelected = useStore((s) => s.chordsTrackSelected) && chords.length > 0
   const clearChords = useStore((s) => s.clearChords)
+  const drumsTrackSelected = useStore((s) => s.drumsTrackSelected && s.drumTrack) && recording === 'off'
+  const removeDrumTrack = useStore((s) => s.removeDrumTrack)
 
   const editChord = (c: Chord, patch: Partial<Omit<Chord, 'id'>>) => {
     updateChord(c.id, patch)
@@ -118,7 +120,7 @@ export function Toolbar() {
         </div>
 
         {/* Shown only for what's selected, rather than sitting greyed out. */}
-        {(chord || vocalSelected || chordsTrackSelected) && (
+        {(chord || vocalSelected || chordsTrackSelected || drumsTrackSelected) && (
           <div className="toolbar-group" aria-label={chord ? 'Selected chord' : 'Selected track'} role="group">
             {chord && (
               <>
@@ -177,17 +179,31 @@ export function Toolbar() {
               type="button"
               className="icon-btn danger"
               aria-label={
-                vocalSelected ? `Delete ${vocalTrackName({ vocalNames }, selectedVocal!)}` : chordsTrackSelected ? 'Clear the progression' : 'Delete'
+                vocalSelected
+                  ? `Delete ${vocalTrackName({ vocalNames }, selectedVocal!)}`
+                  : drumsTrackSelected
+                    ? 'Remove the drum track'
+                    : chordsTrackSelected
+                      ? 'Clear the progression'
+                      : 'Delete'
               }
               title={
                 vocalSelected
                   ? 'Delete the selected track (⌫)'
-                  : chordsTrackSelected
+                  : drumsTrackSelected
+                    ? 'Remove the drum track (⌫); each section keeps its groove if you add it back'
+                    : chordsTrackSelected
                     ? 'Clear every chord (⌫); undo brings them back'
                     : 'Delete the selected chord (⌫)'
               }
               onClick={() =>
-                vocalSelected ? void deleteTake(selectedVocal!) : chordsTrackSelected ? clearChords() : chord && removeChord(chord.id)
+                vocalSelected
+                  ? void deleteTake(selectedVocal!)
+                  : drumsTrackSelected
+                    ? removeDrumTrack()
+                    : chordsTrackSelected
+                      ? clearChords()
+                      : chord && removeChord(chord.id)
               }
             >
               <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
@@ -234,8 +250,7 @@ function UndoRedo() {
 }
 
 /** What exports: the whole song, or the open section while the song has nothing in it. */
-function exported() {
-  const s = useStore.getState()
+function exported(s = useStore.getState()) {
   const song = playbackOf(s, 'song')
   return song.chords.length ? song : playbackOf(s, 'section')
 }
@@ -256,8 +271,8 @@ function ExportButton() {
 
   const exportMidi = () => {
     const s = useStore.getState()
-    // Every chord, muted or not: in a DAW each track can be muted there.
-    const song = exported()
+    // Every chord and drum hit, muted or not: in a DAW each track can be muted there.
+    const song = exported({ ...s, chordsMuted: false, chordsSolo: false, drumsMuted: false, drumsSolo: false, vocalSolo: s.vocalSolo.map(() => false) })
     download(songToMidi({ ...song, chords: song.chords.map((c) => ({ ...c, silent: false })) }), `${exportName(s)}.mid`)
     setOpen(false)
   }

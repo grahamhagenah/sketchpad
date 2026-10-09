@@ -61,7 +61,7 @@ async function keepCurrent() {
 
 function stopEverything() {
   engine.stop()
-  useStore.setState({ playing: false, playhead: 0, selectedId: null, selectedVocal: null, chordsTrackSelected: false })
+  useStore.setState({ playing: false, playhead: 0, selectedId: null, selectedVocal: null, chordsTrackSelected: false, drumsTrackSelected: false })
 }
 
 export async function openSketch(id: string) {
@@ -76,7 +76,8 @@ export async function openSketch(id: string) {
   // The song's settings as saved; its sections, and their parts, as songState reads them.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { sections, arrangement, activeSection, chords, loop, takes: _, vocalMuted, vocalSolo, vocalNames, vocalTracks, ...settings } = record.song
-  useStore.setState({ ...settings, ...song })
+  // Settings a sketch was saved before having start as they would in a new one.
+  useStore.setState({ drumTrack: false, drumsMuted: false, drumsSolo: false, drumsName: null, ...settings, ...song })
   loadSongTakes(takes)
   useStore.getState().setSaved(id, sketchSignature(useStore.getState()))
   clearHistory()
@@ -88,7 +89,7 @@ export async function newSketch() {
   if (!(await keepCurrent())) return
   stopEverything()
   // One empty section, called Verse, to start from.
-  useStore.setState({ ...songState({}), title: '', chordsName: null, chordsMuted: false, chordsSolo: false })
+  useStore.setState({ ...songState({}), title: '', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumTrack: false, drumsMuted: false, drumsSolo: false })
   useStore.getState().setSaved(null, null)
   clearHistory()
 }

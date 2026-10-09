@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { emptyParts, sectionsNow, useStore } from './store'
 
-// Undo covers the song itself: its chords, key, tempo, meter and loop, and its
+// Undo covers the song itself: its chords, drums, key, tempo, meter and loop, and its
 // sections and their order. Takes and the rest of the vocal tracks are left
 // out, since a deleted recording's audio is gone for good.
 const pick = (s: ReturnType<typeof useStore.getState>) => ({
@@ -11,6 +11,7 @@ const pick = (s: ReturnType<typeof useStore.getState>) => ({
   bpm: s.bpm,
   timeSig: s.timeSig,
   loop: s.loop,
+  drums: s.drums,
   sections: s.sections,
   arrangement: s.arrangement,
   activeSection: s.activeSection,
@@ -44,7 +45,7 @@ function songChanged(s: State, prev: State) {
   const before = sectionsNow(prev)
   return (
     now.length !== before.length ||
-    now.some((sec, i) => sec.id !== before[i].id || sec.name !== before[i].name || sec.chords !== before[i].chords || sec.loop !== before[i].loop)
+    now.some((sec, i) => sec.id !== before[i].id || sec.name !== before[i].name || sec.chords !== before[i].chords || sec.loop !== before[i].loop || sec.drums !== before[i].drums)
   )
 }
 
@@ -83,7 +84,7 @@ function restore(snapshot: Snapshot) {
     ...vocalsOf(snapshot.activeSection),
     // Keep the selection only if that chord is still there.
     selectedId: snapshot.chords.some((c) => c.id === s.selectedId) ? s.selectedId : null,
-    ...(switched && { selectedVocal: null, chordsTrackSelected: false, armedLane: 0 }),
+    ...(switched && { selectedVocal: null, chordsTrackSelected: false, drumsTrackSelected: false, armedLane: 0 }),
   })
   applying = false
   lastChange = 0

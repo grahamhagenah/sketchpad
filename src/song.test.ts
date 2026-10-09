@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { songState, useStore } from './store'
 import { playbackOf, songSpans, takeIdsBySection } from './song'
 import { undo, redo, clearHistory } from './history'
+import { LANES } from './audio/take'
 
 const get = () => useStore.getState()
 const take = (id: string, startBeat = 0, seconds = 2) => ({ id, startBeat, bpm: 120, seconds, peaks: [] })
@@ -64,8 +65,8 @@ describe('playbackOf', () => {
 describe('takeIdsBySection', () => {
   it('lists every section’s takes, the open one’s included', () => {
     expect(takeIdsBySection(get())).toEqual({
-      [id('Verse')]: ['verse-vocal', null, null, null],
-      [id('Chorus')]: [null, null, null, null],
+      [id('Verse')]: ['verse-vocal', ...Array(LANES - 1).fill(null)],
+      [id('Chorus')]: Array(LANES).fill(null),
     })
   })
 })

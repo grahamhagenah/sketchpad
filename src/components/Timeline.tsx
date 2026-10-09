@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { audibleTracks, chordsTrackName, useStore, vocalTrackName, type Chord } from '../store'
+import { audibleTracks, chordsTrackName, drumsTrackName, useStore, vocalTrackName, type Chord } from '../store'
 import { chordOf } from '../music/theory'
 import { audition, engine, seek } from '../audio/engine'
 import { LANES } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
 import type { TakeInfo } from '../audio/take'
+import { GROOVES, grooveHits, grooveLabel } from '../audio/drums'
+import { MenuButton } from './Sections'
 
 interface Drag {
   id: string
@@ -58,7 +60,10 @@ export function Timeline() {
   // With chords but no vocal tracks, a row invites you to add one.
   // Under the last vocal track, a row to add another, while there's room for one.
   const vocalHint = laneCount < LANES && recording === 'off'
-  const rows = laneCount + (vocalHint ? 1 : 0)
+  // And under that, one to add the drum track, until there is one.
+  const drumTrack = useStore((s) => s.drumTrack)
+  const drumHint = !drumTrack && recording === 'off'
+  const rows = laneCount + (vocalHint ? 1 : 0) + (drumHint ? 1 : 0)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -207,8 +212,8 @@ export function Timeline() {
   }, [playing, beatPx])
 
   return (
-    <div className={`timeline-wrap ${rows ? 'has-vocals' : ''}`} style={{ ['--lanes' as string]: rows }}>
-      <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} />
+    <div className={`timeline-wrap ${rows ? 'has-vocals' : ''}`} style={{ ['--lanes' as string]: rows, ['--drum-rows' as string]: drumTrack ? 1 : 0 }}>
+      <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumHint={drumHint} />
       <div className="timeline-scroll" ref={scrollRef}>
         <div
           className={`timeline ${chords.length ? '' : 'is-empty'} ${audible.chords ? '' : 'chords-silent'} ${chordsTrackSelected ? 'chords-selected' : ''}`}
@@ -243,7 +248,7 @@ export function Timeline() {
 
           {chords.length === 0 && (
             <p className="timeline-empty" style={{ left: barPx + 16 }}>
-              <span>Click + or press 1–7 to add a chord, or start from a progression below.</span>
+              <span>Click + to add chords or start from a ready-made progression.</span>
             </p>
           )}
 
@@ -295,6 +300,8 @@ export function Timeline() {
             +
           </button>
           {adding && <AddChordMenu anchor={slotRef} onClose={closeAdding} />}
+
+          {drumTrack && totalBeats > 0 && <DrumLane beatPx={beatPx} beats={totalBeats} muted={!audible.drums} />}
 
           {Array.from({ length: laneCount }, (_, lane) => (
             <VocalLane
@@ -433,10 +440,92 @@ function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, b
   )
 }
 
-/** Brings back every muted or soloed-out track at once. */
+/**
+ * The section's drums: its groove drawn hit by hit under the chords, as long
+ * as they are. Click it to pick another groove, or none.
+ */
+function DrumLane({ beatPx, beats, muted }: { beatPx: number; beats: number; muted: boolean }) {
+  const groove = useStore((s) => s.drums)
+  const timeSig = useStore((s) => s.timeSig)
+  const setDrums = useStore((s) => s.setDrums)
+  const removeDrumTrack = useStore((s) => s.removeDrumTrack)
+  const locked = useStore((s) => s.recording !== 'off')
+  const selected = useStore((s) => s.drumsTrackSelected)
+  const selectDrumsTrack = useStore((s) => s.selectDrumsTrack)
+  const hits = grooveHits(groove, timeSig, 0, beats)
+  return (
+    <MenuButton
+      label={groove ? `Drums: ${grooveLabel(groove)}. Change the groove` : 'Add drums'}
+      title={groove ? `${grooveLabel(groove)} · click to change` : 'Add a drum groove to this section'}
+      className={`drum-region ${groove ? '' : 'is-empty'} ${muted ? 'is-muted' : ''} ${selected ? 'is-selected' : ''}`}
+      style={{ width: beats * beatPx - 6 }}
+      // Clicking the drums selects the track as well, as clicking a chord selects it.
+      onOpen={locked ? undefined : selectDrumsTrack}
+      menu={(close) => (
+        <>
+          {GROOVES.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              className="menu-item"
+              role="menuitemradio"
+              aria-checked={g.id === groove}
+              disabled={locked}
+              onClick={() => {
+                setDrums(g.id)
+                close()
+              }}
+            >
+              <span className="menu-item-title">{g.label}</span>
+              <span className="menu-item-about">{g.about}</span>
+            </button>
+          ))}
+          <div className="menu-divider" role="separator" />
+          {groove && (
+            <button
+              type="button"
+              className="menu-item"
+              onClick={() => {
+                setDrums(null)
+                close()
+              }}
+            >
+              <span className="menu-item-title">No drums here</span>
+              <span className="menu-item-about">This section plays without drums</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="menu-item is-danger"
+            disabled={locked}
+            onClick={() => {
+              removeDrumTrack()
+              close()
+            }}
+          >
+            <span className="menu-item-title">Remove drum track</span>
+            <span className="menu-item-about">From the whole song</span>
+          </button>
+        </>
+      )}
+    >
+      {groove ? (
+        <>
+          <span className="drum-label">{grooveLabel(groove)}</span>
+          {hits.map((h, i) => (
+            <span key={i} className={`drum-hit is-${h.piece}`} style={{ left: h.beat * beatPx, opacity: 0.45 + h.velocity * 0.55 }} />
+          ))}
+        </>
+      ) : (
+        <span className="drum-label">+ Groove</span>
+      )}
+    </MenuButton>
+  )
+}
+
 /** Brings back every muted or soloed-out track; only there while something is. */
 function UnmuteAllButton() {
-  const any = useStore((s) => s.chordsMuted || s.chordsSolo || s.vocalMuted.some(Boolean) || s.vocalSolo.some(Boolean))
+  const any = useStore((s) => s.chordsMuted || s.chordsSolo || s.drumsMuted || s.drumsSolo || s.vocalMuted.some(Boolean) || s.vocalSolo.some(Boolean))
   const unmuteAll = useStore((s) => s.unmuteAll)
   if (!any) return null
   return (
@@ -450,7 +539,7 @@ function UnmuteAllButton() {
 }
 
 /** Track names with mute and solo, beside each track's row. */
-function TrackHeaders({ laneCount, vocalHint }: { laneCount: number; vocalHint: boolean }) {
+function TrackHeaders({ laneCount, vocalHint, drumHint }: { laneCount: number; vocalHint: boolean; drumHint: boolean }) {
   const s = useStore()
   return (
     <div className="track-headers">
@@ -468,6 +557,19 @@ function TrackHeaders({ laneCount, vocalHint }: { laneCount: number; vocalHint: 
         onRename={s.renameChords}
         onSelect={s.recording === 'off' && s.chords.length > 0 ? s.selectChordsTrack : undefined}
       />
+      {s.drumTrack && (
+        <TrackHeader
+          className={`is-drums ${s.drumsTrackSelected ? 'is-selected' : ''}`}
+          icon={<DrumIcon />}
+          name={drumsTrackName(s)}
+          muted={s.drumsMuted}
+          solo={s.drumsSolo}
+          onMute={s.toggleDrumsMute}
+          onSolo={s.toggleDrumsSolo}
+          onRename={s.renameDrums}
+          onSelect={s.recording === 'off' ? s.selectDrumsTrack : undefined}
+        />
+      )}
       {Array.from({ length: laneCount }, (_, lane) => (
         <TrackHeader
           key={lane}
@@ -493,6 +595,18 @@ function TrackHeaders({ laneCount, vocalHint }: { laneCount: number; vocalHint: 
         >
           <PlusIcon />
           Vocal track
+        </button>
+      )}
+      {drumHint && (
+        <button
+          type="button"
+          className="track-header is-vocal vocal-hint"
+          style={{ ['--row' as string]: laneCount + (vocalHint ? 1 : 0) }}
+          onClick={s.addDrumTrack}
+          title="Add a drum track, with a groove for each section"
+        >
+          <PlusIcon />
+          Drum track
         </button>
       )}
     </div>
@@ -590,6 +704,14 @@ const KeysIcon = () => (
     <path d="M9 13v6M15 13v6" />
     <rect x="7.5" y="5" width="3" height="8" fill="currentColor" stroke="none" />
     <rect x="13.5" y="5" width="3" height="8" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+/** A drum, for the drums. */
+const DrumIcon = () => (
+  <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <ellipse cx="12" cy="9" rx="8" ry="3" />
+    <path d="M4 9v7c0 1.7 3.6 3 8 3s8-1.3 8-3V9M14 4l5-2M10 4 5 2" />
   </svg>
 )
 

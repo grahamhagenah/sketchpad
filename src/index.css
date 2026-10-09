@@ -14,11 +14,11 @@
   color-scheme: dark;
   font-family: 'DM Sans', system-ui, sans-serif;
   color: var(--text);
-  background: var(--bg);
+  background: var(--panel);
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; background: var(--bg); }
+body { margin: 0; min-height: 100vh; }
 button, select, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:disabled { opacity: 0.4; cursor: default; }
@@ -37,18 +37,20 @@ kbd {
 }
 
 .app {
-  padding: 0 0 40px;
+  /* The window's height: the editor takes what the status bar leaves. */
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
-main { display: flex; flex-direction: column; }
+main { flex: 1; display: flex; flex-direction: column; }
+/* No padding at the foot, so the timeline's lines run down to the status bar. */
+main > .panel { flex: 1; padding-bottom: 0 !important; }
 /* The editor runs edge to edge as a band, its contents kept to the site width. */
 .app { --site: 1200px; --gutter: 24px; }
 /* The bands' full-bleed edges reach past the window; don't let them make the page scroll sideways. */
 .app { overflow-x: clip; }
 main > .panel {
-  border-width: 0 0 1px;
+  border-width: 0;
   border-radius: 0;
   padding: 16px max(var(--gutter), calc((100% - var(--site)) / 2));
 }
@@ -201,31 +203,41 @@ main > .panel {
   --strip-y: 25px;
   /* Where the bar and beat lines begin, just under the bar numbers; the track names' column starts there too. */
   --grid-top: 20px;
-  --head: 36px;
-  --chord-h: 60px;
-  --vocal-top: calc(var(--head) + var(--chord-h) + 12px);
-  --vocal-h: 56px;
+  /* Every track is the same height, its blocks filling its row, with only --gap between one row and the next. */
+  --track-h: 62px;
+  --gap: 2px;
+  --head: 32px;
+  --chord-h: var(--track-h);
+  --drum-top: calc(var(--head) + var(--chord-h) + var(--gap));
+  --drum-h: var(--track-h);
+  /* The drum track, when there is one, sits between the chords and the vocals. */
+  --drum-rows: 0;
+  --vocal-top: calc(var(--head) + var(--chord-h) + var(--drum-rows) * (var(--drum-h) + var(--gap)) + 8px);
+  --vocal-h: var(--track-h);
   --lanes: 1;
   position: relative;
   display: flex;
   min-width: 0;
 }
-/* A line between the chords and the vocals, across the names and the timeline. */
+/* A line between the instruments and the vocals, across the names and the timeline. */
 .timeline-wrap.has-vocals::after {
   content: '';
   position: absolute;
-  top: calc(var(--head) + var(--chord-h) + 6px);
+  top: calc(var(--vocal-top) - 4px);
   left: 0;
   right: 0;
   height: 1px;
   background: var(--line-strong);
   pointer-events: none;
 }
-.timeline-scroll { flex: 1; min-width: 0; overflow-x: auto; padding-bottom: 6px; }
+/* The timeline fills the editor's height, its bar and beat lines running on below the last track. */
+.timeline-wrap { flex: 1; }
+.timeline-scroll { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-x: auto; padding-bottom: 6px; }
 .timeline {
   position: relative;
+  flex: 1 0 auto;
   min-width: 100%;
-  height: calc(var(--head) + var(--chord-h) + 6px + min(var(--lanes), 1) * 4px + var(--lanes) * (var(--vocal-h) + 8px));
+  min-height: calc(var(--vocal-top) - 4px + var(--lanes) * (var(--vocal-h) + var(--gap)));
   background:
     repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat,
     repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--beat)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat;
@@ -383,7 +395,7 @@ main > .panel {
 
 /* Vocal lanes: each item sets --row to its lane. */
 .vocal-row, .vocal-take, .vocal-recording {
-  top: calc(var(--vocal-top) + var(--row, 0) * (var(--vocal-h) + 8px));
+  top: calc(var(--vocal-top) + var(--row, 0) * (var(--vocal-h) + var(--gap)));
 }
 .vocal-row {
   position: absolute;
@@ -417,11 +429,12 @@ main > .panel {
 /* The chords' header reaches up to where the timeline's lines begin, its name centred in it. */
 .track-header.is-chords {
   top: var(--grid-top);
-  height: calc(var(--head) + var(--chord-h) + 4px - var(--grid-top));
+  height: calc(var(--head) + var(--chord-h) + 1px - var(--grid-top));
 }
+.track-header.is-drums { top: calc(var(--drum-top) - 1px); height: calc(var(--drum-h) + 2px); }
 .track-header.is-vocal {
-  top: calc(var(--vocal-top) - 4px + var(--row, 0) * (var(--vocal-h) + 8px));
-  height: calc(var(--vocal-h) + 8px);
+  top: calc(var(--vocal-top) - 1px + var(--row, 0) * (var(--vocal-h) + var(--gap)));
+  height: calc(var(--vocal-h) + var(--gap));
 }
 .track-header.is-selectable { cursor: pointer; }
 .track-header.is-selectable:hover { background: rgb(255 255 255 / 0.03); }
@@ -549,6 +562,35 @@ main > .panel {
   border: 1px solid var(--text);
   pointer-events: none;
 }
+
+/* Drums: the section's groove, hit by hit, in rows of hats, snare and kick under its name. */
+.drum-region {
+  position: absolute;
+  top: var(--drum-top);
+  left: 0;
+  height: var(--drum-h);
+  margin-left: 3px;
+  padding: 0;
+  /* The same edge as the chord blocks above. */
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--raised);
+  overflow: hidden;
+  text-align: left;
+  transition: border-color 0.08s;
+}
+.drum-region:hover, .drum-region[aria-expanded='true'] { border-color: var(--muted); }
+.drum-region.is-empty { border-style: dashed; background: none; color: var(--muted); }
+.drum-region.is-empty:hover { color: var(--text); }
+.drum-region.is-muted { opacity: 0.4; }
+.drum-region.is-selected { border-color: var(--accent); }
+.drum-label { position: absolute; top: 4px; left: 9px; font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.drum-region.is-empty .drum-label { top: 50%; transform: translateY(-50%); font-size: 12px; color: inherit; }
+.drum-hit { position: absolute; width: 4px; margin-left: 4px; border-radius: 2px; background: var(--text); pointer-events: none; }
+.drum-hit.is-hat { top: 24px; height: 4px; background: var(--muted); }
+.drum-hit.is-snare { top: 34px; height: 5px; }
+.drum-hit.is-kick { top: 44px; height: 6px; background: var(--accent); }
+.menu-item[aria-checked='true'] .menu-item-title { color: var(--accent); }
 
 /* Track headers: a column beside the timeline, one per track. */
 .timeline.chords-silent .chord { opacity: 0.4; }
@@ -840,7 +882,31 @@ main > .panel {
 .song-add-btn:hover, .song-add-btn[aria-expanded='true'] { border-color: var(--accent); color: var(--accent); }
 .song-empty { position: absolute; top: 46px; left: 96px; margin: 0; font-size: 14px; color: var(--muted); }
 .song-playhead { top: 0; height: 118px; }
-.song-hint { min-height: 1em; }
+
+/* Status bar: along the bottom of the window, staying in view when the editor is taller. */
+.status-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 32px;
+  padding: 0 max(var(--gutter), calc((100% - var(--site)) / 2));
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 12px;
+  color: var(--muted);
+}
+.status-bar p { margin: 0; white-space: nowrap; }
+.status-main { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.status-main strong { font-weight: 600; color: var(--text); }
+.status-sep::before { content: '·'; margin: 0 6px; }
+.status-keys { margin-left: 14px; }
+.status-main > .status-keys:first-child { margin-left: 0; }
+.status-bar kbd { font-size: 10px; padding: 0 4px; }
+.status-save { flex: none; }
 
 /* Menu */
 .menu-anchor { position: relative; }
@@ -1020,6 +1086,7 @@ main > .panel {
 /* Touch screens: no keyboard to list shortcuts for, and handles big enough for a finger. */
 @media (hover: none) and (pointer: coarse) {
   .shortcuts-anchor { display: none; }
+  .status-keys { display: none; }
   .resize { width: 24px; right: -12px; }
   .resize::after { left: 10px; }
   .loop-handle { width: 24px; }

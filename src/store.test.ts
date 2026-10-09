@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { LANES } from './audio/take'
 import { audibleTracks, loopRange, sectionsNow, sketchSignature, songOf, songState, songSummary, totalBeats, useStore } from './store'
 
 describe('loopRange', () => {
@@ -19,25 +20,31 @@ describe('audibleTracks', () => {
   const base = {
     chordsMuted: false,
     chordsSolo: false,
+    drumsMuted: false,
+    drumsSolo: false,
     vocalMuted: [false, false],
     vocalSolo: [false, false],
     takes: [{ id: 'a', startBeat: 0, bpm: 96, seconds: 1, peaks: [] }, null],
   }
 
   it('plays everything with a take by default', () => {
-    expect(audibleTracks(base)).toEqual({ chords: true, vocals: [true, false] })
+    expect(audibleTracks(base)).toEqual({ chords: true, drums: true, vocals: [true, false] })
   })
 
   it('plays only soloed tracks once any is soloed', () => {
-    expect(audibleTracks({ ...base, vocalSolo: [true, false] })).toEqual({ chords: false, vocals: [true, false] })
+    expect(audibleTracks({ ...base, vocalSolo: [true, false] })).toEqual({ chords: false, drums: false, vocals: [true, false] })
   })
 
   it('ignores a solo on a lane without a take', () => {
-    expect(audibleTracks({ ...base, vocalSolo: [false, true] })).toEqual({ chords: true, vocals: [true, false] })
+    expect(audibleTracks({ ...base, vocalSolo: [false, true] })).toEqual({ chords: true, drums: true, vocals: [true, false] })
   })
 
   it('silences a muted track even when soloed', () => {
-    expect(audibleTracks({ ...base, chordsSolo: true, chordsMuted: true })).toEqual({ chords: false, vocals: [false, false] })
+    expect(audibleTracks({ ...base, chordsSolo: true, chordsMuted: true })).toEqual({ chords: false, drums: false, vocals: [false, false] })
+  })
+
+  it('counts the drums among the tracks that can be soloed', () => {
+    expect(audibleTracks({ ...base, drumsSolo: true })).toEqual({ chords: false, drums: true, vocals: [false, false] })
   })
 })
 
@@ -184,7 +191,7 @@ describe('saved songs', () => {
     expect(song.chords).toEqual(chords)
     expect(song.loop).toEqual({ start: 0, end: 2 })
     // vocalMuted was once one flag, for the first track.
-    expect(song.vocalMuted).toEqual([true, false, false, false])
+    expect(song.vocalMuted).toEqual([true, ...Array(LANES - 1).fill(false)])
     expect(song.arrangement.map((e) => e.section)).toEqual([song.activeSection])
   })
 

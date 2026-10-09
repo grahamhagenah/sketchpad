@@ -49,7 +49,9 @@ export function toAudioBuffer(take: Take) {
 
 // ---- Keeping takes between visits (too big for localStorage) ----
 
-export const LANES = 4
+export const LANES = 8
+/** How many lanes there were when each had a key of its own. */
+const LEGACY_LANES = 4
 
 const DB = 'sketchpad'
 /**
@@ -248,7 +250,7 @@ export const storeLanes = (lanes: LaneIds, audioOf: (id: string) => Take | undef
 export async function loadLanes(section: string): Promise<SectionTakes> {
   const lanes = await idb<LaneIds | undefined>(STORE, 'readonly', (s) => s.get(LANES_KEY))
   if (lanes) return loadAudio(lanes)
-  const legacy = await Promise.all(Array.from({ length: LANES }, (_, lane) => idb<unknown>(STORE, 'readonly', (s) => s.get(key(lane)))))
+  const legacy = await Promise.all(Array.from({ length: LEGACY_LANES }, (_, lane) => idb<unknown>(STORE, 'readonly', (s) => s.get(key(lane)))))
   const oldest = await idb<unknown>(STORE, 'readonly', (s) => s.get('vocal'))
   if (typeof oldest === 'string' && typeof legacy[0] !== 'string') legacy[0] = oldest
   const ids = legacy.map((id) => (typeof id === 'string' ? id : null))
@@ -256,7 +258,7 @@ export async function loadLanes(section: string): Promise<SectionTakes> {
     await write([STORE], (tx) => {
       const store = tx.objectStore(STORE)
       store.put({ [section]: ids }, LANES_KEY)
-      for (let lane = 0; lane < LANES; lane++) store.delete(key(lane))
+      for (let lane = 0; lane < LEGACY_LANES; lane++) store.delete(key(lane))
       store.delete('vocal')
     })
   }

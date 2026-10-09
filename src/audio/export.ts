@@ -2,15 +2,16 @@ import * as Tone from 'tone'
 import { keyLabel, keySignature } from '../music/theory'
 import { arrange } from './arrange'
 import { createInstruments, midiToHz } from './instruments'
+import { createKit, DRUM_NOTES, playDrum } from './drums'
 import { toAudioBuffer, type Take } from './take'
 import type { Playback } from '../song'
 
-type ExportSong = Pick<Playback, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'>
+type ExportSong = Pick<Playback, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'> & Partial<Pick<Playback, 'drums'>>
 
 const PPQ = 480
 
 /** e.g. "night-drive-F#m-96bpm", or "sketchpad-F#m-96bpm" before the sketch has a title. */
-export function exportName(song: ExportSong & { title?: string }) {
+export function exportName(song: Pick<ExportSong, 'key' | 'mode' | 'bpm'> & { title?: string }) {
   const key = keyLabel(song.key, song.mode).replace('♯', '#').replace('♭', 'b')
   const name = (song.title ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sketchpad'
   return `${name}-${key}${song.mode === 'minor' ? 'm' : ''}-${song.bpm}bpm`
@@ -75,7 +76,7 @@ function notes(channel: number, hits: { start: number; dur: number; pitches: num
 
 /**
  * A type-1 MIDI file with the song's tempo, meter and key, and the chords and
- * bass on separate tracks so each can get its own instrument in a DAW.
+ * bass (and drums) on separate tracks so each can get its own instrument in a DAW.
  */
 export function songToMidi(song: ExportSong): Blob {
   const [num, den] = song.timeSig
@@ -96,6 +97,12 @@ export function songToMidi(song: ExportSong): Blob {
   if (song.sound.bass) {
     const bass = hits.flatMap((h) => (h.bass === null ? [] : [{ ...h, pitches: [h.bass], velocity: 0.9 }]))
     tracks.push(track('Bass', notes(1, bass)))
+  }
+  if (song.drums?.length) {
+    // On channel 10, General MIDI's drum channel, so a DAW opens it on a kit.
+    const quartersPerBeat = 4 / den
+    const drums = song.drums.map((h) => ({ start: h.beat * quartersPerBeat, dur: 0.125, pitches: [DRUM_NOTES[h.piece]], velocity: h.velocity }))
+    tracks.push(track('Drums', notes(9, drums)))
   }
   const bytes = [...chunk('MThd', [0, 1, 0, tracks.length, PPQ >> 8, PPQ & 255]), ...tracks.flat()]
   return new Blob([new Uint8Array(bytes)], { type: 'audio/midi' })
@@ -140,6 +147,8 @@ export async function songToWav(song: ExportSong, takes: Take[] = []): Promise<B
       if (h.pad.length) pad.triggerAttackRelease(h.pad.map(midiToHz), h.held ? length * 0.97 : length, time, h.velocity)
       if (h.bass !== null) bass.triggerAttackRelease(midiToHz(h.bass), length * 0.97, time, 0.9)
     }
+    const kit = createKit()
+    for (const h of song.drums ?? []) playDrum(kit, h.piece, h.beat * (4 / song.timeSig[1]) * quarterSeconds, h.velocity)
     for (const take of takes) new Tone.Player(toAudioBuffer(take)).toDestination().start(takeStart(take))
   }, duration, 2, 44100)
 

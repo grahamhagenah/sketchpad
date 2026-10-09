@@ -3,6 +3,7 @@ import { useStore, loopRange, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
 import { arrange, type Hit } from './arrange'
 import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
+import { createKit, disposeKit, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
 import { openMic, outputLatency, startCapture, type Capture } from './recorder'
 import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take } from './take'
@@ -28,6 +29,10 @@ interface Recording {
   lane: number
 }
 
+interface DrumEvent extends DrumHit {
+  time: string
+}
+
 interface ClickEvent {
   time: string
   accent: boolean
@@ -39,6 +44,8 @@ class Engine {
   private pad!: Tone.PolySynth
   private bass!: Tone.MonoSynth
   private click!: Tone.Synth
+  private kit!: Kit
+  private drumPart: Tone.Part<DrumEvent> | null = null
   private chordPart: Tone.Part<HitEvent> | null = null
   private clickPart: Tone.Part<ClickEvent> | null = null
   private vocalParts: Tone.Part<VocalEvent>[] = []
@@ -69,6 +76,7 @@ class Engine {
       envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 },
     }).toDestination()
     this.click.volume.value = -12
+    this.kit = createKit()
     this.ready = true
   }
 
@@ -134,6 +142,13 @@ class Engine {
       )
     })
 
+    // The drums inside the loop, each hit where it falls.
+    this.drumPart?.dispose()
+    const drums = song.drums
+      .filter((h) => h.beat >= region.start && h.beat < region.end)
+      .map((h) => ({ ...h, time: `${Math.round(h.beat * this.ticksPerBeat)}i` }))
+    this.drumPart = new Tone.Part<DrumEvent>((time, ev) => playDrum(this.kit, ev.piece, time, ev.velocity), drums).start(0)
+
     this.clickPart?.dispose()
     this.clickPart = null
     if (song.metronome || this.recording) {
@@ -194,6 +209,7 @@ class Engine {
     t.stop()
     if (this.endEvent !== null) t.clear(this.endEvent)
     this.chordPart?.dispose()
+    this.drumPart?.dispose()
     this.clickPart?.dispose()
     this.vocalParts.forEach((part) => part.dispose())
     this.players.forEach((player) => player.dispose())
@@ -201,6 +217,7 @@ class Engine {
     if (this.ready) {
       Object.values(this.instruments).forEach((node) => node.dispose())
       this.click.dispose()
+      disposeKit(this.kit)
     }
     this.ready = false
   }
@@ -337,6 +354,10 @@ const unsubscribe = useStore.subscribe((s, prev) => {
     s.vocalSolo !== prev.vocalSolo ||
     s.chordsMuted !== prev.chordsMuted ||
     s.chordsSolo !== prev.chordsSolo ||
+    s.drums !== prev.drums ||
+    s.drumTrack !== prev.drumTrack ||
+    s.drumsMuted !== prev.drumsMuted ||
+    s.drumsSolo !== prev.drumsSolo ||
     s.sections !== prev.sections ||
     s.arrangement !== prev.arrangement ||
     s.activeSection !== prev.activeSection ||

@@ -42,19 +42,24 @@ function NewSectionItems({ onPick }: { onPick: (name: string) => void }) {
  * scrolling. The menu floats over the page, since the tabs and the song both
  * scroll sideways and would clip it; on a phone it's a sheet along the bottom.
  */
-function MenuButton({
+export function MenuButton({
   label,
   title,
   className,
+  style,
   children,
   menu,
+  onOpen,
   align = 'left',
 }: {
   label: string
   title?: string
   className: string
+  style?: CSSProperties
   children: ReactNode
   menu: (close: () => void) => ReactNode
+  /** Called as the menu opens. */
+  onOpen?: () => void
   align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
@@ -101,11 +106,15 @@ function MenuButton({
         type="button"
         ref={buttonRef}
         className={className}
+        style={style}
         aria-label={label}
         title={title ?? label}
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (!open) onOpen?.()
+          setOpen(!open)
+        }}
       >
         {children}
       </button>
@@ -521,10 +530,6 @@ export function SongView() {
           )}
         </div>
       </div>
-      <p className="hint song-hint">
-        {placed.length > 0 && 'Click a section to edit it, or drag it to reorder.'}
-        {[...uses.values()].some((n) => n > 1) && ' A section marked ⧉ plays more than once and is the same each time; its menu can make one place a copy to change on its own.'}
-      </p>
     </div>
   )
 }

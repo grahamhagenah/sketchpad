@@ -1,4 +1,5 @@
 import { audibleTracks, sectionsNow, totalBeats, useStore, type Chord, type LoopRegion } from './store'
+import { grooveHits, type DrumHit } from './audio/drums'
 
 type State = ReturnType<typeof useStore.getState>
 
@@ -32,6 +33,8 @@ export interface Playback {
   chords: PlayChord[]
   loop: LoopRegion | null
   vocals: VocalPlacement[]
+  /** The drums, bar after bar under each section's chords. */
+  drums: DrumHit[]
 }
 
 /** Where each place in the song starts and how long it is, in beats. */
@@ -68,6 +71,7 @@ export function playbackOf(s: State, view = s.view): Playback {
       ...base,
       chords: audible.chords ? s.chords : s.chords.map((c) => ({ ...c, silent: true })),
       loop: s.loop,
+      drums: audible.drums && s.drumTrack ? grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords)) : [],
       vocals: s.takes.flatMap((t, lane) =>
         t && audible.vocals[lane] ? [{ id: t.id, startBeat: t.startBeat, seconds: t.seconds, endBeat: Infinity, lane }] : [],
       ),
@@ -76,17 +80,19 @@ export function playbackOf(s: State, view = s.view): Playback {
   const sections = new Map(sectionsNow(s).map((sec) => [sec.id, sec]))
   const chords: PlayChord[] = []
   const vocals: VocalPlacement[] = []
+  const drums: DrumHit[] = []
   for (const { entry, start, beats } of songSpans(s)) {
     const section = sections.get(entry.section)
     if (!section) continue
-    const audible = audibleTracks({ ...section, chordsMuted: s.chordsMuted, chordsSolo: s.chordsSolo })
+    const audible = audibleTracks({ ...section, chordsMuted: s.chordsMuted, chordsSolo: s.chordsSolo, drumsMuted: s.drumsMuted, drumsSolo: s.drumsSolo })
     // Each place gets its own chord ids, so a section that repeats stays distinct.
     chords.push(...section.chords.map((c) => ({ ...c, id: `${entry.id}:${c.id}`, silent: !audible.chords })))
+    if (audible.drums && s.drumTrack) drums.push(...grooveHits(section.drums, s.timeSig, start, beats))
     section.takes.forEach((t, lane) => {
       if (t && audible.vocals[lane]) vocals.push({ id: t.id, startBeat: start + t.startBeat, seconds: t.seconds, endBeat: start + beats, lane: null })
     })
   }
-  return { ...base, chords, loop: null, vocals }
+  return { ...base, chords, loop: null, vocals, drums }
 }
 
 /** Each section's takes by lane, as ids, for storing. */

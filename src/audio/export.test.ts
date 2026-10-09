@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { exportName, songToMidi } from './export'
 import { DEFAULT_ARP } from './arrange'
 import { DEFAULT_SOUND } from './sound'
+import { grooveHits } from './drums'
 
 const song = {
   key: 6,
@@ -43,6 +44,13 @@ describe('songToMidi', () => {
     }
     expect(at).toBe(bytes.length)
     expect(names).toEqual(['Sketchpad', 'Chords', 'Bass'])
+  })
+
+  it('adds the drums as a track on the drum channel', async () => {
+    const bytes = [...new Uint8Array(await songToMidi({ ...song, drums: grooveHits('backbeat', song.timeSig, 0, 12) }).arrayBuffer())]
+    expect([bytes[10], bytes[11]]).toEqual([0, 4])
+    // A kick (36) on channel 10 (status 0x99) at the start.
+    expect(bytes.some((b, i) => b === 0x99 && bytes[i + 1] === 36)).toBe(true)
   })
 
   it('records the meter and key', async () => {
