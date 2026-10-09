@@ -1,3 +1,5 @@
+import { newId } from '../id'
+
 /** A recorded vocal: mono samples that start at a beat of the song. */
 export interface Take {
   /** Names its audio in storage, which every track and saved sketch holding it shares. */
@@ -111,7 +113,7 @@ function migrateTakes(tx: IDBTransaction) {
   const audio = tx.objectStore(AUDIO)
   const move = (take: unknown) => {
     if (!isLegacyTake(take)) return null
-    const id = crypto.randomUUID()
+    const id = newId()
     audio.put(toStored({ ...take, id }), id)
     return id
   }
