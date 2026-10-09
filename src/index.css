@@ -935,8 +935,6 @@ main > .panel {
 .section-tab[aria-selected='true'] { color: var(--text); }
 /* A section that isn't in the song yet. */
 .section-tab.is-unused { font-style: italic; }
-.section-tab.is-unused .section-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--section); }
-.section-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--section); }
 /* A square button, inset from the tab's edge so its hover has room around it. */
 .section-more,
 .section-more-space { flex: none; width: 26px; height: 26px; margin: 0 6px 0 -6px; }
@@ -1046,11 +1044,11 @@ main > .panel {
   position: relative;
   height: 26px;
   border-radius: 7px;
-  background: color-mix(in srgb, var(--section) 30%, var(--raised));
+  background: var(--raised);
   overflow: hidden;
   transition: background 0.08s;
 }
-.song-row.is-playing .song-row-bar { background: color-mix(in srgb, var(--section) 55%, var(--raised)); }
+.song-row.is-playing .song-row-bar { background: color-mix(in srgb, var(--text) 16%, var(--raised)); }
 /* Each chord a segment of the bar, its name inside, split from the next by a thin line. */
 .song-chord {
   position: absolute;
@@ -1059,7 +1057,7 @@ main > .panel {
   display: flex;
   align-items: center;
   padding: 0 7px;
-  border-left: 1px solid color-mix(in srgb, var(--section) 60%, var(--panel));
+  border-left: 1px solid var(--line-strong);
   font-family: 'DM Mono', monospace;
   font-size: 12px;
   color: var(--text);
@@ -1070,7 +1068,7 @@ main > .panel {
 .song-row-grip { flex: none; margin-left: -2px; color: var(--muted); opacity: 0.5; cursor: grab; }
 .song-row:hover .song-row-grip, .song-row.is-dragging .song-row-grip { opacity: 1; }
 /* An empty section: just its name, with a dashed stub to show there's nothing to play yet. */
-.song-row.is-empty .song-row-bar { width: 40px; height: 14px; background: none; border: 1.5px dashed color-mix(in srgb, var(--section) 50%, transparent); }
+.song-row.is-empty .song-row-bar { width: 40px; height: 14px; background: none; border: 1.5px dashed var(--line-strong); }
 .song-row-more { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); z-index: 2; width: 26px; height: 26px; min-height: 0; border: 0; background: none; color: var(--muted); }
 .song-row-more svg { width: 15px; height: 15px; }
 @media (hover: hover) {

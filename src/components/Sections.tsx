@@ -6,30 +6,13 @@ import { engine } from '../audio/engine'
 import { songSpans } from '../song'
 import { Icon, ZoomButtons } from './Toolbar'
 
-const KIND_COLORS = ['#8fa8c8', '#5ad8c8', '#e8c46a', '#ff8fa3', '#b39cff', '#9aa5b1']
-
-/** What kind of section a name is: "Verse 2" is a verse. */
-const sectionKind = (name: string) => name.replace(/\s+\d+$/, '').toLowerCase()
-
-/** A colour for each kind of section, so a song's repeats are easy to pick out; "Verse 2" takes Verse's. */
-function sectionColor(name: string) {
-  const base = sectionKind(name)
-  const kind = SECTION_KINDS.findIndex((k) => k.toLowerCase() === base)
-  if (kind !== -1) return KIND_COLORS[kind]
-  let hash = 0
-  for (const ch of base) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
-  return KIND_COLORS[hash % KIND_COLORS.length]
-}
-
-const colorStyle = (name: string) => ({ ['--section' as string]: sectionColor(name) }) as CSSProperties
 
 /** The menu of section kinds to start a new section from. */
 function NewSectionItems({ onPick }: { onPick: (name: string) => void }) {
   return (
     <>
       {SECTION_KINDS.map((kind) => (
-        <button key={kind} type="button" className="menu-item menu-item-row" style={colorStyle(kind)} onClick={() => onPick(kind)}>
-          <span className="section-dot" aria-hidden="true" />
+        <button key={kind} type="button" className="menu-item menu-item-row" onClick={() => onPick(kind)}>
           <span className="menu-item-title">{kind}</span>
         </button>
       ))}
@@ -161,7 +144,7 @@ export function SectionBar() {
         {sections.map((sec) => {
           const open = view === 'section' && sec.id === activeSection
           return (
-            <div key={sec.id} className={`section-tab-wrap ${open ? 'is-open' : ''}`} style={colorStyle(sec.name)}>
+            <div key={sec.id} className={`section-tab-wrap ${open ? 'is-open' : ''}`}>
               {renaming === sec.id ? (
                 <RenameField section={sec} onDone={() => setRenaming(null)} />
               ) : (
@@ -175,7 +158,6 @@ export function SectionBar() {
                   onDoubleClick={() => setRenaming(sec.id)}
                   title={inSong.has(sec.id) ? `Edit ${sec.name} (double-click to rename)` : `${sec.name} isn’t in the song yet; add it in the song view`}
                 >
-                  <span className="section-dot" aria-hidden="true" />
                   {sec.name}
                 </button>
               )}
@@ -524,7 +506,7 @@ export function SongView() {
                   else rowRefs.current.delete(entry.id)
                 }}
                 className={`song-row ${entry.id === current ? 'is-playing' : ''} ${entry.id === drag?.id ? 'is-dragging' : ''} ${beats ? '' : 'is-empty'}`}
-                style={{ ...colorStyle(section.name), top: tops.get(entry.id), height: ROW_H }}
+                style={{ top: tops.get(entry.id), height: ROW_H }}
                 onPointerDown={(e) => startPress(entry.id, e)}
               >
                 <button
@@ -546,7 +528,6 @@ export function SongView() {
                     <svg className="song-row-grip" width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
                       {[2, 8, 14].flatMap((y) => [2, 8].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" fill="currentColor" />))}
                     </svg>
-                    <span className="section-dot" aria-hidden="true" />
                     <span className="song-row-title">{section.name}</span>
                     <span className="song-row-meta">{beats ? bars(beats) : '–'}</span>
                   </span>
@@ -575,8 +556,7 @@ export function SongView() {
             <MenuButton label="Add to the song" title="Add a section to the end of the song" className="song-add-btn" menu={(close) => (
               <>
                 {sections.map((sec) => (
-                  <button key={sec.id} type="button" className="menu-item menu-item-row" style={colorStyle(sec.name)} onClick={() => { addToSong(sec.id); close() }}>
-                    <span className="section-dot" aria-hidden="true" />
+                  <button key={sec.id} type="button" className="menu-item menu-item-row" onClick={() => { addToSong(sec.id); close() }}>
                     <span className="menu-item-title">{sec.name}</span>
                     <span className="menu-item-about">{totalBeats(sec.chords) ? `${bars(totalBeats(sec.chords))} bars` : 'empty'}</span>
                   </button>
