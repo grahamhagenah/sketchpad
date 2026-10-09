@@ -123,7 +123,7 @@ export function SectionBar() {
   const activeSection = useStore((s) => s.activeSection)
   const arrangement = useStore((s) => s.arrangement)
   const recording = useStore((s) => s.recording !== 'off')
-  const { openSection, setView, addSection } = useStore()
+  const { openSection, setView, addSection, addToSong } = useStore()
   const inSong = new Set(arrangement.map((entry) => entry.section))
   // In the order they first play in the song; those not in it yet come last, as they were made.
   const firstPlays = new Map<string, number>()
@@ -162,9 +162,22 @@ export function SectionBar() {
                   disabled={recording && !isOpen}
                   onClick={() => openSection(sec.id)}
                   onDoubleClick={() => setRenaming(sec.id)}
-                  title={inSong.has(sec.id) ? `Edit ${sec.name} (double-click to rename)` : `${sec.name} isn’t in the song yet; add it in the song view`}
+                  title={inSong.has(sec.id) ? `Edit ${sec.name} (double-click to rename)` : `${sec.name} isn’t in the song yet, so it doesn’t play when the song does`}
                 >
                   {sec.name}
+                </button>
+              )}
+              {/* A section that isn't in the song says so, and adding it is a click away. */}
+              {!inSong.has(sec.id) && renaming !== sec.id && (
+                <button
+                  type="button"
+                  className="section-unused"
+                  disabled={recording}
+                  onClick={() => addToSong(sec.id)}
+                  title={`Not in the song yet: click to add ${sec.name} to the end`}
+                  aria-label={`${sec.name} isn’t in the song. Add it to the end`}
+                >
+                  <Icon d="M12 7v10M7 12h10" />
                 </button>
               )}
             </div>

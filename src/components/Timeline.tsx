@@ -72,8 +72,9 @@ export function Timeline() {
   const drumTrack = hasDrumTrack && !empty
   const drumHint = !hasDrumTrack && recording === 'off' && !empty
   // Both add buttons share one row, under the vocal tracks.
+  // Each add button takes a row of its own, the size of a track, under the vocal tracks.
   const addRow = vocalHint || drumHint
-  const rows = laneCount + (addRow ? 1 : 0)
+  const rows = laneCount + (vocalHint ? 1 : 0) + (drumHint ? 1 : 0)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -229,7 +230,13 @@ export function Timeline() {
   return (
     <div
       className={`timeline-wrap ${rows ? 'has-vocals' : ''} ${addRow && laneCount ? 'has-adds' : ''}`}
-      style={{ ['--lanes' as string]: rows, ['--drum-rows' as string]: drumTrack ? 1 : 0, ['--adds-row' as string]: laneCount }}
+      style={{
+        ['--lanes' as string]: rows,
+        ['--drum-rows' as string]: drumTrack ? 1 : 0,
+        ['--adds-row' as string]: laneCount,
+        // The add buttons sit a gap under whichever divider is above them: the one over them, or (with no vocal tracks) the one over the vocals.
+        ['--adds-shift' as string]: laneCount ? 'calc(var(--gap) / 2)' : '2px',
+      }}
     >
       <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumTrack={drumTrack} drumHint={drumHint} />
       <div className="timeline-scroll" ref={scrollRef}>
@@ -618,21 +625,31 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
           onSelect={s.recording === 'off' ? () => s.selectVocal(lane) : undefined}
         />
       ))}
-      {(vocalHint || drumHint) && (
-        <div className="track-adds" style={{ ['--row' as string]: laneCount }}>
-          {vocalHint && (
-            <button type="button" className="track-add" onClick={s.addVocalTrack} aria-label="Add a vocal track" title="Add a vocal track to record into">
-              <PlusIcon />
-              <span className="track-add-label">Vocal track</span>
-            </button>
-          )}
-          {drumHint && (
-            <button type="button" className="track-add" onClick={s.addDrumTrack} aria-label="Add a drum track" title="Add a drum track, with a groove for each section">
-              <PlusIcon />
-              <span className="track-add-label">Drum track</span>
-            </button>
-          )}
-        </div>
+      {vocalHint && (
+        <button
+          type="button"
+          className="track-add"
+          style={{ ['--row' as string]: laneCount }}
+          onClick={s.addVocalTrack}
+          aria-label="Add a vocal track"
+          title="Add a vocal track to record into"
+        >
+          <PlusIcon />
+          <span className="track-add-label">Vocal track</span>
+        </button>
+      )}
+      {drumHint && (
+        <button
+          type="button"
+          className="track-add"
+          style={{ ['--row' as string]: laneCount + (vocalHint ? 1 : 0) }}
+          onClick={s.addDrumTrack}
+          aria-label="Add a drum track"
+          title="Add a drum track, with a groove for each section"
+        >
+          <PlusIcon />
+          <span className="track-add-label">Drum track</span>
+        </button>
       )}
     </div>
   )

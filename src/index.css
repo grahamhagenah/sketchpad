@@ -16,8 +16,8 @@
    * Track colours, as in Logic: chords blue and drums yellow to start with,
    * each vocal track its own, and any of them changeable to another from the
    * palette in colors.ts (the app sets these two from the song). Regions are
-   * filled with their track's colour and drawn on in --on-track; a selected
-   * one gets a white ring.
+   * neutral; the colour marks the track in its header (its side bar and
+   * icon) and tints vocal waveforms. A selected region gets a white ring.
    */
   --track-chords: #86a8ff;
   --track-drums: #ffd166;
@@ -382,12 +382,11 @@ main > .panel {
   height: var(--chord-h);
   margin-left: 3px;
   border-radius: var(--radius);
-  background: var(--track);
-  border: 2px solid color-mix(in srgb, var(--track) 55%, #000);
-  color: var(--on-track);
-  /* A little light along the top edge, so a row of regions reads as raised blocks. */
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3);
-  transition: background 0.08s, border-color 0.08s, filter 0.08s, left 0.16s ease;
+  /* Neutral, like every block on the timeline: a track's colour is only its accent in the header. */
+  background: var(--raised);
+  border: 2px solid var(--line-strong);
+  color: var(--text);
+  transition: background 0.08s, border-color 0.08s, left 0.16s ease;
 }
 .chord.is-dragging {
   z-index: 4;
@@ -397,11 +396,11 @@ main > .panel {
 }
 .chord.is-dragging .chord-body { cursor: grabbing; }
 .chord.is-selected,
-.timeline.chords-selected .chord { border-color: var(--text); box-shadow: 0 0 0 1px var(--text), inset 0 1px 0 rgb(255 255 255 / 0.3); }
+.timeline.chords-selected .chord { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
 /* The chord playing now lights up. */
-.chord.is-active { background: color-mix(in srgb, var(--track) 65%, #fff); border-color: #fff; }
+.chord.is-active { background: color-mix(in srgb, var(--text) 16%, var(--raised)); }
 @media (hover: hover) {
-  .chord:not(.is-active):not(.is-dragging):hover { filter: brightness(1.08); }
+  .chord:not(.is-active):not(.is-dragging):hover { background: color-mix(in srgb, var(--text) 7%, var(--raised)); }
 }
 .chord-body {
   width: 100%;
@@ -442,10 +441,10 @@ main > .panel {
   height: 28px;
   transform: translateY(-50%);
   border-radius: 2px;
-  background: rgb(0 0 0 / 0.3);
+  background: var(--line-strong);
 }
 .chord.is-selected .resize::after,
-.chord.is-active .resize::after { background: var(--on-track); }
+.chord.is-active .resize::after { background: var(--text); }
 .add-slot {
   position: absolute;
   top: var(--head);
@@ -507,34 +506,27 @@ main > .panel {
   pointer-events: none;
 }
 .timeline-empty span { color: var(--text); }
-/* Buttons to add a vocal or drum track, stacked in one row under the vocal tracks. */
-.track-adds {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(var(--vocal-top) - var(--gap) / 2 + var(--row, 0) * (var(--vocal-h) + var(--gap)));
-  height: calc(var(--vocal-h) + var(--gap));
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 0 8px;
-}
+/* Buttons to add a vocal or drum track: each a row the size of a track's header, outlined as a slot to fill. */
 .track-add {
-  height: 28px;
-  display: inline-flex;
+  position: absolute;
+  /* The same space each side as above and between them: one gap all round. */
+  left: var(--gap);
+  right: var(--gap);
+  /* Set down a little more than a track would be, so the space above the first, under the divider, matches the gap between them. */
+  top: calc(var(--vocal-top) + var(--adds-shift, 0px) + var(--row, 0) * (var(--vocal-h) + var(--gap)));
+  height: var(--vocal-h);
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px 0 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: var(--raised);
-  font-size: 12px;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 10px;
+  background: none;
+  font-size: 13px;
   font-weight: 500;
   color: var(--muted);
 }
-.track-add:hover { color: var(--text); border-color: var(--muted); }
+.track-add:hover { color: var(--text); border-color: var(--muted); background: rgb(255 255 255 / 0.03); }
 /* A line above the add buttons, across the names and the timeline, setting them apart from the vocal tracks. */
 .timeline-wrap.has-adds::before {
   content: '';
@@ -562,20 +554,19 @@ main > .panel {
   padding: 0;
   border: 0;
   border-radius: 10px;
-  /* A faint wash of the track's colour along its row. */
-  background: color-mix(in srgb, var(--track) 5%, transparent);
+  background: rgb(255 255 255 / 0.015);
   cursor: pointer;
 }
-.vocal-row:not(:disabled):hover { background: color-mix(in srgb, var(--track) 10%, transparent); }
+.vocal-row:not(:disabled):hover { background: rgb(255 255 255 / 0.04); }
 .vocal-row:disabled { cursor: default; }
 /* A selected track keeps a soft highlight, a little stronger than hover, on its row and its name. */
 .vocal-row.is-selected,
-.vocal-row.is-selected:not(:disabled):hover { background: color-mix(in srgb, var(--track) 13%, transparent); }
+.vocal-row.is-selected:not(:disabled):hover { background: rgb(255 255 255 / 0.06); }
 .track-header.is-selectable.is-selected,
 .track-header.is-selectable.is-selected:hover { background: rgb(255 255 255 / 0.05); }
 /* And a white ring: around its take, or around the row when the track is empty. */
 .vocal-take.is-selected { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
-.vocal-row.is-empty.is-selected { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--track) 70%, var(--text)); }
+.vocal-row.is-empty.is-selected { box-shadow: inset 0 0 0 1.5px var(--text); }
 /* Keyboard focus drawn inside the row, on the same rounded edge as its border. */
 .vocal-row:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--text); }
 /* Keyboard focus in white on the coloured regions, where the accent would be lost on green. */
@@ -600,11 +591,8 @@ main > .panel {
 .track-volume::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 0; }
 .track-volume:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .track-header.is-selected .track-volume { background-image: linear-gradient(to right, var(--accent) var(--fill), var(--line-strong) var(--fill)); }
-/* The chords' header reaches up to where the timeline's lines begin, its name centred in it. */
-.track-header.is-chords {
-  top: var(--grid-top);
-  height: calc(var(--head) + var(--chord-h) + var(--gap) / 2 - var(--grid-top));
-}
+/* Every track's header is the same: its track's height, and half a gap above and below. */
+.track-header.is-chords { top: calc(var(--head) - var(--gap) / 2); height: calc(var(--chord-h) + var(--gap)); }
 .track-header.is-chords { --track: var(--track-chords); }
 .track-header.is-drums { --track: var(--track-drums); }
 /* Each track's colour as a strip down its header's edge, as in Logic. */
@@ -612,13 +600,13 @@ main > .panel {
   content: '';
   position: absolute;
   left: 0;
-  top: calc(var(--gap) / 2 + 4px);
-  bottom: calc(var(--gap) / 2 + 4px);
+  /* As tall as the track's blocks beside it. */
+  top: calc(var(--gap) / 2);
+  bottom: calc(var(--gap) / 2);
   width: 3px;
   border-radius: 2px;
   background: var(--track, var(--line-strong));
 }
-.track-header.is-chords::before { top: calc(var(--head) - var(--grid-top) + 4px); bottom: calc(var(--gap) / 2 + 4px); }
 .track-header.is-drums { top: calc(var(--drum-top) - var(--gap) / 2); height: calc(var(--drum-h) + var(--gap)); }
 .track-header.is-vocal {
   top: calc(var(--vocal-top) - var(--gap) / 2 + var(--row, 0) * (var(--vocal-h) + var(--gap)));
@@ -682,15 +670,16 @@ main > .panel {
 /* The icon is the colour picker: a small button, ringed in its colour when hovered. */
 .track-color {
   flex: none;
-  width: 22px;
-  height: 22px;
+  /* Room round the icon, so its hover fill doesn't crowd it. */
+  width: 30px;
+  height: 30px;
   min-height: 0;
   display: inline-grid;
   place-items: center;
-  margin-left: -4px;
+  margin: -4px 4px -4px -2px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: none;
   cursor: pointer;
 }
@@ -761,16 +750,15 @@ main > .panel {
   height: var(--vocal-h);
   margin-left: 3px;
   border-radius: 10px;
-  background: var(--track);
-  border: 1px solid color-mix(in srgb, var(--track) 55%, #000);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3);
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
   overflow: hidden;
   pointer-events: none;
 }
 .vocal-take.is-muted { filter: grayscale(1); opacity: 0.45; }
 .vocal-take { display: flex; align-items: center; gap: 2px; padding: 0 3px; }
-/* The waveform drawn dark on the region, as Logic draws it. */
-.vocal-take span { flex: none; width: 2px; border-radius: 1px; background: rgb(0 0 0 / 0.62); }
+/* The waveform, faintly in the track's colour, so takes on different tracks are told apart. */
+.vocal-take span { flex: none; width: 2px; border-radius: 1px; background: color-mix(in srgb, var(--track) 55%, var(--muted)); }
 .vocal-recording {
   position: absolute;
   height: var(--vocal-h);
@@ -778,8 +766,8 @@ main > .panel {
   width: 0;
   margin-left: 3px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--track) 40%, transparent);
-  border: 1px solid var(--track);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  border: 1px solid var(--muted);
   pointer-events: none;
 }
 
@@ -791,30 +779,28 @@ main > .panel {
   height: var(--drum-h);
   margin-left: 3px;
   padding: 0;
-  /* The same edge as the chord blocks above. */
-  --track: var(--track-drums);
-  border: 2px solid color-mix(in srgb, var(--track) 55%, #000);
+  /* The same neutral block and edge as the chords above. */
+  border: 2px solid var(--line-strong);
   border-radius: var(--radius);
-  background: var(--track);
-  color: var(--on-track);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3);
+  background: var(--raised);
+  color: var(--text);
   overflow: hidden;
   text-align: left;
-  transition: border-color 0.08s, filter 0.08s;
+  transition: border-color 0.08s, background 0.08s;
 }
-.drum-region:not(.is-empty):hover, .drum-region:not(.is-empty)[aria-expanded='true'] { filter: brightness(1.08); }
-/* With no groove yet, an outline in the track's colour to click. */
-.drum-region.is-empty { border: 1.5px dashed color-mix(in srgb, var(--track) 60%, transparent); background: color-mix(in srgb, var(--track) 6%, transparent); color: var(--track); box-shadow: none; }
-.drum-region.is-empty:hover, .drum-region.is-empty[aria-expanded='true'] { background: color-mix(in srgb, var(--track) 12%, transparent); }
+.drum-region:not(.is-empty):hover, .drum-region:not(.is-empty)[aria-expanded='true'] { background: color-mix(in srgb, var(--text) 7%, var(--raised)); }
+/* With no groove yet, a dashed outline to click. */
+.drum-region.is-empty { border: 1.5px dashed var(--line-strong); background: none; color: var(--muted); }
+.drum-region.is-empty:hover, .drum-region.is-empty[aria-expanded='true'] { border-color: var(--muted); color: var(--text); }
 .drum-region.is-muted { filter: grayscale(1); opacity: 0.45; }
-.drum-region.is-selected { border-color: var(--text); box-shadow: 0 0 0 1px var(--text), inset 0 1px 0 rgb(255 255 255 / 0.3); }
-.drum-label { position: absolute; top: 4px; left: 9px; font-size: 11px; font-weight: 700; color: inherit; opacity: 0.8; white-space: nowrap; }
+.drum-region.is-selected { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+.drum-label { position: absolute; top: 4px; left: 9px; font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
 .drum-region.is-empty .drum-label { top: 50%; transform: translateY(-50%); font-size: 12px; color: inherit; }
-/* Hits drawn dark on the region: hats lightest, kicks heaviest. */
-.drum-hit { position: absolute; width: 4px; margin-left: 4px; border-radius: 2px; background: rgb(0 0 0 / 0.7); pointer-events: none; }
-.drum-hit.is-hat { top: 24px; height: 4px; background: rgb(0 0 0 / 0.45); }
-.drum-hit.is-snare { top: 34px; height: 5px; }
-.drum-hit.is-kick { top: 44px; height: 6px; background: var(--on-track); }
+/* Hits in greys: hats faintest, kicks strongest. */
+.drum-hit { position: absolute; width: 4px; margin-left: 4px; border-radius: 2px; background: var(--muted); pointer-events: none; }
+.drum-hit.is-hat { top: 24px; height: 4px; opacity: 0.4; }
+.drum-hit.is-snare { top: 34px; height: 5px; opacity: 0.7; }
+.drum-hit.is-kick { top: 44px; height: 6px; background: var(--text); }
 .menu-item[aria-checked='true'] .menu-item-title { color: var(--accent); }
 
 /* Track headers: a column beside the timeline, one per track. */
@@ -977,7 +963,23 @@ main > .panel {
 .section-tab svg { width: 15px; height: 15px; }
 .section-tab[aria-selected='true'] { color: var(--text); }
 /* A section that isn't in the song yet. */
-.section-tab.is-unused { font-style: italic; }
+.section-tab.is-unused { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+/* Beside a section that isn't in the song: a + in a dashed circle, which adds it at the end. */
+.section-unused {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  margin: 0 8px 0 -8px;
+  padding: 0;
+  border: 1px dashed var(--muted);
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+}
+.section-unused svg { width: 14px; height: 14px; }
+.section-unused:not(:disabled):hover { color: var(--text); border-color: var(--muted); border-style: solid; }
 /* A square button, inset from the tab's edge so its hover has room around it. */
 .section-settings {
   height: 30px;
@@ -986,14 +988,14 @@ main > .panel {
   gap: 6px;
   margin-right: 6px;
   padding: 0 10px 0 8px;
-  border: 1px solid var(--tile-edge);
+  border: 0;
   border-radius: 7px;
-  background: var(--raised);
+  background: none;
   font-size: 13px;
   font-weight: 500;
   color: var(--muted);
 }
-.section-settings:hover, .section-settings[aria-expanded='true'] { color: var(--text); border-color: var(--muted); }
+.section-settings:hover, .section-settings[aria-expanded='true'] { color: var(--text); background: var(--raised); }
 .section-settings svg { width: 15px; height: 15px; }
 .section-add {
   flex: none;
@@ -1136,12 +1138,26 @@ main > .panel {
 .song-row-grip { flex: none; width: 8px; margin-left: -2px; color: var(--muted); opacity: 0.2; cursor: grab; transition: opacity 0.1s; }
 .song-row:hover .song-row-grip { opacity: 0.5; }
 .song-row.is-dragging .song-row-grip { opacity: 0.8; }
-.song-row-more { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); z-index: 2; width: 26px; height: 26px; min-height: 0; border: 0; background: none; color: var(--muted); }
-.song-row-more svg { width: 15px; height: 15px; }
+/* The row's menu: always there and big enough to find, but quiet until hovered. */
+.song-row-more {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+}
+.song-row-more svg { width: 20px; height: 20px; }
+.song-row-more[aria-expanded='true'] { color: var(--text); background: var(--raised); }
 @media (hover: hover) {
-  .song-row:not(:hover):not(:focus-within) .song-row-more:not([aria-expanded='true']) { opacity: 0; }
-  .song-row-more:hover { color: var(--text); background: rgb(255 255 255 / 0.06); }
-  .song-row:not(.is-playing):not(.is-dragging):hover { background: color-mix(in srgb, var(--text) 6%, transparent); box-shadow: inset 0 0 0 1px var(--tile-edge); }
+  .song-row-more:hover { color: var(--text); background: var(--raised); }
+  .song-row:not(.is-playing):not(.is-dragging):hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
 }
 /* A small button under the names, like the ones that add tracks. */
 .song-add { position: absolute; left: 4px; padding-top: 4px; }
@@ -1419,7 +1435,7 @@ main > .panel {
   .track-title { flex-basis: 100%; }
   .track-name-input { margin-left: 0; height: 22px; }
   /* Just the + in the narrow column; the label is in the button's name. */
-  .track-add { width: 40px; justify-content: center; padding: 0; }
+  .track-add { justify-content: center; padding: 0; }
   .track-add-label { display: none; }
   .track-volume { display: none; }
   /* Menus and panels open as a sheet along the bottom, inside the screen. */
