@@ -2,47 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
 import { useStore } from '../store'
 import { chordInfo, keyLabel, FUNCTIONS, type Mode } from '../music/theory'
-import { audition } from '../audio/engine'
 import { PROGRESSIONS, type Progression } from '../music/progressions'
 
+/** Ready-made progressions to start from (chords are added from the timeline's + slot). */
 export function Palette() {
-  const { key, mode, addChord } = useStore()
-
-  const add = (degree: number) => {
-    addChord(degree)
-    const s = useStore.getState()
-    const added = s.chords.find((c) => c.id === s.selectedId)
-    if (added) audition(added)
-  }
+  const { key, mode } = useStore()
 
   return (
     <section className="panel palette" aria-labelledby="palette-title">
       <div className="palette-head">
         <h2 id="palette-title">
-          Chords in {keyLabel(key, mode)} {mode} <span className="muted">· click to add after the selected chord</span>
+          Progressions in {keyLabel(key, mode)} {mode} <span className="muted">· picking one replaces the timeline</span>
         </h2>
         <FunctionsInfo keyNum={key} mode={mode} />
-      </div>
-      <div className="palette-groups">
-        {FUNCTIONS.map((fn) => (
-          <div key={fn.id} className="palette-group" role="group" aria-labelledby={`fn-${fn.id}`}>
-            <span id={`fn-${fn.id}`} className="palette-group-label">
-              {fn.label}
-            </span>
-            <div className="palette-group-chords">
-              {fn.degrees.map((degree) => {
-                const info = chordInfo(key, mode, degree, false)
-                return (
-                  <button type="button" key={degree} className="palette-chord" onClick={() => add(degree)} title={`Add ${info.name} (${degree + 1})`}>
-                    <span className="palette-name">{info.name}</span>
-                    <span className="palette-roman">{info.roman}</span>
-                    <kbd>{degree + 1}</kbd>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        ))}
       </div>
       <Progressions keyNum={key} mode={mode} />
     </section>
@@ -71,10 +43,7 @@ function Progressions({ keyNum, mode }: { keyNum: number; mode: Mode }) {
   }
 
   return (
-    <div className="palette-group" role="group" aria-labelledby="progressions-label">
-      <span id="progressions-label" className="palette-group-label">
-        Progressions
-      </span>
+    <div className="palette-group" role="group" aria-labelledby="palette-title">
       <div className="progressions">
         {PROGRESSIONS[mode].map((p) => {
           const numerals = p.degrees.map((d) => chordInfo(keyNum, mode, d, !!p.seventh).roman).join(' – ')
@@ -88,7 +57,11 @@ function Progressions({ keyNum, mode }: { keyNum: number; mode: Mode }) {
               onBlur={() => asking && setConfirming(null)}
               title={`${numerals}${hasChords ? ', replacing the timeline' : ''}`}
             >
-              <span className="progression-name">{asking ? 'Replace timeline?' : p.name}</span>
+              {/* Both labels take up room, so asking doesn't change the button's width. */}
+              <span className="progression-name">
+                <span aria-hidden={asking}>{p.name}</span>
+                <span aria-hidden={!asking}>Replace?</span>
+              </span>
               <span className="progression-numerals">{numerals}</span>
             </button>
           )

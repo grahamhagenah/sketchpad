@@ -275,6 +275,26 @@ main > .panel {
   color: var(--muted);
   font-size: 20px;
 }
+.add-slot.is-open { border-color: var(--accent); color: var(--accent); }
+.add-chord-menu { position: fixed; z-index: 30; padding: 12px; gap: 10px; }
+.add-chord-group { display: flex; flex-direction: column; gap: 6px; }
+.add-chord-chords { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.add-chord {
+  height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--raised);
+}
+.add-chord:hover { border-color: var(--muted); }
+.add-chord:active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.add-chord-name { font-size: 15px; font-weight: 700; }
+.add-chord-roman { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+.add-chord:active .add-chord-roman { color: inherit; }
 .add-slot:not(.is-moved):hover { border-color: var(--muted); color: var(--text); }
 .playhead {
   position: absolute;
@@ -535,8 +555,6 @@ main > .panel {
 
 /* Palette */
 .palette-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.palette-groups { display: grid; grid-template-columns: 3fr 2fr 2fr; gap: 16px 24px; }
-@media (max-width: 760px) { .palette-groups { grid-template-columns: 1fr; } }
 .palette-group { display: flex; flex-direction: column; gap: 8px; }
 .palette-group-label {
   font-family: 'DM Mono', monospace;
@@ -546,25 +564,6 @@ main > .panel {
   text-transform: uppercase;
   color: var(--muted);
 }
-.palette-group-chords { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
-.palette-chord {
-  position: relative;
-  min-height: 76px;
-  border-radius: var(--radius);
-  border: 1px solid var(--line-strong);
-  background: var(--raised);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-.palette-chord:hover { border-color: var(--muted); }
-.palette-chord:active { background: var(--accent); color: var(--on-accent); }
-.palette-name { font-size: 22px; font-weight: 700; }
-.palette-roman { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
-.palette-chord:active .palette-roman { color: inherit; }
-.palette-chord kbd { position: absolute; top: 6px; right: 6px; border: 0; padding: 0; }
 .progressions { display: flex; flex-wrap: wrap; gap: 8px; }
 .progression {
   display: flex;
@@ -579,7 +578,9 @@ main > .panel {
 }
 .progression:hover { border-color: var(--muted); }
 .progression.is-confirming { border-color: var(--accent); }
-.progression-name { font-size: 13px; font-weight: 700; }
+.progression-name { display: grid; font-size: 13px; font-weight: 700; }
+.progression-name > span { grid-area: 1 / 1; }
+.progression-name > span[aria-hidden='true'] { visibility: hidden; }
 .progression.is-confirming .progression-name { color: var(--accent); }
 .progression-numerals { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
 

@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { audibleTracks, chordsTrackName, useStore, vocalTrackName, type Chord } from '../store'
 import { chordInfo } from '../music/theory'
 import { audition, engine, seek } from '../audio/engine'
 import { LoopLane } from './LoopLane'
+import { AddChordMenu } from './AddChordMenu'
 import { AddTrackButton, ZoomButtons } from './Toolbar'
 import type { TakeInfo } from '../audio/take'
 
@@ -36,7 +37,7 @@ function dragLayout(chords: Chord[], drag: Drag | null, beatPx: number) {
 
 export function Timeline() {
   const { chords, key, mode, timeSig, selectedId, playing, loopOn } = useStore()
-  const { select, updateChord, addChord, reorderChord } = useStore()
+  const { select, updateChord, reorderChord } = useStore()
   const [num, den] = timeSig
   // Shorter beat units get narrower columns, so a bar stays a sensible width.
   const zoom = useStore((s) => s.zoom)
@@ -63,6 +64,9 @@ export function Timeline() {
   // The + slot moves whenever the progression's length changes. When it slides
   // under a still pointer it shouldn't light up as if picked, so its hover
   // waits until the pointer moves over it at its new place.
+  const slotRef = useRef<HTMLButtonElement>(null)
+  const [adding, setAdding] = useState(false)
+  const closeAdding = useCallback(() => setAdding(false), [])
   const [slotAt, setSlotAt] = useState(totalBeats)
   const [slotMoved, setSlotMoved] = useState(false)
   if (slotAt !== totalBeats) {
@@ -238,7 +242,7 @@ export function Timeline() {
 
           {chords.length === 0 && (
             <p className="timeline-empty" style={{ left: barPx + 16 }}>
-              <span>Pick a chord below, or press 1–7, to start a progression.</span>
+              <span>Click + or press 1–7 to add a chord, or start from a progression below.</span>
             </p>
           )}
 
@@ -271,20 +275,25 @@ export function Timeline() {
 
           <button
             type="button"
-            className={`add-slot ${slotMoved ? 'is-moved' : ''}`}
+            ref={slotRef}
+            className={`add-slot ${slotMoved ? 'is-moved' : ''} ${adding ? 'is-open' : ''}`}
             style={{ left: totalBeats * beatPx, width: barPx - 6 }}
             onPointerMove={() => slotMoved && setSlotMoved(false)}
-            // A click shouldn't leave focus here, or the keys that follow
-            // (⌫ especially) draw a focus ring that looks like a selected chord.
-            onPointerDown={(e) => e.preventDefault()}
-            onClick={() => {
-              select(chords[chords.length - 1]?.id ?? null)
-              addChord(0)
+            onPointerDown={(e) => {
+              // A click shouldn't leave focus here, or the keys that follow
+              // (⌫ especially) draw a focus ring that looks like a selected chord.
+              e.preventDefault()
+              // Keep the menu's outside-click from closing it before this toggles it.
+              e.stopPropagation()
             }}
-            aria-label="Add a bar"
+            onClick={() => setAdding(!adding)}
+            aria-label="Add a chord"
+            aria-expanded={adding}
+            title="Add a chord"
           >
             +
           </button>
+          {adding && <AddChordMenu anchor={slotRef} onClose={closeAdding} />}
 
           {Array.from({ length: laneCount }, (_, lane) => (
             <VocalLane
