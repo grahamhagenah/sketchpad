@@ -1,8 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { audibleTracks, chordsTrackName, useStore, vocalTrackName, type Chord } from '../store'
 import { chordInfo } from '../music/theory'
 import { audition, engine, seek } from '../audio/engine'
-import { LANES } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import type { TakeInfo } from '../audio/take'
 
@@ -420,24 +419,14 @@ function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, b
   )
 }
 
-/** Track names with mute and solo, beside each track's row, and a button to add a vocal track. */
+/** Track names with mute and solo, beside each track's row. */
 function TrackHeaders({ laneCount }: { laneCount: number }) {
   const s = useStore()
-  const full = s.vocalTracks >= LANES
   return (
     <div className="track-headers">
-      <button
-        type="button"
-        className="add-track"
-        aria-label="Add a vocal track"
-        onClick={s.addVocalTrack}
-        disabled={full || s.recording !== 'off'}
-        title={full ? `Up to ${LANES} vocal tracks` : 'Add a vocal track to record into'}
-      >
-        + Track
-      </button>
       <TrackHeader
         className="is-chords"
+        icon={<KeysIcon />}
         name={chordsTrackName(s)}
         muted={s.chordsMuted}
         solo={s.chordsSolo}
@@ -449,6 +438,7 @@ function TrackHeaders({ laneCount }: { laneCount: number }) {
         <TrackHeader
           key={lane}
           className={`is-vocal ${s.selectedVocal === lane ? 'is-selected' : ''}`}
+          icon={<MicIcon />}
           style={{ ['--row' as string]: lane }}
           name={vocalTrackName(s, lane)}
           muted={s.vocalMuted[lane]}
@@ -464,6 +454,8 @@ function TrackHeaders({ laneCount }: { laneCount: number }) {
 
 interface TrackHeaderProps {
   name: string
+  /** What kind of track it is, at a glance. */
+  icon: ReactNode
   className: string
   style?: CSSProperties
   muted: boolean
@@ -474,45 +466,48 @@ interface TrackHeaderProps {
   onRename: (name: string) => void
 }
 
-function TrackHeader({ name, className, style, muted, solo, onMute, onSolo, onRename }: TrackHeaderProps) {
+function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo, onRename }: TrackHeaderProps) {
   const [editing, setEditing] = useState(false)
   // A double tap or double click; timed by hand, since phones don't reliably send dblclick.
   const lastTap = useRef(0)
   return (
     <div className={`track-header ${className}`} style={style} role="group" aria-label={name}>
-      {editing ? (
-        <input
-          className="track-name-input"
-          defaultValue={name}
-          aria-label="Track name"
-          maxLength={24}
-          autoFocus
-          onFocus={(e) => e.currentTarget.select()}
-          onBlur={(e) => {
-            onRename(e.currentTarget.value)
-            setEditing(false)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur()
-            if (e.key === 'Escape') {
-              e.currentTarget.value = name
-              e.currentTarget.blur()
-            }
-          }}
-        />
-      ) : (
-        <button
-          type="button"
-          className="track-name"
-          title="Double-click to rename"
-          onClick={(e) => {
-            if (e.timeStamp - lastTap.current < 400) setEditing(true)
-            lastTap.current = e.timeStamp
-          }}
-        >
-          {name}
-        </button>
-      )}
+      <span className="track-title">
+        {icon}
+        {editing ? (
+          <input
+            className="track-name-input"
+            defaultValue={name}
+            aria-label="Track name"
+            maxLength={24}
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            onBlur={(e) => {
+              onRename(e.currentTarget.value)
+              setEditing(false)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+              if (e.key === 'Escape') {
+                e.currentTarget.value = name
+                e.currentTarget.blur()
+              }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className="track-name"
+            title="Double-click to rename"
+            onClick={(e) => {
+              if (e.timeStamp - lastTap.current < 400) setEditing(true)
+              lastTap.current = e.timeStamp
+            }}
+          >
+            {name}
+          </button>
+        )}
+      </span>
       <button type="button" className="track-btn is-mute" aria-pressed={muted} aria-label={`Mute ${name}`} title="Mute" onClick={onMute}>
         M
       </button>
@@ -522,3 +517,29 @@ function TrackHeader({ name, className, style, muted, solo, onMute, onSolo, onRe
     </div>
   )
 }
+
+const trackIcon = {
+  width: 14,
+  height: 14,
+  viewBox: '0 0 24 24',
+  'aria-hidden': true,
+  className: 'track-icon',
+} as const
+
+/** A piano keyboard, for the chords. */
+const KeysIcon = () => (
+  <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M9 13v6M15 13v6" />
+    <rect x="7.5" y="5" width="3" height="8" fill="currentColor" stroke="none" />
+    <rect x="13.5" y="5" width="3" height="8" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+/** A microphone, for the vocals. */
+const MicIcon = () => (
+  <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" />
+  </svg>
+)

@@ -36,14 +36,19 @@ kbd {
 }
 
 .app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px 24px 40px;
+  padding: 0 0 40px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-main { display: flex; flex-direction: column; gap: 16px; }
+main { display: flex; flex-direction: column; }
+/* The editor and palette run edge to edge as bands, their contents kept to the site width. */
+.app { --site: 1200px; --gutter: 24px; }
+main > .panel {
+  border-width: 0 0 1px;
+  border-radius: 0;
+  padding: 16px max(var(--gutter), calc((100% - var(--site)) / 2));
+}
 
 /* Toolbar */
 .toolbar {
@@ -287,25 +292,13 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .vocal-row.is-empty.is-selected { border-color: var(--accent); }
 
 /* Track names beside the rows: plain text, with mute and solo as small letters. */
-.track-headers { position: relative; flex: none; width: 96px; margin-right: 10px; }
-.add-track {
-  position: absolute;
-  top: calc(var(--lane) - 2px);
-  left: 0;
-  height: 24px;
-  padding: 0 8px 0 0;
-  border: 0;
-  background: none;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.add-track:not(:disabled):hover { color: var(--text); }
-.add-track:disabled { opacity: 0.4; }
+.track-headers { position: relative; flex: none; width: 116px; margin-right: 10px; }
 .track-header { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 2px; }
 .track-header.is-chords { top: calc(var(--lane) + 26px); height: var(--chord-h); }
 .track-header.is-vocal { height: var(--vocal-h); }
+.track-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.track-header.is-selected .track-title { color: var(--accent); }
+.track-icon { flex: none; }
 .track-name {
   flex: 1;
   min-width: 0;
@@ -477,6 +470,23 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .palette-roman { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
 .palette-chord:active .palette-roman { color: inherit; }
 .palette-chord kbd { position: absolute; top: 6px; right: 6px; border: 0; padding: 0; }
+.progressions { display: flex; flex-wrap: wrap; gap: 8px; }
+.progression {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--raised);
+  text-align: left;
+}
+.progression:hover { border-color: var(--muted); }
+.progression.is-confirming { border-color: var(--accent); }
+.progression-name { font-size: 13px; font-weight: 700; }
+.progression.is-confirming .progression-name { color: var(--accent); }
+.progression-numerals { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
 
 /* Menu */
 .menu-anchor { position: relative; }
@@ -660,15 +670,17 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .shortcuts-menu dd { margin: 0; }
 
 @media (max-width: 640px) {
-  .app { padding: 12px 12px 32px; }
+  .app { padding: 0 0 32px; }
   .panel { padding: 14px; }
+  .app { --gutter: 12px; }
+  main > .panel { padding-block: 12px; }
   .toolbar-row { gap: 8px; }
   .toolbar-group { gap: 4px; }
   .tempo { width: 3ch; }
-  /* Name on one line, mute and solo under it. */
+  /* Icon and name on one line, mute and solo under it. */
   .track-headers { width: 64px; margin-right: 6px; }
   .track-header { flex-wrap: wrap; align-content: center; row-gap: 2px; }
-  .track-name, .track-name-input { flex-basis: 100%; }
+  .track-title { flex-basis: 100%; }
   .track-name-input { margin-left: 0; height: 22px; }
   /* Menus and panels open as a sheet along the bottom, inside the screen. */
   .menu,

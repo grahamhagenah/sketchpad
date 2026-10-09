@@ -117,6 +117,8 @@ interface State extends Song {
   moveChord: (id: string, dir: -1 | 1) => void
   reorderChord: (id: string, toIndex: number) => void
   clearChords: () => void
+  /** Replaces the progression with these scale degrees, a bar each. */
+  loadProgression: (degrees: number[], seventh: boolean) => void
   select: (id: string | null) => void
   /** Selects a lane's vocal take (and records into that lane next), instead of a chord. */
   selectVocal: (lane: number | null) => void
@@ -257,6 +259,14 @@ export const useStore = create<State>()(
         set({ chords: next, selectedId: copy.id, selectedVocal: null })
       },
       clearChords: () => set({ chords: [], selectedId: null, loop: null }),
+      loadProgression: (degrees, seventh) =>
+        set({
+          chords: degrees.map((degree) => ({ id: newId(), degree, beats: get().timeSig[0], seventh })),
+          selectedId: null,
+          selectedVocal: null,
+          loop: null,
+          playhead: 0,
+        }),
       reorderChord: (id, toIndex) => {
         const chords = get().chords
         const chord = chords.find((c) => c.id === id)
