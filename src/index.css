@@ -90,7 +90,7 @@ main > .panel {
   gap: 10px 20px;
   /* Edge to edge and up to the top of the window, in the editor's own colour. */
   margin: calc(-1 * var(--pad-top)) calc(-1 * var(--gutter)) 0;
-  padding: var(--pad-top) var(--gutter) 14px;
+  padding: calc(var(--pad-top) - 6px) var(--gutter) 10px;
   background: var(--panel);
 }
 .toolbar-zone { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -99,7 +99,7 @@ main > .panel {
 .toolbar-end .toolbar-icons + .toolbar-icons { padding-left: 8px; border-left: 1px solid var(--line); }
 /* With room, the transport and display sit in the middle of the bar, whatever is either side of them. */
 /* If a side needs more than half what's left, it takes it, and the middle moves over. */
-@media (min-width: 1100px) {
+@media (min-width: 1200px) {
   .toolbar:not(.toolbar-compact) { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); }
   .toolbar-end { justify-content: flex-end; }
 }
@@ -232,6 +232,32 @@ main > .panel {
 .transport > button:focus-visible,
 .toolbar-modes .icon-btn:focus-visible,
 .chord-pad-length button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/*
+ * On a wider screen the sketches, undo, redo and export buttons have their
+ * names under their icons, in the small capitals the display's readouts are
+ * labelled in. A phone's bar has no room, and shows icons alone.
+ */
+.btn-label { display: none; }
+.toolbar:not(.toolbar-compact) .btn-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.toolbar:not(.toolbar-compact) button:has(> .btn-label) {
+  width: auto;
+  min-width: 44px;
+  height: var(--control-h);
+  padding: 0 8px;
+  align-content: center;
+  row-gap: 5px;
+}
+.toolbar .icon-btn:disabled .btn-label { opacity: 0.6; }
 
 /* Transport: start, play and record joined in one group. */
 .transport { display: inline-flex; height: var(--control-h); overflow: hidden; }
