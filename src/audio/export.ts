@@ -140,8 +140,11 @@ export function placedTakes(song: Pick<Playback, 'bpm' | 'timeSig' | 'vocals'>, 
   return song.vocals.flatMap((vocal) => {
     const take = audioOf(vocal.id)
     if (!take) return []
+    // Its trimmed part, cut off again where its section ends.
+    const from = Math.round((vocal.offset ?? 0) * take.sampleRate)
+    const kept = take.samples.subarray(from, vocal.offset === undefined ? undefined : from + Math.round(vocal.seconds * take.sampleRate))
     const room = Math.round((vocal.endBeat - vocal.startBeat) * beatSeconds * take.sampleRate)
-    const samples = Number.isFinite(room) && room < take.samples.length ? take.samples.subarray(0, Math.max(0, room)) : take.samples
+    const samples = Number.isFinite(room) && room < kept.length ? kept.subarray(0, Math.max(0, room)) : kept
     return [{ ...take, startBeat: vocal.startBeat, samples, track: vocal.track, db: vocal.db, reverb: vocal.reverb }]
   })
 }

@@ -69,6 +69,97 @@ describe('takeIdsBySection', () => {
       [id('Chorus')]: Array(LANES).fill(null),
     })
   })
+  it('keeps every take of a track that has several, and which one plays', () => {
+    get().addTake(1, take('first'))
+    get().addTake(1, take('second'))
+    get().chooseTake(1, 'first')
+    expect(takeIdsBySection(get())[id('Chorus')][1]).toEqual({ take: 'first', all: ['first', 'second'] })
+  })
+})
+
+describe('trimming a take', () => {
+  // 120 BPM in 4/4: half a second a beat.
+  it('plays only the trimmed part, starting later by what was cut', () => {
+    get().setTake(0, take('trimmed', 2, 4))
+    get().setTrim('trimmed', { start: 1, end: 3 })
+    expect(playbackOf(get()).vocals[0]).toMatchObject({ id: 'trimmed', startBeat: 4, seconds: 2, offset: 1 })
+  })
+
+  it('keeps a trim inside the take, and at least a fifth of a second long', () => {
+    get().setTake(0, take('short', 0, 1))
+    get().setTrim('short', { start: 0.95, end: 5 })
+    const [placed] = playbackOf(get()).vocals
+    expect(placed.seconds).toBeCloseTo(0.2)
+    expect(placed.offset).toBeCloseTo(0.8)
+  })
+
+  it('trims in the song view too, where the section starts', () => {
+    get().openSection(id('Verse'))
+    get().setTrim('verse-vocal', { start: 0.5, end: 1.5 })
+    const [first] = playbackOf(get(), 'song').vocals
+    // Verse's take starts on beat 2, plus a beat cut off.
+    expect(first).toMatchObject({ id: 'verse-vocal', startBeat: 3, seconds: 1, offset: 0.5 })
+  })
+
+  it('undoes a trim kept as a step, and forgets a deleted take’s trim', () => {
+    get().addTake(0, take('a', 0, 4))
+    get().addTake(0, take('b', 0, 4))
+    keepVocals()
+    get().setTrim('b', { start: 1, end: 2 })
+    undo()
+    expect(get().trims.b).toBeUndefined()
+    get().setTrim('a', { start: 1, end: 2 })
+    get().dropTake(0, 'a')
+    expect(get().trims.a).toBeUndefined()
+  })
+})
+
+describe('several takes on a track', () => {
+  it('keeps the earlier takes when recording again, playing the new one', () => {
+    get().addTake(0, take('one'))
+    get().addTake(0, take('two'))
+    expect(get().takes[0]?.id).toBe('two')
+    expect(get().allTakes[0].map((t) => t.id)).toEqual(['one', 'two'])
+    expect(playbackOf(get()).vocals.map((v) => v.id)).toEqual(['two'])
+  })
+
+  it('plays whichever take is picked', () => {
+    get().addTake(0, take('one'))
+    get().addTake(0, take('two'))
+    get().chooseTake(0, 'one')
+    expect(get().takes[0]?.id).toBe('one')
+    expect(get().allTakes[0]).toHaveLength(2)
+  })
+
+  it('plays the latest take left when the playing one is deleted, and empties the track with the last', () => {
+    get().addTake(0, take('one'))
+    get().addTake(0, take('two'))
+    get().addTake(0, take('three'))
+    get().chooseTake(0, 'two')
+    get().dropTake(0, 'two')
+    expect(get().takes[0]?.id).toBe('three')
+    get().dropTake(0, 'three')
+    get().dropTake(0, 'one')
+    expect(get().takes[0]).toBeNull()
+    expect(get().allTakes[0]).toEqual([])
+  })
+
+  it('moves a track’s takes with it when the tracks are renumbered', () => {
+    get().addTake(1, take('one'))
+    get().addTake(1, take('two'))
+    get().renumberVocals([1])
+    expect(get().allTakes[0].map((t) => t.id)).toEqual(['one', 'two'])
+    expect(get().allTakes[1]).toEqual([])
+  })
+
+  it('brings a recorded-over take back as the one playing on undo', () => {
+    get().addTake(0, take('one'))
+    keepVocals()
+    get().addTake(0, take('two'))
+    undo()
+    expect(get().takes[0]?.id).toBe('one')
+    expect(get().allTakes[0].map((t) => t.id)).toEqual(['one'])
+  })
 })
 
 describe('undo with sections', () => {

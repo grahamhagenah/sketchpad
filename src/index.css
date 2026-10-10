@@ -168,6 +168,24 @@ main > .panel {
 .toolbar-modes .toggle-btn[aria-pressed='true'],
 .toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover { color: var(--accent); }
 .toolbar-modes .icon-btn[aria-expanded='true'] { background: var(--tile-hover); }
+/* As the transport: a mode that's on glows in the accent, like the loop strip; pointed at, an icon grows and brightens. */
+.toolbar-modes .toggle-btn[aria-pressed='true'] svg,
+.toolbar-modes .arp-btn.is-lit svg { filter: drop-shadow(0 0 5px rgb(90 216 200 / 0.45)); }
+.toolbar-modes .icon-btn svg,
+.toolbar-icons .icon-btn svg { transition: transform 0.12s ease, filter 0.12s ease; }
+@media (hover: hover) {
+  .toolbar-modes .icon-btn:not(:disabled):hover svg,
+  .toolbar-icons .icon-btn:not(:disabled):hover svg { transform: scale(1.2); }
+  .toolbar-modes .icon-btn:not(:disabled):hover svg { filter: brightness(1.15); }
+  .toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover svg,
+  .toolbar-modes .arp-btn.is-lit:not(:disabled):hover svg { filter: drop-shadow(0 0 7px rgb(90 216 200 / 0.7)) brightness(1.12); }
+  .toolbar-modes .icon-btn:not(:disabled):active svg,
+  .toolbar-icons .icon-btn:not(:disabled):active svg { transform: scale(0.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-modes .icon-btn svg,
+  .toolbar-icons .icon-btn svg { transition: none; transform: none !important; }
+}
 
 /* The selected chord's settings, joined like the transport, each part split from the next by a line. */
 .selection {
@@ -228,9 +246,12 @@ main > .panel {
   background: var(--tile);
   color: var(--text);
 }
-.transport > button svg { transition: transform 80ms; }
+.transport > button svg { transition: transform 0.12s ease, filter 0.12s ease; }
 .transport > button:not(:disabled):active svg { transform: scale(0.86); }
+/* Play and record glow in their colours, as the loop strip does in its. */
 .transport .play { color: var(--accent); }
+.transport .play:not(.is-playing) svg { filter: drop-shadow(0 0 5px rgb(90 216 200 / 0.45)); }
+.transport .record-btn:not(.is-on) svg { filter: drop-shadow(0 0 5px rgb(255 90 95 / 0.45)); }
 .transport .play.is-playing { background: var(--accent); color: var(--on-accent); }
 .transport .record-btn { color: var(--record); }
 /* A tint, not an outline: the transport's rounded corner would clip a ring. */
@@ -243,9 +264,15 @@ main > .panel {
   .transport .record-btn:not(:disabled):hover { background: color-mix(in srgb, var(--record) 16%, var(--tile)); }
   .transport .record-btn.is-count-in:not(:disabled):hover { background: color-mix(in srgb, var(--record) 36%, var(--tile)); }
   .transport .record-btn.is-on:not(:disabled):hover { background: color-mix(in srgb, var(--record) 82%, #000); }
+  /* Pointed at, an icon grows and brightens, as the loop strip thickens; pressed, it still gives a little. */
+  .transport > button:not(:disabled):hover svg { transform: scale(1.2); }
+  .transport .play:not(.is-playing):not(:disabled):hover svg { filter: drop-shadow(0 0 7px rgb(90 216 200 / 0.7)) brightness(1.12); }
+  .transport .record-btn:not(.is-on):not(:disabled):hover svg { filter: drop-shadow(0 0 7px rgb(255 90 95 / 0.7)) brightness(1.12); }
+  .transport > button:not(:disabled):active svg { transform: scale(0.9); }
 }
 @media (prefers-reduced-motion: reduce) {
   .transport > button svg { transition: none; }
+  .transport > button:not(:disabled):hover svg,
   .transport > button:not(:disabled):active svg { transform: none; }
 }
 
@@ -613,7 +640,7 @@ main > .panel {
 .timeline.is-empty { background: none; }
 
 /* Vocal lanes: each item sets --row to its lane. */
-.vocal-row, .vocal-take, .vocal-recording {
+.vocal-row, .vocal-take, .vocal-recording, .vocal-trim {
   top: calc(var(--vocal-top) + var(--row, 0) * var(--vocal-step));
 }
 .vocal-row {
@@ -829,6 +856,26 @@ main > .panel {
 .vocal-take { display: flex; align-items: center; gap: 2px; padding: 0 3px; }
 /* The waveform, faintly in the track's colour, so takes on different tracks are told apart. */
 .vocal-take span { flex: none; width: 2px; border-radius: 1px; background: color-mix(in srgb, var(--track) 55%, var(--muted)); }
+/* The waveform, laid out over the whole take and shifted under a trimmed one, so trimming never moves its bars. */
+.vocal-take-wave { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: 2px; padding: 0 3px; }
+/* A trimmed take's whole length, behind the part that plays, faintly: there to drag back out to. */
+.vocal-take.is-cut { opacity: 0.28; border-style: dashed; }
+/* The ends of a selected take, to drag in and trim it: a wide grip, with a white bar to show it. */
+.vocal-trim {
+  position: absolute;
+  z-index: 2;
+  width: 22px;
+  height: var(--vocal-h);
+  margin-left: -11px;
+  display: grid;
+  place-items: center;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.vocal-trim::before { content: ''; width: 5px; height: 45%; border-radius: 3px; background: var(--text); box-shadow: 0 0 0 2px var(--panel); }
+.vocal-trim:hover::before { height: 60%; }
+/* Which take plays, once a track has several, over the waveform's top left. */
+.vocal-take-label { position: absolute; top: 4px; left: 7px; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--panel) 80%, transparent); font-size: var(--fs-label); font-weight: 600; color: var(--muted); white-space: nowrap; pointer-events: none; }
 .vocal-recording {
   position: absolute;
   height: var(--vocal-h);
@@ -912,7 +959,6 @@ main > .panel {
   inset: -5px 0;
 }
 .loop-region:active { cursor: grabbing; }
-.loop-region.is-whole { background: rgb(90 216 200 / 0.6); box-shadow: none; }
 .loop-handle {
   position: absolute;
   top: -5px;
@@ -1023,7 +1069,7 @@ main > .panel {
 .section-bar-end { flex: none; margin-left: auto; display: flex; gap: 2px; }
 .section-bar-end .icon-btn { width: 30px; height: 30px; }
 .section-bar-end .icon-btn svg { width: 17px; height: 17px; }
-.section-tabs { display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; padding: 0 2px; scrollbar-width: none; }
+.section-tabs { display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 0 2px; scrollbar-width: none; }
 .section-tabs::-webkit-scrollbar { display: none; }
 .section-tab-wrap { flex: none; display: flex; align-items: center; }
 /* Tabs: the ones behind are muted on the dark strip; the open one is the same
@@ -1097,8 +1143,9 @@ main > .panel {
   height: 28px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 10px 0 6px;
+  justify-content: center;
+  width: 30px;
+  padding: 0;
   border: 0;
   border-radius: 8px;
   background: none;
@@ -1106,7 +1153,19 @@ main > .panel {
   font-weight: 500;
   color: var(--muted);
 }
-.section-add svg { width: 16px; height: 16px; }
+.section-add svg { width: 18px; height: 18px; }
+/* Always in reach: when the tabs run longer than the strip, they scroll under it, fading out just before it (only then, so the open tab's edge shows). */
+.section-add { position: sticky; right: 0; z-index: 2; background: var(--bg); }
+.section-tabs.has-more .section-add::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  right: 100%;
+  width: 20px;
+  background: linear-gradient(to right, transparent, var(--bg));
+  pointer-events: none;
+}
 .section-rename {
   width: auto;
   height: 30px;
@@ -1123,7 +1182,7 @@ main > .panel {
   .section-tab-wrap:not(.is-open):hover,
   .section-tab.is-song:not([aria-selected='true']):hover { background: rgb(255 255 255 / 0.04); }
   .section-tab:not(:disabled):not([aria-selected='true']):hover { color: var(--text); }
-  .section-add:not(:disabled):hover { color: var(--text); background: rgb(255 255 255 / 0.06); border-color: transparent; }
+  .section-add:not(:disabled):hover { color: var(--text); background: linear-gradient(rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.06)), var(--bg); border-color: transparent; }
 }
 .section-menu { width: 280px; z-index: 30; }
 .menu-item.menu-item-row { flex-direction: row; align-items: center; gap: 10px; padding-block: 8px; }
@@ -1551,10 +1610,36 @@ main > .panel {
 .chord-pad .drum-pad-grooves { flex-direction: row; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 1px 12px; scroll-padding: 12px; scroll-snap-type: x proximity; }
 .chord-pad .drum-pad-grooves::-webkit-scrollbar { display: none; }
 .chord-pad .drum-pad-grooves button { flex: none; width: 150px; flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; scroll-snap-align: start; }
+/* A vocal track's takes: a row each, the one playing outlined in white, as a pick is everywhere. */
+.vocal-take-list { display: flex; flex-direction: column; gap: 6px; }
+.vocal-take-item { display: flex; align-items: center; gap: 6px; }
+.vocal-take-item > button[role='radio'] {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--raised);
+  font-size: var(--fs-body);
+  color: var(--text);
+}
+.vocal-take-item > button[role='radio']:not(:disabled):hover { border-color: var(--muted); }
+.vocal-take-item > button[aria-checked='true'] { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+.vocal-take-name { flex: none; font-weight: 600; }
+.vocal-take-shape { flex: 1; min-width: 0; height: 16px; fill: color-mix(in srgb, var(--track) 55%, var(--muted)); }
+.vocal-take-length { flex: none; font-size: var(--fs-small); color: var(--muted); font-variant-numeric: tabular-nums; }
+.vocal-take-delete { flex: none; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); }
+.vocal-take-delete:not(:disabled):hover { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }
 .track-sheet-link { align-self: flex-start; padding: 0; border: 0; background: none; font-size: var(--fs-small); color: var(--muted); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
 .vocal-pad-record { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--record); color: #fff; }
 .vocal-pad-record:disabled { opacity: 0.4; }
 .vocal-pad-record-dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+.chord-pad-actions.vocal-pad-actions { flex-direction: column; }
+.vocal-pad-actions > button { flex: none; width: 100%; }
 
 /* On a phone, the top bar folded to one row: play and record, where you are and the key, and a button for the rest. */
 /*
@@ -1759,6 +1844,13 @@ main > .panel {
 .sound-piano span { min-width: 0; font-size: var(--fs-small); font-weight: 400; color: var(--muted); text-align: right; }
 .sound-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .sound-grid.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sound-grid.is-five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.sound-grid.is-five button { padding: 0 2px; font-size: var(--fs-small); }
+/* Two lines: a small drawing or a name, with the label. */
+.sound-grid button.is-tall { height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+.sound-grid button.is-tall span { font-size: var(--fs-label); color: var(--muted); }
+.arp-pattern { width: 28px; height: 14px; fill: var(--muted); }
+.sound-grid button[aria-checked='true'] .arp-pattern { fill: var(--text); }
 .sound-grid button { height: 38px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sound-piano:hover,
 .sound-grid button:not(:disabled):hover { border-color: var(--muted); }
@@ -1784,53 +1876,6 @@ main > .panel {
 }
 .sound-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .sound-chips .chip { min-height: 36px; }
-.sound-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
-.sound-slider { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.sound-slider-head { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-body); }
-.sound-slider-head output { font-size: var(--fs-small); color: var(--muted); font-variant-numeric: tabular-nums; }
-
-/* A thin track that fills up to the thumb. */
-.sound-slider input {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 24px;
-  margin: 0;
-  background: transparent;
-  cursor: pointer;
-}
-.sound-slider input::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(to right, var(--accent) var(--fill), var(--line-strong) var(--fill));
-}
-.sound-slider input::-moz-range-track {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(to right, var(--accent) var(--fill), var(--line-strong) var(--fill));
-}
-.sound-slider input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--text);
-}
-.sound-slider input::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--text);
-}
-.sound-slider input:focus-visible { outline: none; }
-.sound-slider input:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--accent); }
-.sound-slider input:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--accent); }
-.sound-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--line); }
-.sound-toggle { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-body); cursor: pointer; }
-.sound-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 
 .toggle-btn.is-on { color: var(--accent); border-color: var(--accent); }
 .arp-switch { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; }
@@ -1865,10 +1910,12 @@ main > .panel {
 .arp-switch input:checked { background: var(--accent); }
 .arp-switch input:checked::after { transform: translateX(16px); background: var(--on-accent); }
 .arp-switch input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.arp-options { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 14px 0 0; border: 0; border-top: 1px solid var(--line); min-width: 0; }
+.arp-options { display: flex; flex-direction: column; gap: 18px; margin: 0; padding: 16px 0 0; border: 0; border-top: 1px solid var(--line); min-width: 0; }
 .arp-options:disabled { opacity: 0.45; }
+/* Dimmed once, as a whole, while it's off. */
+.arp-options:disabled .sound-grid button:disabled,
+.arp-options:disabled .track-sheet-slider:has(input:disabled) { opacity: 1; }
 .rhythm-about { margin: 2px 0 0; font-size: var(--fs-small); color: var(--muted); }
-.arp-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: end; }
 
 /* Touch screens: no keyboard to list shortcuts for, and handles big enough for a finger. */
 @media (hover: none) and (pointer: coarse) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { exportName, songToMidi } from './export'
+import { exportName, placedTakes, songToMidi } from './export'
 import { DEFAULT_ARP } from './arrange'
 import { DEFAULT_SOUND } from './sound'
 import { grooveHits } from './drums'
@@ -92,5 +92,23 @@ describe('zip', () => {
     expect(view.getUint16(bytes.length - 12, true)).toBe(1)
     // "hello" is a known checksum.
     expect(crc32(data)).toBe(0x3610a686)
+  })
+})
+
+describe('placedTakes', () => {
+  const audio = { id: 'v', startBeat: 0, bpm: 120, sampleRate: 10, samples: Float32Array.from({ length: 40 }, (_, i) => i) }
+  const vocal = { id: 'v', startBeat: 2, seconds: 4, endBeat: Infinity, lane: 0, track: 0, db: 0, reverb: 0 }
+  const song = { bpm: 120, timeSig: [4, 4] as [number, number] }
+
+  it('keeps only a trimmed take’s part', () => {
+    const [placed] = placedTakes({ ...song, vocals: [{ ...vocal, seconds: 1.5, offset: 1 }] }, () => audio)
+    expect([...placed.samples]).toEqual(Array.from({ length: 15 }, (_, i) => i + 10))
+    expect(placed.startBeat).toBe(2)
+  })
+
+  it('cuts a take off where its section ends', () => {
+    // Two beats of room at half a second each: one second, ten samples.
+    const [placed] = placedTakes({ ...song, vocals: [{ ...vocal, endBeat: 4 }] }, () => audio)
+    expect(placed.samples).toHaveLength(10)
   })
 })

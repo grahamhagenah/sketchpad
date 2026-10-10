@@ -20,6 +20,9 @@ const take = (id: string, length = 1000): Take => ({
   samples: storage.quantize(Float32Array.from({ length }, (_, i) => Math.sin(i / 10) * 0.8)),
 })
 
+/** A loaded lane with just `t`, or nothing. */
+const lane = (t: Take | null) => ({ take: t, all: t ? [t] : [] })
+
 /** What's in a store, read straight from the database. */
 function contents(store: string) {
   return new Promise<{ keys: IDBValidKey[]; values: unknown[] }>((resolve) => {
@@ -53,8 +56,18 @@ describe('take storage', () => {
     const b = take('b', 500)
     await storage.storeLanes({ verse: [null, 'a'], chorus: ['b'] }, audioOf(a, b))
     const loaded = await storage.loadLanes('verse')
-    expect(loaded.verse).toEqual([null, a])
-    expect(loaded.chorus).toEqual([b])
+    expect(loaded.verse).toEqual([lane(null), lane(a)])
+    expect(loaded.chorus).toEqual([lane(b)])
+  })
+
+  it('keeps every take a lane has had, and which one it plays', async () => {
+    const [a, b, c] = [take('a'), take('b'), take('c')]
+    await storage.storeLanes({ verse: [{ take: 'b', all: ['a', 'b', 'c'] }] }, audioOf(a, b, c))
+    expect((await storage.loadLanes('verse')).verse).toEqual([{ take: b, all: [a, b, c] }])
+    expect((await contents('audio')).keys).toEqual(['a', 'b', 'c'])
+    // Dropping a take from the lane lets its audio go.
+    await storage.storeLanes({ verse: [{ take: 'b', all: ['a', 'b'] }] }, audioOf(a, b))
+    expect((await contents('audio')).keys).toEqual(['a', 'b'])
   })
 
   it('stores audio as 16-bit', async () => {
@@ -69,7 +82,7 @@ describe('take storage', () => {
     await storage.saveSketchTakes('one', { verse: ['a'] }, audioOf(t))
     await storage.saveSketchTakes('two', { bridge: [null, 'a'] }, audioOf(t))
     expect((await contents('audio')).keys).toEqual(['a'])
-    expect((await storage.loadSketchTakes('two', 'unused')).bridge[1]).toEqual(t)
+    expect((await storage.loadSketchTakes('two', 'unused')).bridge[1]).toEqual(lane(t))
   })
 
   it('deletes audio once nothing holds it', async () => {
@@ -127,10 +140,10 @@ describe('upgrading from version 2', () => {
     await oldDatabase(2, { takes: { 'vocal-0': lane }, sketches: {}, 'sketch-takes': { sketch: [null, saved] } })
 
     const lanes = await storage.loadLanes('verse')
-    expect(lanes.verse[0]?.samples).toEqual(lane.samples)
+    expect(lanes.verse[0].take?.samples).toEqual(lane.samples)
     const sketch = await storage.loadSketchTakes('sketch', 'verse')
-    expect(sketch.verse[0]).toBeNull()
-    expect(sketch.verse[1]?.samples).toEqual(saved.samples)
+    expect(sketch.verse[0].take).toBeNull()
+    expect(sketch.verse[1].take?.samples).toEqual(saved.samples)
     expect((await contents('audio')).keys).toHaveLength(2)
   })
 
@@ -138,7 +151,7 @@ describe('upgrading from version 2', () => {
     const lane = old(300)
     await oldDatabase(2, { takes: { vocal: lane }, sketches: {}, 'sketch-takes': {} })
     const lanes = await storage.loadLanes('verse')
-    expect(lanes.verse[0]?.samples).toEqual(lane.samples)
+    expect(lanes.verse[0].take?.samples).toEqual(lane.samples)
     expect((await contents('takes')).keys).toEqual(['lanes'])
   })
 })
@@ -150,15 +163,15 @@ describe('songs saved before sections', () => {
   it('puts the lanes in the open section', async () => {
     await oldDatabase(3, { takes: { 'vocal-1': 'a' }, sketches: {}, 'sketch-takes': {}, audio: { a: stored(400) } })
     const lanes = await storage.loadLanes('verse')
-    expect(lanes.verse.map((t) => t?.id ?? null)).toEqual([null, 'a', null, null])
-    expect(lanes.verse[1]?.samples).toHaveLength(400)
+    expect(lanes.verse.map((l) => l.take?.id ?? null)).toEqual([null, 'a', null, null])
+    expect(lanes.verse[1].take?.samples).toHaveLength(400)
     expect((await contents('takes')).keys).toEqual(['lanes'])
   })
 
   it('puts a saved sketch’s lanes in the section it opens with', async () => {
     await oldDatabase(3, { takes: {}, sketches: {}, 'sketch-takes': { s: ['a', null] }, audio: { a: stored(200) } })
     const sketch = await storage.loadSketchTakes('s', 'verse')
-    expect(sketch.verse.map((t) => t?.id ?? null)).toEqual(['a', null])
+    expect(sketch.verse.map((l) => l.take?.id ?? null)).toEqual(['a', null])
   })
 
   it('keeps the audio those lanes hold', async () => {

@@ -41,6 +41,22 @@ describe('arrange', () => {
     expect(pitches.slice(3, 6)).toEqual(pitches.slice(0, 3))
   })
 
+  it('swings every other eighth late, as far as a triplet shuffle', () => {
+    const steps = arrange(song([2], [4, 4], { on: true, rate: '1/8', gate: 1, swing: 1 })).filter((h) => !h.held)
+    expect(steps.map((h) => +h.start.toFixed(3))).toEqual([0, 0.667, 1, 1.667])
+    // The note before a late one rings on up to it.
+    expect(steps.map((h) => +h.dur.toFixed(3))).toEqual([0.667, 0.333, 0.667, 0.333])
+    // Triplets have nothing between to swing.
+    const triplets = arrange(song([1], [4, 4], { on: true, rate: '1/8T', swing: 1 })).filter((h) => !h.held)
+    expect(triplets.map((h) => +h.start.toFixed(3))).toEqual([0, 0.333, 0.667])
+  })
+
+  it('accents the notes on the beat, softening those between', () => {
+    const steps = arrange(song([2], [4, 4], { on: true, rate: '1/8', accent: 1 })).filter((h) => !h.held)
+    const [, between, onBeat] = steps.map((h) => h.velocity)
+    expect(onBeat).toBeGreaterThan(between + 0.4)
+  })
+
   it('plays the chords in a rhythm, striking again where a chord changes', () => {
     const hits = arrange({ ...song([4, 2, 2]), rhythm: { chords: 'tresillo', bass: 'held' } })
     const pads = hits.filter((h) => h.pad.length)

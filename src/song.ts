@@ -1,5 +1,6 @@
 import { audibleTracks, keyOf, sectionsNow, totalBeats, useStore, type Chord, type LoopRegion } from './store'
 import { grooveHits, type DrumHit } from './audio/drums'
+import { trimOf, type LaneIds, type StoredLane, type TakeInfo, type Trim } from './audio/take'
 
 type State = ReturnType<typeof useStore.getState>
 
@@ -14,8 +15,11 @@ export interface PlayChord extends Chord {
 export interface VocalPlacement {
   /** The take's id, which names its audio. */
   id: string
+  /** Where it starts playing, and for how long: its trimmed part, if it's trimmed. */
   startBeat: number
   seconds: number
+  /** Seconds of its audio trimmed off the start, skipped when it plays. */
+  offset?: number
   /** Where it has to stop, in beats: the end of its section, in the song. */
   endBeat: number
   /** Its lane in the open section, so recording into that lane can leave it out. */
@@ -78,11 +82,23 @@ export function songBeatOf(s: Pick<State, 'arrangement' | 'sections' | 'activeSe
 }
 
 /**
+ * Where a take plays, trimmed: its trimmed start moved later by what's cut,
+ * for as long as is left, skipping that much of its audio. A whole take is as it was.
+ */
+export function trimmedPlacement(take: TakeInfo, trim: Trim | undefined, beatSeconds: number) {
+  if (!trim) return { startBeat: take.startBeat, seconds: take.seconds }
+  const { start, end } = trimOf(take, trim)
+  return { startBeat: take.startBeat + start / beatSeconds, seconds: end - start, offset: start }
+}
+
+/**
  * What plays: in the section view, the open section with its loop; in the
  * song view, each section in turn, with the vocals and the mute and solo of
  * that section, and the chords leading smoothly from one section to the next.
  */
 export function playbackOf(s: State, view = s.view): Playback {
+  // A beat's length in seconds, to place trimmed takes.
+  const beatSeconds = (60 / s.bpm) * (4 / s.timeSig[1])
   const base = {
     key: s.key,
     mode: s.mode,
@@ -106,7 +122,9 @@ export function playbackOf(s: State, view = s.view): Playback {
       drums: audible.drums && s.drumTrack ? grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords), s.drumFill) : [],
       kicks: s.drumTrack ? kicksOf(grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords), s.drumFill)) : undefined,
       vocals: s.takes.flatMap((t, lane) =>
-        t && audible.vocals[lane] ? [{ id: t.id, startBeat: t.startBeat, seconds: t.seconds, endBeat: Infinity, lane, track: lane, db: s.vocalVolume[lane] ?? 0, reverb: s.vocalReverb[lane] ?? 0 }] : [],
+        t && audible.vocals[lane]
+          ? [{ id: t.id, ...trimmedPlacement(t, s.trims[t.id], beatSeconds), endBeat: Infinity, lane, track: lane, db: s.vocalVolume[lane] ?? 0, reverb: s.vocalReverb[lane] ?? 0 }]
+          : [],
       ),
     }
   }
@@ -126,13 +144,23 @@ export function playbackOf(s: State, view = s.view): Playback {
     if (audible.drums && s.drumTrack) drums.push(...groove)
     kicks.push(...kicksOf(groove))
     section.takes.forEach((t, lane) => {
-      if (t && audible.vocals[lane]) vocals.push({ id: t.id, startBeat: start + t.startBeat, seconds: t.seconds, endBeat: start + beats, lane: null, track: lane, db: section.vocalVolume?.[lane] ?? 0, reverb: section.vocalReverb?.[lane] ?? 0 })
+      if (!t || !audible.vocals[lane]) return
+      const placed = trimmedPlacement(t, section.trims?.[t.id], beatSeconds)
+      vocals.push({ id: t.id, ...placed, startBeat: start + placed.startBeat, endBeat: start + beats, lane: null, track: lane, db: section.vocalVolume?.[lane] ?? 0, reverb: section.vocalReverb?.[lane] ?? 0 })
     })
   }
   return { ...base, chords, loop: null, vocals, drums, kicks: s.drumTrack ? kicks : undefined }
 }
 
-/** Each section's takes by lane, as ids, for storing. */
-export function takeIdsBySection(s: State): Record<string, (string | null)[]> {
-  return Object.fromEntries(sectionsNow(s).map((sec) => [sec.id, sec.takes.map((t) => t?.id ?? null)]))
+/** Each section's takes by lane, as ids, for storing: the one it plays, and every one it has once there's more than one. */
+export function takeIdsBySection(s: State): LaneIds {
+  return Object.fromEntries(
+    sectionsNow(s).map((sec) => [
+      sec.id,
+      sec.takes.map((t, lane): StoredLane => {
+        const all = sec.allTakes?.[lane] ?? []
+        return t && all.length > 1 ? { take: t.id, all: all.map((a) => a.id) } : (t?.id ?? null)
+      }),
+    ]),
+  )
 }

@@ -131,6 +131,26 @@ export function MenuButton({
  * The song's sections as tabs above the editor, with the whole song first:
  * pick one to edit its chords and vocals, or + to add a section.
  */
+/** Whether tabs run on past the right edge of the strip, under the +, as it's scrolled or resized. */
+function useTabsBeyond(ref: RefObject<HTMLDivElement | null>) {
+  const [more, setMore] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const check = () => setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+    check()
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    for (const child of el.children) observer.observe(child)
+    el.addEventListener('scroll', check, { passive: true })
+    return () => {
+      observer.disconnect()
+      el.removeEventListener('scroll', check)
+    }
+  })
+  return more
+}
+
 export function SectionBar() {
   const view = useStore((s) => s.view)
   const sections = useStore((s) => s.sections)
@@ -149,10 +169,12 @@ export function SectionBar() {
   const narrow = useNarrow()
   const empty = useStore((s) => s.chords.length === 0)
   const sheetOpen = useSectionSheet((s) => s.open)
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const more = useTabsBeyond(tabsRef)
 
   return (
     <nav className="section-bar" aria-label="Song sections">
-      <div className="section-tabs" role="tablist">
+      <div className={`section-tabs ${more ? 'has-more' : ''}`} role="tablist" ref={tabsRef}>
         <button
           type="button"
           role="tab"
@@ -211,7 +233,6 @@ export function SectionBar() {
           />
         )}>
           <Icon d="M12 5v14M5 12h14" />
-          Section
         </MenuButton>
       </div>
       <div className="section-bar-end">

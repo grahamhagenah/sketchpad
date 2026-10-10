@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { useDismiss } from '../hooks/useDismiss'
 import { useNarrow } from '../hooks/useNarrow'
@@ -162,7 +162,7 @@ function SoundSettings() {
     loadPiano().then(preview, () => undefined).finally(() => setLoading(false))
   }
   const soundButton = (p: (typeof PRESETS)[number], className: string, children: ReactNode) => (
-    <button type="button" role="radio" className={className} aria-checked={picked === p.name} title={p.about} onClick={() => choose(p)}>
+    <button key={p.name} type="button" role="radio" className={className} aria-checked={picked === p.name} title={p.about} onClick={() => choose(p)}>
       {children}
     </button>
   )
@@ -304,7 +304,7 @@ function SoundSettings() {
  * One of the sound's settings, drawn like the tracks' sliders, playing a chord
  * when let go; `curve` spreads short times out, moving on a squared scale.
  */
-function SoundSlider({ label, min, max, step, value, format, curve, onChange, disabled }: Omit<SliderProps, 'onRelease'> & { disabled?: boolean }) {
+function SoundSlider({ label, min, max, step, value, format, curve, onChange, disabled }: SliderProps) {
   const toPos = (v: number) => (curve ? Math.sqrt((v - min) / (max - min)) : (v - min) / (max - min))
   const fromPos = (p: number) => Math.round((min + (curve ? p * p : p) * (max - min)) / step) * step
   return <SheetSlider label={label} min={0} max={1} step={0.001} value={toPos(value)} text={disabled ? '–' : format(value)} disabled={disabled} onChange={(p) => onChange(fromPos(p))} onRelease={preview} />
@@ -320,37 +320,5 @@ interface SliderProps {
   /** Spread short times out: the slider moves on a squared scale. */
   curve?: boolean
   onChange: (v: number) => void
-  /** Called when a drag or key press ends, e.g. to play a preview. */
-  onRelease?: () => void
-}
-
-export function Slider({ label, min, max, step, value, format, curve, onChange, onRelease }: SliderProps) {
-  const id = useId()
-  const toPos = (v: number) => (curve ? Math.sqrt((v - min) / (max - min)) : (v - min) / (max - min))
-  const fromPos = (p: number) => {
-    const v = min + (curve ? p * p : p) * (max - min)
-    return Math.round(v / step) * step
-  }
-
-  return (
-    <div className="sound-slider">
-      <div className="sound-slider-head">
-        <label htmlFor={id}>{label}</label>
-        <output htmlFor={id}>{format(value)}</output>
-      </div>
-      <input
-        id={id}
-        type="range"
-        min={0}
-        max={1}
-        step={0.001}
-        value={toPos(value)}
-        style={{ ['--fill' as string]: `${toPos(value) * 100}%` }}
-        aria-valuetext={format(value)}
-        onChange={(e) => onChange(fromPos(Number(e.target.value)))}
-        onPointerUp={onRelease}
-        onKeyUp={(e) => e.key.startsWith('Arrow') && onRelease?.()}
-      />
-    </div>
-  )
+  disabled?: boolean
 }

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { audibleTracks, chordsTrackName, drumsTrackName, keyOf, useStore, vocalTrackName, type Chord } from '../store'
 import { chordOf } from '../music/theory'
-import { audition, engine, seek } from '../audio/engine'
+import { audition, engine, seek, trimTake } from '../audio/engine'
 import { sectionBeatOf } from '../song'
-import { LANES } from '../audio/take'
+import { LANES, MIN_TRIM, trimOf, type Trim } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
 import { SectionStarter } from './SectionStarter'
@@ -66,7 +66,7 @@ export function Timeline() {
   const playheadRef = useRef<HTMLDivElement>(null)
   const playhead = useStore((s) => s.playhead)
   const recordingRef = useRef<HTMLDivElement>(null)
-  const { takes, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames, vocalColors, chordsTrackSelected } = useStore()
+  const { takes, allTakes, trims, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames, vocalColors, chordsTrackSelected } = useStore()
   const audible = audibleTracks(useStore())
   // The tracks added so far, plus the one a recording is adding.
   // An empty section shows only its chords track and the + to start it; its other tracks come back with its chords.
@@ -368,6 +368,9 @@ export function Timeline() {
               color={vocalColor(vocalColors, lane)}
               name={vocalTrackName({ vocalNames }, lane)}
               take={takes[lane]}
+              takeCount={allTakes[lane]?.length ?? 0}
+              takeNumber={(allTakes[lane]?.findIndex((t) => t.id === takes[lane]?.id) ?? -1) + 1}
+              trim={takes[lane] ? trims[takes[lane]!.id] : undefined}
               muted={!audible.vocals[lane]}
               locked={recording !== 'off'}
               selected={lane === selectedVocal}
@@ -449,6 +452,11 @@ interface VocalLaneProps {
   lane: number
   name: string
   take: TakeInfo | null
+  /** How many takes the track has, and which of them plays (from 1), to label it once there's more than one. */
+  takeCount: number
+  takeNumber: number
+  /** How its take is trimmed, if it is. */
+  trim: Trim | undefined
   muted: boolean
   /** True while recording, when the selection can't change. */
   locked: boolean
@@ -464,28 +472,96 @@ interface VocalLaneProps {
   color: string
 }
 
-/** One vocal track: click it to select it (to record into, or delete); its take is drawn at the beat it starts on. */
-function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, beatPx, beatsPerQuarter, color }: VocalLaneProps) {
+/**
+ * One vocal track: click it to select it (to record into, or delete); its take
+ * is drawn at the beat it starts on. Selected, its ends can be dragged in to
+ * trim it, the part cut off showing faintly, to drag back out.
+ */
+function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selected, locked, onSelect, bpm, beatPx, beatsPerQuarter, color }: VocalLaneProps) {
   const row = { ['--row' as string]: lane, ['--track' as string]: color }
+  // The trim while an end is dragged, saved only when it's let go.
+  const [dragging, setDragging] = useState<Trim | null>(null)
+  const drag = useRef<{ edge: 'start' | 'end'; x: number; from: Trim; moved: boolean } | null>(null)
   let content = null
   if (take) {
     const pxPerSecond = (bpm / 60) * beatsPerQuarter * beatPx
-    const width = take.seconds * pxPerSecond - 6
-    // One bar every 4px, each as tall as the loudest moment it covers.
-    const count = Math.max(1, Math.floor((width - 4) / 4))
+    const kept = dragging ?? trimOf(take, trim)
+    const cut = kept.start > 0.001 || kept.end < take.seconds - 0.001
+    const fullLeft = take.startBeat * beatPx
+    const left = fullLeft + kept.start * pxPerSecond
+    const width = (kept.end - kept.start) * pxPerSecond - 6
+    const fullWidth = take.seconds * pxPerSecond - 6
+    // The whole take's waveform, one bar every 4px, each as tall as the loudest moment it covers. A trimmed take
+    // shows the part of it that plays, shifted by what's cut, so its bars stay put while an end is dragged.
+    const count = Math.max(1, Math.floor((fullWidth - 4) / 4))
     const per = take.peaks.length / count
-    const bars = Array.from({ length: count }, (_, i) => Math.max(...take.peaks.slice(Math.floor(i * per), Math.ceil((i + 1) * per)), 0))
-    content = (
-      <div
-        className={`vocal-take ${muted ? 'is-muted' : ''} ${selected ? 'is-selected' : ''}`}
-        style={{ ...row, left: take.startBeat * beatPx, width }}
-        role="img"
-        aria-label={`${name} waveform`}
-      >
-        {bars.map((b, i) => (
-          <span key={i} style={{ height: `${Math.max(6, b * 80)}%` }} />
+    const wave = (shift: number) => (
+      <div className="vocal-take-wave" style={{ left: -shift, width: fullWidth }}>
+        {Array.from({ length: count }, (_, i) => (
+          <span key={i} style={{ height: `${Math.max(6, Math.max(...take.peaks.slice(Math.floor(i * per), Math.ceil((i + 1) * per)), 0) * 80)}%` }} />
         ))}
       </div>
+    )
+
+    const grab = (edge: 'start' | 'end') => ({
+      onPointerDown: (e: PointerEvent<HTMLElement>) => {
+        e.stopPropagation()
+        e.currentTarget.setPointerCapture(e.pointerId)
+        drag.current = { edge, x: e.clientX, from: kept, moved: false }
+      },
+      onPointerMove: (e: PointerEvent<HTMLElement>) => {
+        const d = drag.current
+        if (!d) return
+        const dx = e.clientX - d.x
+        if (Math.abs(dx) > 2) d.moved = true
+        if (!d.moved) return
+        const by = dx / pxPerSecond
+        setDragging(
+          d.edge === 'start'
+            ? { start: Math.max(0, Math.min(d.from.start + by, d.from.end - MIN_TRIM)), end: d.from.end }
+            : { start: d.from.start, end: Math.min(take.seconds, Math.max(d.from.end + by, d.from.start + MIN_TRIM)) },
+        )
+      },
+      onPointerUp: () => {
+        const d = drag.current
+        drag.current = null
+        if (d?.moved && dragging) {
+          const whole = dragging.start < 0.001 && dragging.end > take.seconds - 0.001
+          trimTake(take.id, whole ? null : dragging)
+        }
+        setDragging(null)
+      },
+      onPointerCancel: () => {
+        drag.current = null
+        setDragging(null)
+      },
+      // A click on a handle mustn't reach the row and move the playhead.
+      onClick: (e: { stopPropagation: () => void }) => e.stopPropagation(),
+    })
+
+    content = (
+      <>
+        {selected && cut && (
+          <div className="vocal-take is-cut" style={{ ...row, left: fullLeft, width: fullWidth }} aria-hidden="true">
+            {wave(0)}
+          </div>
+        )}
+        <div
+          className={`vocal-take ${muted ? 'is-muted' : ''} ${selected ? 'is-selected' : ''}`}
+          style={{ ...row, left, width }}
+          role="img"
+          aria-label={`${name} waveform${takeCount > 1 ? `, take ${takeNumber} of ${takeCount}` : ''}${cut ? ', trimmed' : ''}`}
+        >
+          {wave(kept.start * pxPerSecond)}
+          {takeCount > 1 && <b className="vocal-take-label">{`Take ${takeNumber} of ${takeCount}`}</b>}
+        </div>
+        {selected && !locked && (
+          <>
+            <span className="vocal-trim is-start" style={{ ...row, left: left + 3 }} title="Drag to trim the start" {...grab('start')} />
+            <span className="vocal-trim is-end" style={{ ...row, left: left + 3 + width }} title="Drag to trim the end" {...grab('end')} />
+          </>
+        )}
+      </>
     )
   }
   return (

@@ -3,7 +3,7 @@ import { emptyParts, sectionsNow, useStore, type Section, type SectionParts } fr
 
 // Undo covers the song itself: its chords, drums, key, tempo, meter and loop,
 // and its sections and their order. Vocal tracks are steps of their own, kept
-// only when a take is deleted or recorded over (the audio stays in memory for
+// only when a take is trimmed, deleted or recorded over (the audio stays in memory for
 // the visit, so it can come back); muting, naming and the like aren't steps.
 const pick = (s: ReturnType<typeof useStore.getState>) => ({
   chords: s.chords,
@@ -23,10 +23,10 @@ type Snapshot = ReturnType<typeof pick>
 
 /** A section's vocal tracks, as kept for undoing a deleted take. */
 const vocalsOf = (sec: Pick<Section, keyof VocalParts>): VocalParts => {
-  const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalReverb, vocalColors, vocalTracks } = sec
-  return { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalReverb, vocalColors, vocalTracks }
+  const { takes, allTakes, trims, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalReverb, vocalColors, vocalTracks } = sec
+  return { takes, allTakes, trims, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalReverb, vocalColors, vocalTracks }
 }
-type VocalParts = Pick<SectionParts, 'takes' | 'vocalMuted' | 'vocalSolo' | 'vocalNames' | 'vocalVolume' | 'vocalReverb' | 'vocalColors' | 'vocalTracks'>
+type VocalParts = Pick<SectionParts, 'takes' | 'allTakes' | 'trims' | 'vocalMuted' | 'vocalSolo' | 'vocalNames' | 'vocalVolume' | 'vocalReverb' | 'vocalColors' | 'vocalTracks'>
 
 type Step = { kind: 'song'; snapshot: Snapshot } | { kind: 'vocals'; sectionId: string; parts: VocalParts }
 

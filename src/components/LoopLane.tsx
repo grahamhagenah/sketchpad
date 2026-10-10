@@ -114,7 +114,7 @@ export function LoopLane({ beatPx, total, perBar }: Props) {
         title="Drag to set the loop · double-click to loop everything"
       >
         <div
-          className={`loop-region ${isWhole ? 'is-whole' : ''} ${region.start === 0 ? 'from-start' : ''}`}
+          className={`loop-region ${region.start === 0 ? 'from-start' : ''}`}
           data-kind="move"
           style={{ left: region.start * beatPx, width: (region.end - region.start) * beatPx }}
         >

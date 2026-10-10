@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { create } from 'zustand'
 import { chordsTrackName, drumsTrackName, keyOf, useStore, vocalTrackName } from '../store'
 import { grooveLabel } from '../audio/drums'
+import { trimOf } from '../audio/take'
 import { chordOf } from '../music/theory'
 import { isDirty } from '../library'
 import { ShortcutsButton } from './Shortcuts'
@@ -86,13 +87,14 @@ function Status() {
 
   if (s.selectedVocal !== null) {
     const take = s.takes[s.selectedVocal]
+    const kept = take && trimOf(take, s.trims[take.id])
     return (
       <>
         <strong>{vocalTrackName(s, s.selectedVocal)}</strong>
-        <span className="status-sep">{take ? `${take.seconds.toFixed(1)} s` : 'Empty'}</span>
+        <span className="status-sep">{kept ? `${(kept.end - kept.start).toFixed(1)} s` : 'Empty'}</span>
         {take && (
           <Keys>
-            <kbd>⌫</kbd> delete the take
+            Drag its ends to trim · <kbd>⌫</kbd> delete the take
           </Keys>
         )}
       </>

@@ -7,7 +7,7 @@ import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } f
 import type { Sound } from './sound'
 import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
-import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take } from './take'
+import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 import { keepVocals } from '../history'
 
@@ -154,11 +154,13 @@ class Engine {
       const from = Math.max(takeStart, region.start * quartersPerBeat)
       const to = Math.min(takeEnd, region.end * quartersPerBeat)
       if (to <= from) return
-      this.vocalSpans.push({ player, from, to, offset: (from - takeStart) * secondsPerQuarter })
+      // Into its audio by however much is trimmed off its start, and however far the region starts into it.
+      const offset = (vocal.offset ?? 0) + (from - takeStart) * secondsPerQuarter
+      this.vocalSpans.push({ player, from, to, offset })
       this.vocalParts.push(
         new Tone.Part<VocalEvent>(
           (time, ev) => player.start(time, ev.offset, ev.duration),
-          [{ time: `${Math.round(from * t.PPQ)}i`, offset: (from - takeStart) * secondsPerQuarter, duration: (to - from) * secondsPerQuarter }],
+          [{ time: `${Math.round(from * t.PPQ)}i`, offset, duration: (to - from) * secondsPerQuarter }],
         ).start(0),
       )
     })
@@ -381,6 +383,7 @@ const unsubscribe = useStore.subscribe((s, prev) => {
     s.arp !== prev.arp ||
     s.rhythm !== prev.rhythm ||
     s.takes !== prev.takes ||
+    s.trims !== prev.trims ||
     s.vocalMuted !== prev.vocalMuted ||
     s.vocalSolo !== prev.vocalSolo ||
     s.chordsMuted !== prev.chordsMuted ||
@@ -534,9 +537,9 @@ async function stopRecording() {
     keepStorage()
     // Recording over a take can be undone, as deleting one can.
     if (s.takes[lane]) keepVocals()
-    // The audio first, so it's there to store when the lane changes.
+    // The audio first, so it's there to store when the lane changes. Any take already there is kept, to go back to.
     engine.addTake(take)
-    s.setTake(lane, takeInfo(take))
+    s.addTake(lane, takeInfo(take))
     s.showVocalTracks(lane + 1)
   }
 }
@@ -553,16 +556,31 @@ export async function deleteTake(lane: number) {
   s.renumberVocals(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane))
 }
 
+/** Trims a take, or with null plays it whole again; undo puts the trim back as it was. */
+export function trimTake(id: string, trim: Trim | null) {
+  keepVocals()
+  useStore.getState().setTrim(id, trim)
+}
+
+/** Deletes one of a track's takes, keeping the track and its others; undo brings it back. */
+export function deleteOneTake(lane: number, id: string) {
+  keepVocals()
+  useStore.getState().dropTake(lane, id)
+}
+
 /** Puts a whole song's takes in its sections, as when opening a saved sketch. */
 export function loadSongTakes(takes: SectionTakes) {
   const s = useStore.getState()
   const known = new Set(s.sections.map((sec) => sec.id))
   for (const [section, lanes] of Object.entries(takes)) {
     if (!known.has(section)) continue
-    lanes.forEach((take) => take && engine.addTake(take))
     s.setSectionTakes(
       section,
-      lanes.map((take) => (take ? takeInfo(take) : null)),
+      lanes.map(({ take, all }) => {
+        all.forEach((t) => engine.addTake(t))
+        const infos = all.map(takeInfo)
+        return { take: take ? (infos.find((t) => t.id === take.id) ?? null) : null, all: infos }
+      }),
     )
   }
 }
@@ -590,7 +608,7 @@ void loadLanes(useStore.getState().activeSection)
   .then((takes) => {
     const known = new Set(useStore.getState().sections.map((sec) => sec.id))
     // If the song itself was lost (cleared site data, say) the takes still go somewhere they can be heard.
-    const stray = Object.entries(takes).find(([section, lanes]) => !known.has(section) && lanes.some(Boolean))
+    const stray = Object.entries(takes).find(([section, lanes]) => !known.has(section) && lanes.some((lane) => lane.take))
     if (stray && !Object.keys(takes).some((section) => known.has(section))) takes = { [useStore.getState().activeSection]: stray[1] }
     loadSongTakes(takes)
     storedLanes = JSON.stringify(takeIdsBySection(useStore.getState()))

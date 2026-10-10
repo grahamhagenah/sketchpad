@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { ChordSpec, Mode } from './music/theory'
 import { DEFAULT_SOUND, type Sound } from './audio/sound'
 import { DEFAULT_ARP, DEFAULT_RHYTHM, type Arp, type Rhythm } from './audio/arrange'
-import { LANES, type TakeInfo } from './audio/take'
+import { LANES, type TakeInfo, type Trim } from './audio/take'
 import type { FillId, GrooveId } from './audio/drums'
 import type { ColorId } from './colors'
 import { newId } from './id'
@@ -61,8 +61,12 @@ export interface SectionKey {
 export interface SectionParts {
   chords: Chord[]
   loop: LoopRegion | null
-  /** One recorded vocal per lane, or null; the audio lives in IndexedDB, not here. */
+  /** The take each lane plays, or null; the audio lives in IndexedDB, not here. */
   takes: (TakeInfo | null)[]
+  /** Every take each lane has, the one it plays among them, in the order they were recorded. */
+  allTakes: TakeInfo[][]
+  /** How takes are trimmed, by take id; a take without one plays whole. */
+  trims: Record<string, Trim>
   vocalMuted: boolean[]
   vocalSolo: boolean[]
   /** Names given to the vocal tracks; null keeps the usual one. */
@@ -168,7 +172,16 @@ interface State extends SectionParts {
   setSound: (patch: Partial<Sound>) => void
   setArp: (patch: Partial<Arp>) => void
   setRhythm: (patch: Partial<Rhythm>) => void
+  /** Puts a take in a lane as its only one, or empties it. */
   setTake: (lane: number, take: TakeInfo | null) => void
+  /** Adds a new take to a lane, keeping its others, and plays it. */
+  addTake: (lane: number, take: TakeInfo) => void
+  /** Plays another of a lane's takes. */
+  chooseTake: (lane: number, id: string) => void
+  /** Takes a take out of a lane; if it was the one playing, the latest left plays instead. */
+  dropTake: (lane: number, id: string) => void
+  /** Trims a take in the open section, or with null, plays it whole again. */
+  setTrim: (id: string, trim: Trim | null) => void
   /** Moves the vocals in lanes `from` into lanes 0, 1, 2…, with their mute and solo. */
   renumberVocals: (from: number[]) => void
   /** Adds an empty vocal track and selects it, ready to record into. */
@@ -257,7 +270,7 @@ interface State extends SectionParts {
   /** Gives one place in the song its own copy of its section, to change without changing the others. */
   makeUnique: (entryId: string) => void
   /** Puts loaded takes in a section, showing enough tracks for them. */
-  setSectionTakes: (sectionId: string, takes: (TakeInfo | null)[]) => void
+  setSectionTakes: (sectionId: string, lanes: { take: TakeInfo | null; all: TakeInfo[] }[]) => void
 }
 
 export const chordsTrackName = (s: Pick<State, 'chordsName'>) => s.chordsName ?? 'Chords'
@@ -273,6 +286,8 @@ const partsOf = (p: SectionParts): SectionParts => ({
   chords: p.chords,
   loop: p.loop,
   takes: p.takes,
+  allTakes: p.allTakes,
+  trims: p.trims,
   vocalMuted: p.vocalMuted,
   vocalSolo: p.vocalSolo,
   vocalNames: p.vocalNames,
@@ -289,6 +304,8 @@ export const emptyParts = (): SectionParts => ({
   chords: [],
   loop: null,
   takes: Array(LANES).fill(null),
+  allTakes: Array.from({ length: LANES }, () => []),
+  trims: {},
   vocalMuted: Array(LANES).fill(false),
   vocalSolo: Array(LANES).fill(false),
   vocalNames: Array(LANES).fill(null),
@@ -340,7 +357,7 @@ export function songOf(s: State) {
     chordsName: s.chordsName,
     drumsName: s.drumsName,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    sections: sectionsNow(s).map(({ takes, ...section }) => section),
+    sections: sectionsNow(s).map(({ takes, allTakes, ...section }) => section),
     arrangement: s.arrangement,
     activeSection: s.activeSection,
   }
@@ -373,7 +390,7 @@ export type SavedSong = Partial<Omit<SongData, 'sections'>> & LegacySong & { sec
 
 export function songState(p: SavedSong) {
   const sections: Section[] = p.sections?.length
-    ? p.sections.map((sec) => ({ ...emptyParts(), id: newId(), name: 'Section', ...sec, ...lanesOf(sec), takes: Array(LANES).fill(null) }))
+    ? p.sections.map((sec) => ({ ...emptyParts(), id: newId(), name: 'Section', ...sec, ...lanesOf(sec), takes: Array(LANES).fill(null), allTakes: emptyParts().allTakes }))
     : [{ ...emptyParts(), ...lanesOf(p), id: newId(), name: 'Verse', chords: p.chords ?? [], loop: p.loop ?? null, vocalTracks: p.vocalTracks ?? 0, drums: p.drums ?? null }]
   const ids = new Set(sections.map((sec) => sec.id))
   const arrangement = p.arrangement
@@ -401,7 +418,7 @@ export function songSummary(song: SavedSong) {
 export function sketchSignature(s: State) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeSection, ...song } = songOf(s)
-  return JSON.stringify([song, sectionsNow(s).map((sec) => sec.takes.map((t) => t?.id ?? null))])
+  return JSON.stringify([song, sectionsNow(s).map((sec) => sec.takes.map((t, lane) => [t?.id ?? null, ...(sec.allTakes[lane] ?? []).map((a) => a.id)]))])
 }
 
 /** How long each section is, in beats. */
@@ -503,13 +520,38 @@ export const useStore = create<State>()(
       setSound: (patch) => set({ sound: { ...get().sound, ...patch } }),
       setArp: (patch) => set({ arp: { ...get().arp, ...patch } }),
       setRhythm: (patch) => set({ rhythm: { ...get().rhythm, ...patch } }),
-      setTake: (lane, take) => set({ takes: get().takes.map((t, i) => (i === lane ? take : t)) }),
+      setTake: (lane, take) =>
+        set({ takes: get().takes.map((t, i) => (i === lane ? take : t)), allTakes: get().allTakes.map((all, i) => (i === lane ? (take ? [take] : []) : all)) }),
+      addTake: (lane, take) => {
+        const { takes, allTakes } = get()
+        // A lane loaded with only its playing take counts that as its first.
+        const before = allTakes[lane]?.length ? allTakes[lane] : takes[lane] ? [takes[lane]] : []
+        set({ takes: takes.map((t, i) => (i === lane ? take : t)), allTakes: allTakes.map((all, i) => (i === lane ? [...before, take] : all)) })
+      },
+      chooseTake: (lane, id) => {
+        const take = get().allTakes[lane]?.find((t) => t.id === id)
+        if (take) set({ takes: get().takes.map((t, i) => (i === lane ? take : t)) })
+      },
+      dropTake: (lane, id) => {
+        const { takes, allTakes } = get()
+        const left = (allTakes[lane] ?? []).filter((t) => t.id !== id)
+        const playing = takes[lane]?.id === id ? (left[left.length - 1] ?? null) : takes[lane]
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [id]: _, ...trims } = get().trims
+        set({ takes: takes.map((t, i) => (i === lane ? playing : t)), allTakes: allTakes.map((all, i) => (i === lane ? left : all)), trims })
+      },
+      setTrim: (id, trim) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [id]: _, ...rest } = get().trims
+        set({ trims: trim ? { ...rest, [id]: trim } : rest })
+      },
       renumberVocals: (from) => {
-        const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalReverb, vocalColors } = get()
+        const { takes, allTakes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalReverb, vocalColors } = get()
         const pick = <T,>(list: T[], empty: T) => list.map((_, lane) => (lane < from.length ? list[from[lane]] : empty))
         // Nothing stays selected; the next recording goes in the first free lane.
         set({
           takes: pick(takes, null),
+          allTakes: pick(allTakes, []),
           vocalMuted: pick(vocalMuted, false),
           vocalSolo: pick(vocalSolo, false),
           vocalNames: pick(vocalNames, null),
@@ -755,12 +797,13 @@ export const useStore = create<State>()(
       },
       setSectionTakes: (sectionId, loaded) => {
         // Stored with however many lanes there were then; filled out to every lane.
-        const takes = Array.from({ length: LANES }, (_, lane) => loaded[lane] ?? null)
+        const takes = Array.from({ length: LANES }, (_, lane) => loaded[lane]?.take ?? null)
+        const allTakes = Array.from({ length: LANES }, (_, lane) => loaded[lane]?.all ?? [])
         const count = takes.reduce((n, t, lane) => (t ? lane + 1 : n), 0)
         const s = get()
-        if (sectionId === s.activeSection) return set({ takes, vocalTracks: Math.max(s.vocalTracks, count) })
+        if (sectionId === s.activeSection) return set({ takes, allTakes, vocalTracks: Math.max(s.vocalTracks, count) })
         set({
-          sections: s.sections.map((sec) => (sec.id === sectionId ? { ...sec, takes, vocalTracks: Math.max(sec.vocalTracks, count) } : sec)),
+          sections: s.sections.map((sec) => (sec.id === sectionId ? { ...sec, takes, allTakes, vocalTracks: Math.max(sec.vocalTracks, count) } : sec)),
         })
       },
     }),

@@ -13,9 +13,16 @@ export interface Arp {
   octaves: 1 | 2 | 3
   /** Each note's length as a share of its step, 0–1. */
   gate: number
+  /** How late every other note comes, 0 (straight) to 1 (a triplet shuffle); for eighths and sixteenths. */
+  swing: number
+  /** How much louder the notes on the beat are than those between, 0 (even) to 1. */
+  accent: number
 }
 
-export const DEFAULT_ARP: Arp = { on: false, pattern: 'up', rate: '1/8', octaves: 1, gate: 0.6 }
+export const DEFAULT_ARP: Arp = { on: false, pattern: 'up', rate: '1/8', octaves: 1, gate: 0.6, swing: 0, accent: 0 }
+
+/** Whether a speed has notes between the beats to swing: eighths and sixteenths, not quarters or triplets. */
+export const swings = (rate: ArpRate) => rate === '1/8' || rate === '1/16'
 
 export const ARP_PATTERNS: { id: ArpPattern; label: string }[] = [
   { id: 'up', label: 'Up' },
@@ -143,6 +150,9 @@ function arpeggiate(notes: number[], start: number, end: number, arp: Arp, seed:
         ? [...climb, ...climb.slice(1, -1).reverse()]
         : climb
   const random = seeded(seed)
+  // Every other note, pushed late by up to a third of a step, for a shuffle; the note before rings that much longer.
+  const late = swings(arp.rate) ? ((arp.swing ?? 0) * step) / 3 : 0
+  const accent = arp.accent ?? 0
 
   const hits: Hit[] = []
   for (let t = start, i = 0; t < end - 1e-6; t += step, i++) {
@@ -150,12 +160,18 @@ function arpeggiate(notes: number[], start: number, end: number, arp: Arp, seed:
       arp.pattern === 'pulse'
         ? notes
         : [arp.pattern === 'random' ? climb[Math.floor(random() * climb.length)] : order[i % order.length]]
+    const offbeat = i % 2 === 1
+    const at = offbeat ? t + late : t
+    const span = offbeat ? step - late : step + late
+    // On a quarter note, louder with accent; between them, softer.
+    const onBeat = Math.abs(t - Math.round(t)) < 1e-6
+    const base = i === 0 ? 0.85 : 0.7
     hits.push({
-      start: t,
-      dur: Math.min(step * arp.gate, end - t),
+      start: at,
+      dur: Math.max(0, Math.min(span * arp.gate, end - at)),
       pad,
       bass: null,
-      velocity: i === 0 ? 0.85 : 0.7,
+      velocity: Math.min(1, onBeat ? base + 0.25 * accent : base - 0.3 * accent),
       held: false,
     })
   }

@@ -21,6 +21,25 @@ export interface TakeInfo {
   peaks: number[]
 }
 
+/**
+ * How much of a take plays, in seconds into its audio: from `start` up to
+ * `end`. The audio itself stays whole, so a trim can always be undone.
+ */
+export interface Trim {
+  start: number
+  end: number
+}
+
+/** The shortest a take can be trimmed to, in seconds. */
+export const MIN_TRIM = 0.2
+
+/** A take's trim, kept inside its audio and at least MIN_TRIM long; none means the whole take. */
+export function trimOf(take: Pick<TakeInfo, 'seconds'>, trim: Trim | undefined): Trim {
+  const end = Math.min(take.seconds, Math.max(trim?.end ?? take.seconds, MIN_TRIM))
+  const start = Math.max(0, Math.min(trim?.start ?? 0, end - MIN_TRIM))
+  return { start, end }
+}
+
 const PEAKS_PER_SECOND = 60
 
 export function takeInfo(take: Take): TakeInfo {
@@ -216,19 +235,39 @@ function deleteUnused() {
   })
 }
 
-/** Take ids by lane, for each section. */
-export type LaneIds = Record<string, (string | null)[]>
+/**
+ * A lane as stored: the id of the take it plays (or null), or, once it has
+ * had several, that and every one of them in the order they were recorded.
+ */
+export type StoredLane = string | null | { take: string; all: string[] }
+/** Each section's lanes, as stored. */
+export type LaneIds = Record<string, StoredLane[]>
+/** A lane's takes: the one it plays, and every one it has, in the order they were recorded. */
+export interface LaneTakes {
+  take: Take | null
+  all: Take[]
+}
 /** Takes by lane, for each section. */
-export type SectionTakes = Record<string, (Take | null)[]>
+export type SectionTakes = Record<string, LaneTakes[]>
 
 /** Loads the audio of every take in `lanes`, once each however often it's used. */
 async function loadAudio(lanes: Record<string, unknown[]>): Promise<SectionTakes> {
   const ids = [...idsIn(lanes)] as string[]
   const stored = await Promise.all(ids.map((id) => idb<StoredTake | undefined>(AUDIO, 'readonly', (s) => s.get(id))))
   const takes = new Map(ids.map((id, i) => [id, stored[i] ? fromStored(id, stored[i]) : null]))
-  return Object.fromEntries(
-    Object.entries(lanes).map(([section, ids]) => [section, ids.map((id) => (typeof id === 'string' ? (takes.get(id) ?? null) : null))]),
-  )
+  const get = (id: unknown) => (typeof id === 'string' ? (takes.get(id) ?? null) : null)
+  const lane = (value: unknown): LaneTakes => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      const take = get(value)
+      return { take, all: take ? [take] : [] }
+    }
+    const { take: id, all: ids } = value as { take?: unknown; all?: unknown }
+    const all = (Array.isArray(ids) ? ids : []).map(get).filter((t): t is Take => !!t)
+    // The take it plays, or if its audio's gone, the latest one left.
+    const take = all.find((t) => t.id === id) ?? get(id) ?? all[all.length - 1] ?? null
+    return { take, all: take && !all.includes(take) ? [...all, take] : all }
+  }
+  return Object.fromEntries(Object.entries(lanes).map(([section, values]) => [section, values.map(lane)]))
 }
 
 /** Writes `lanes` under `key` in `store`, storing any audio of theirs that isn't stored yet. */
