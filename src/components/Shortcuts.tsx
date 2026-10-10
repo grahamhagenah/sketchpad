@@ -5,6 +5,8 @@ const SHORTCUTS: [ReactNode, string][] = [
   [<kbd>Space</kbd>, 'Play / pause'],
   [<kbd>↵</kbd>, 'Back to start'],
   [<><kbd>1</kbd>–<kbd>7</kbd></>, 'Add chord'],
+  [<><kbd>⇧</kbd><kbd>1</kbd>–<kbd>7</kbd></>, 'Play a chord on the keys'],
+  [<kbd>K</kbd>, 'Chord keys'],
   [<><kbd>←</kbd><kbd>→</kbd></>, 'Select'],
   [<><kbd>⌥</kbd><kbd>←</kbd><kbd>→</kbd></>, 'Move chord'],
   [<><kbd>[</kbd><kbd>]</kbd></>, 'Length'],

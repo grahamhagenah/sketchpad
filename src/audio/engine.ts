@@ -628,9 +628,10 @@ void loadLanes(useStore.getState().activeSection)
     lanesLoaded = true
   })
 
-export function audition(chord: Chord) {
+/** Plays a chord on its own: not while the song plays, unless asked for (the chord keys sound whenever they're pressed). */
+export function audition(chord: Chord, always = false) {
   const s = useStore.getState()
-  if (!s.playing) void engine.audition(keyOf(s), chord)
+  if (always || !s.playing) void engine.audition(keyOf(s), chord)
 }
 
 // In development, a code change reloads this module while Tone's transport
