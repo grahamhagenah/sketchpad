@@ -17,6 +17,7 @@ import { ChordsTrackPad, Inspector } from './components/Inspector'
 import { toggleInspector, useInspector } from './components/InspectorToggle'
 import { RecordingSheet } from './components/RecordingSheet'
 import { useNarrow } from './hooks/useNarrow'
+import { ChordKeys, toggleChordKeys, useChordKeys } from './components/ChordKeys'
 
 function useShortcuts() {
   useEffect(() => {
@@ -66,7 +67,7 @@ function useShortcuts() {
       if (e.code === 'Space') {
         e.preventDefault()
         void togglePlay()
-      } else if (!editing && !['m', 'l', 'a', 'Enter', 'Home', '-', '_', '=', '+'].includes(e.key)) {
+      } else if (!editing && !['m', 'l', 'a', 'k', 'Enter', 'Home', '-', '_', '=', '+'].includes(e.key)) {
         return
       } else if (/^[1-7]$/.test(e.key)) {
         s.addChord(Number(e.key) - 1)
@@ -109,6 +110,8 @@ function useShortcuts() {
         s.setArp({ on: !s.arp.on })
       } else if (e.key === 'i') {
         toggleInspector()
+      } else if (e.key === 'k') {
+        if (window.matchMedia('(min-width: 641px)').matches) toggleChordKeys()
       } else if (e.key === 'Enter' || e.key === 'Home') {
         if (target.closest('button')) return
         void seek(0)
@@ -168,6 +171,8 @@ export default function App() {
   const hasChords = useStore((s) => s.chords.length > 0)
   const inspectorShown = useInspector((s) => s.shown)
   const inspector = !narrow && view === 'section' && hasChords && inspectorShown
+  // On a wider screen, the chord keys float over everything, in either view.
+  const chordKeys = useChordKeys((s) => s.open) && !narrow
 
   return (
     <div className={`app ${chordPad || toolSheet ? 'has-chord-pad' : ''} ${narrow && recording ? 'has-record-sheet' : ''}`} style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
@@ -202,6 +207,7 @@ export default function App() {
           <ChordPad />
         ))
       )}
+      {chordKeys && <ChordKeys />}
       <UndoNote />
       {/* On a phone, recording takes over the bottom of the screen. */}
       {narrow && recording && <RecordingSheet />}

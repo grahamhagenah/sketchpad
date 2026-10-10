@@ -8,6 +8,7 @@ import { engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
 import { ArpButton, SoundButton } from './SoundPanel'
 import { Position } from './Position'
+import { ChordKeysButton } from './ChordKeys'
 import { SongTitle } from './SongTitle'
 import { download, exportName, placedTakes, songToMidi, songToStems, songToWav, takeToWav } from '../audio/export'
 import { LANES } from '../audio/take'
@@ -101,6 +102,8 @@ export function Toolbar() {
       </IconToggle>
       <ArpButton />
       <SoundButton />
+      {/* The floating chord keys are for a mouse and keyboard. */}
+      {!narrow && <ChordKeysButton />}
     </div>
   )
   const playButton = (
@@ -227,9 +230,11 @@ function UndoRedo() {
     <>
       <button type="button" className="icon-btn" aria-label="Undo" title="Undo (⌘Z)" disabled={!canUndo} onClick={undo}>
         <Icon d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+        <ButtonLabel>Undo</ButtonLabel>
       </button>
       <button type="button" className="icon-btn" aria-label="Redo" title="Redo (⇧⌘Z)" disabled={!canRedo} onClick={redo}>
         <Icon d="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+        <ButtonLabel>Redo</ButtonLabel>
       </button>
     </>
   )
@@ -327,6 +332,7 @@ function ExportButton() {
         title="Download the progression"
       >
         <Icon d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+        <ButtonLabel>Export</ButtonLabel>
       </button>
       {open && (
         <div className="menu" id="export-menu" aria-label="Export as" style={below}>
@@ -437,6 +443,13 @@ function IconToggle({ label, pressed, onClick, children }: { label: string; pres
     </button>
   )
 }
+
+/** A button's name under its icon in the top bar, on a wider screen; a phone's bar has no room for it. Its button's aria-label is what's read out. */
+export const ButtonLabel = ({ children }: { children: ReactNode }) => (
+  <span className="btn-label" aria-hidden="true">
+    {children}
+  </span>
+)
 
 export const Icon = ({ d }: { d: string }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

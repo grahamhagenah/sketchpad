@@ -90,7 +90,7 @@ main > .panel {
   gap: 10px 20px;
   /* Edge to edge and up to the top of the window, in the editor's own colour. */
   margin: calc(-1 * var(--pad-top)) calc(-1 * var(--gutter)) 0;
-  padding: var(--pad-top) var(--gutter) 14px;
+  padding: calc(var(--pad-top) - 6px) var(--gutter) 10px;
   background: var(--panel);
 }
 .toolbar-zone { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -99,7 +99,7 @@ main > .panel {
 .toolbar-end .toolbar-icons + .toolbar-icons { padding-left: 8px; border-left: 1px solid var(--line); }
 /* With room, the transport and display sit in the middle of the bar, whatever is either side of them. */
 /* If a side needs more than half what's left, it takes it, and the middle moves over. */
-@media (min-width: 1100px) {
+@media (min-width: 1200px) {
   .toolbar:not(.toolbar-compact) { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); }
   .toolbar-end { justify-content: flex-end; }
 }
@@ -232,6 +232,32 @@ main > .panel {
 .transport > button:focus-visible,
 .toolbar-modes .icon-btn:focus-visible,
 .chord-pad-length button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/*
+ * On a wider screen the sketches, undo, redo and export buttons have their
+ * names under their icons, in the small capitals the display's readouts are
+ * labelled in. A phone's bar has no room, and shows icons alone.
+ */
+.btn-label { display: none; }
+.toolbar:not(.toolbar-compact) .btn-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.toolbar:not(.toolbar-compact) button:has(> .btn-label) {
+  width: auto;
+  min-width: 44px;
+  height: var(--control-h);
+  padding: 0 8px;
+  align-content: center;
+  row-gap: 5px;
+}
+.toolbar .icon-btn:disabled .btn-label { opacity: 0.6; }
 
 /* Transport: start, play and record joined in one group. */
 .transport { display: inline-flex; height: var(--control-h); overflow: hidden; }
@@ -410,14 +436,17 @@ main > .panel {
 .inspector {
   flex: none;
   width: 260px;
-  align-self: flex-start;
+  margin-right: 12px;
+  /* Its edge runs the editor's full height, however little the settings take up. */
+  border-right: 1px solid var(--line-strong);
+}
+/* The settings themselves stay in view while a long section scrolls. */
+.inspector-body {
   position: sticky;
   top: 0;
   max-height: 100vh;
   overflow-y: auto;
-  margin-right: 12px;
   padding: 0 12px 16px 0;
-  border-right: 1px solid var(--line);
 }
 .track-sheet.is-docked { display: flex; flex-direction: column; gap: 12px; }
 .track-sheet.is-docked .track-sheet-head { cursor: auto; touch-action: auto; }
@@ -740,6 +769,12 @@ main > .panel {
   justify-content: space-between;
   gap: 4px;
   padding: 0 4px 0 8px;
+}
+/* Beside the tracks, the column of names ends in a clear edge, with room before it. */
+@media (min-width: 641px) {
+  .track-headers { border-right: 1px solid var(--line-strong); }
+  .track-header { padding-right: 16px; }
+  .timeline-corner { padding-right: 12px; }
 }
 
 /* The section's settings: three ways to copy it. */
@@ -2152,3 +2187,91 @@ main > .panel {
 .app.has-chord-pad .undo-note { bottom: calc(var(--chord-pad-h, 0px) + 12px); }
 @keyframes undo-note-in { from { opacity: 0; transform: translate(-50%, 8px); } }
 @media (prefers-reduced-motion: reduce) { .undo-note { animation: none; } }
+
+/*
+ * The chord keys: on a wider screen, a keyboard floating over the editor
+ * with every chord in the key, to play and try out. Its top bar holds the
+ * voicing and is where it's dragged from; the keys themselves are tall, like
+ * a keyboard's, the borrowed ones set apart after a gap, dashed as on the
+ * chord pad.
+ */
+.chord-keys {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 12px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--sheet-bg);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.55);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.chord-keys-head { display: flex; align-items: center; gap: 8px; height: 50px; cursor: grab; touch-action: none; }
+.chord-keys-head:active { cursor: grabbing; }
+.chord-keys-grip { flex: none; width: 10px; height: 16px; margin-right: 2px; background: radial-gradient(circle, var(--muted) 1.2px, transparent 1.6px) 0 0 / 5px 5px; opacity: 0.6; }
+.chord-keys-title { margin-right: auto; padding-right: 12px; font-size: var(--fs-title); font-weight: 600; white-space: nowrap; }
+.chord-keys-key { margin-left: 6px; font-size: var(--fs-body); font-weight: 500; color: var(--muted); }
+.chord-keys-seg { gap: 4px; }
+.chord-keys-seg button { min-width: 0; height: 30px; padding: 0 9px; font-size: var(--fs-small); }
+.chord-keys-close { width: 30px; height: 30px; margin-left: 4px; color: var(--muted); }
+.chord-keys-row { display: flex; gap: 6px; }
+.chord-key { position: relative; display: flex; }
+.chord-key.is-first-borrowed { margin-left: 14px; }
+.chord-key-play {
+  width: 72px;
+  height: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px 6px 12px 12px;
+  background: linear-gradient(var(--raised), color-mix(in srgb, var(--text) 6%, var(--raised)));
+  color: var(--text);
+  box-shadow: inset 0 -4px 0 rgb(0 0 0 / 0.25);
+  transition: background 120ms, transform 60ms;
+}
+.chord-key.is-borrowed .chord-key-play { border-style: dashed; background: var(--raised); }
+.chord-key-play:hover { border-color: var(--muted); }
+/* Pressed, and for a moment after it's played: lit in the accent, sunk a little. */
+.chord-key-play:active,
+.chord-key.is-lit .chord-key-play { background: color-mix(in srgb, var(--accent) 22%, var(--raised)); border-color: var(--accent); box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.25); transform: translateY(1px); }
+.chord-key-play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chord-key-name { font-size: var(--fs-display); font-weight: 700; }
+.chord-key-roman { font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); }
+.chord-key-hint { margin-top: 6px; font-family: 'DM Mono', monospace; font-size: var(--fs-label); color: var(--muted); opacity: 0.7; }
+/* A chord that usually comes next: a small dot along the top, as on the chord pad. */
+.chord-key.is-hinted::after { content: ''; position: absolute; top: 10px; left: calc(50% - 3px); width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0.8; pointer-events: none; }
+/* Adds the chord to the section: a small button in the key's top corner, shown on hover. */
+.chord-key-add {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.chord-key-add svg { width: 14px; height: 14px; }
+.chord-key:hover .chord-key-add, .chord-key-add:focus-visible { opacity: 1; }
+.chord-key-add:hover { background: var(--accent); color: var(--on-accent); }
+/* On a smaller screen than the row needs, the keys narrow to fit. */
+@media (max-width: 1100px) {
+  .chord-key-play { width: 58px; height: 116px; }
+  .chord-key-name { font-size: var(--fs-title); }
+}
+@media (max-width: 640px) {
+  .chord-keys { display: none; }
+}
