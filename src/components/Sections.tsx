@@ -152,7 +152,8 @@ export function SectionBar() {
           onClick={() => setView('song')}
           title="The whole song, section by section"
         >
-          <Icon d="M4 6h4v12H4zM10 6h4v12h-4zM16 6h4v12h-4z" />
+          {/* The song as the Song view shows it: its sections in rows, each as long as it is. */}
+          <Icon d="M4 6h10M4 12h16M4 18h7" />
           Song
         </button>
         {ordered.map((sec) => {
@@ -408,9 +409,11 @@ export function SectionPanel() {
 /** Each place in the song is a row this tall, with this gap under it: room for its chords, and a strip each for its drums and vocals. */
 const ROW_H = 82
 /** On a phone a row is stacked: its name on a line of its own, its chords the full width under it. */
-const NARROW_ROW_H = 106
-const NARROW_HEAD_H = 32
+const NARROW_ROW_H = 112
+const NARROW_HEAD_H = 44
 const ROW_GAP = 6
+/** Room at the end of each row for its buttons. */
+const END_PX = 150
 const rowTop = (i: number, rowH = ROW_H) => i * (rowH + ROW_GAP)
 
 /** An element's width, kept up to date as it changes. */
@@ -445,7 +448,7 @@ function rowAt(spans: ReturnType<typeof songSpans>, beat: number) {
  */
 export function SongView() {
   const state = useStore()
-  const { key, mode, timeSig, zoom, playing, playhead, arrangement, openSection, addToSong, addSection, moveInSong, drumTrack, bpm } = state
+  const { key, mode, timeSig, zoom, playing, playhead, arrangement, openSection, addToSong, addSection, moveInSong, removeFromSong, drumTrack, bpm } = state
   // Worked out here rather than in a selector, since they're new arrays each time.
   const sections = sectionsNow(state)
   const spans = songSpans(state)
@@ -463,9 +466,9 @@ export function SongView() {
   const narrow = sheetWidth > 0 && sheetWidth < 640
   const rowH = narrow ? NARROW_ROW_H : ROW_H
   const headPx = narrow ? 8 : 136
-  // Room is left at the end of each row for its menu button.
+  // Room is left at the end of each row for its buttons: up, down, remove and the menu.
   // A phone has no zoom buttons, so there the song always fits the screen.
-  const beatPx = (sheetWidth ? (sheetWidth - headPx - (narrow ? 16 : 44)) / longest : 8) * (narrow ? 1 : Math.max(1, zoom))
+  const beatPx = (sheetWidth ? (sheetWidth - headPx - (narrow ? 16 : END_PX)) / longest : 8) * (narrow ? 1 : Math.max(1, zoom))
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
   const uses = new Map<string, number>()
   for (const entry of arrangement) uses.set(entry.section, (uses.get(entry.section) ?? 0) + 1)
@@ -530,7 +533,7 @@ export function SongView() {
   )
 
   const startPress = (id: string, e: PointerEvent<HTMLElement>) => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest('.song-row-more')) return
+    if (e.button !== 0 || (e.target as HTMLElement).closest('.song-row-actions')) return
     suppressClick.current = false
     const x0 = e.clientX
     const y0 = e.clientY
@@ -585,7 +588,7 @@ export function SongView() {
       style={{ ['--song-head' as string]: `${headPx}px`, ['--song-track-top' as string]: narrow ? `${NARROW_HEAD_H}px` : '0px' }}
     >
       <div className="song-scroll" ref={scrollRef}>
-        <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + (narrow ? 16 : 44)}px)`, height: rowTop(spans.length, rowH) + 44 }}>
+        <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + (narrow ? 16 : END_PX)}px)`, height: rowTop(spans.length, rowH) + (narrow ? 80 : 60) }}>
           {/* Faint lines between the rows, staying put while a row is dragged past them. */}
           {spans.slice(1).map((_, i) => (
             <div key={i} className="song-divider" style={{ top: rowTop(i + 1, rowH) - ROW_GAP / 2 }} />
@@ -633,6 +636,13 @@ export function SongView() {
                       {[2, 8, 14].flatMap((y) => [2, 8].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" fill="currentColor" />))}
                     </svg>
                     <span className="song-row-title">{section.name}</span>
+                    {/* On a phone, how long it is and its key, beside its name. */}
+                    {narrow && beats > 0 && (
+                      <span className="song-row-length">
+                        {bars(beats)} {bars(beats) === 1 ? 'bar' : 'bars'} · {section.chords.length} {section.chords.length === 1 ? 'chord' : 'chords'} ·{' '}
+                        {keyLabel(section.sectionKey?.key ?? key, section.sectionKey?.mode ?? mode)} {section.sectionKey?.mode ?? mode}
+                      </span>
+                    )}
                   </span>
                   {/* The section's tracks in miniature, to scale with the other sections. */}
                   <span className="song-row-track" style={{ width: beats ? beats * beatPx : undefined }}>
@@ -684,7 +694,19 @@ export function SongView() {
                     )}
                   </span>
                 </button>
-                <BlockMenu entryId={entry.id} section={section} index={index} count={spans.length} shared={(uses.get(section.id) ?? 0) > 1} />
+                {/* Move it up or down the song, or take it out; the rest is in its menu. */}
+                <div className="song-row-actions">
+                  <button type="button" className="icon-btn song-row-act" disabled={index === 0} onClick={() => moveInSong(entry.id, index - 1)} aria-label={`Move ${section.name} earlier`} title="Move earlier (⌥↑)">
+                    <Icon d="M6 15l6-6 6 6" />
+                  </button>
+                  <button type="button" className="icon-btn song-row-act" disabled={index === spans.length - 1} onClick={() => moveInSong(entry.id, index + 1)} aria-label={`Move ${section.name} later`} title="Move later (⌥↓)">
+                    <Icon d="M6 9l6 6 6-6" />
+                  </button>
+                  <button type="button" className="icon-btn song-row-act" onClick={() => removeFromSong(entry.id)} aria-label={`Remove ${section.name} from the song`} title="Remove from the song; the section stays in its tab, and undo brings it back">
+                    <Icon d="M6 6l12 12M18 6L6 18" />
+                  </button>
+                  <BlockMenu entryId={entry.id} section={section} index={index} count={spans.length} shared={(uses.get(section.id) ?? 0) > 1} />
+                </div>
               </div>
             )
           })}

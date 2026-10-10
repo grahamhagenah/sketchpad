@@ -10,6 +10,9 @@ import { isDirty, reportStorageError, saveSketch } from './library'
 import { colorHex, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR } from './colors'
 import { ChordPad } from './components/ChordPad'
 import { VocalPad } from './components/VocalPad'
+import { DrumPad } from './components/DrumPad'
+import { ChordsTrackPad, Inspector } from './components/Inspector'
+import { toggleInspector, useInspector } from './components/InspectorToggle'
 import { RecordingSheet } from './components/RecordingSheet'
 import { useNarrow } from './hooks/useNarrow'
 
@@ -102,6 +105,8 @@ function useShortcuts() {
         void toggleRecord()
       } else if (e.key === 'a') {
         s.setArp({ on: !s.arp.on })
+      } else if (e.key === 'i') {
+        toggleInspector()
       } else if (e.key === 'Enter' || e.key === 'Home') {
         if (target.closest('button')) return
         void seek(0)
@@ -149,8 +154,14 @@ export default function App() {
   const narrow = useNarrow()
   const recording = useStore((s) => s.recording !== 'off')
   const chordPad = narrow && view === 'section' && !recording
-  // With a vocal track selected, the sheet shows its settings instead.
+  // With a vocal or the drum track selected, the sheet shows its settings instead.
   const selectedVocal = useStore((s) => s.selectedVocal)
+  const drumsSelected = useStore((s) => s.drumsTrackSelected && s.drumTrack)
+  const chordsSelected = useStore((s) => s.chordsTrackSelected && s.chords.length > 0)
+  // On a wider screen, what's selected has its settings in a column beside the tracks; an empty section has only its ways to start.
+  const hasChords = useStore((s) => s.chords.length > 0)
+  const inspectorShown = useInspector((s) => s.shown)
+  const inspector = !narrow && view === 'section' && hasChords && inspectorShown
 
   return (
     <div className={`app ${chordPad ? 'has-chord-pad' : ''} ${narrow && recording ? 'has-record-sheet' : ''}`} style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
@@ -158,11 +169,18 @@ export default function App() {
         <section className="panel editor" aria-label={view === 'song' ? 'Song' : 'Section'}>
           <Toolbar />
           <SectionBar />
-          {view === 'song' ? <SongView /> : <Timeline />}
+          {view === 'song' ? (
+            <SongView />
+          ) : (
+            <div className="editor-body">
+              {inspector && <Inspector />}
+              <Timeline />
+            </div>
+          )}
         </section>
       </main>
       <StatusBar />
-      {chordPad && (selectedVocal === null ? <ChordPad /> : <VocalPad lane={selectedVocal} />)}
+      {chordPad && (selectedVocal !== null ? <VocalPad lane={selectedVocal} /> : drumsSelected ? <DrumPad /> : chordsSelected ? <ChordsTrackPad /> : <ChordPad />)}
       {/* On a phone, recording takes over the bottom of the screen. */}
       {narrow && recording && <RecordingSheet />}
     </div>

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
 import { useDropBelow } from '../hooks/useDropBelow'
 import { useNarrow } from '../hooks/useNarrow'
-import { chordsTrackName, drumsTrackName, sectionsNow, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
-import { chordOf, keyLabel, type Mode } from '../music/theory'
-import { audition, deleteTake, engine, seek, togglePlay, toggleRecord } from '../audio/engine'
+import { chordsTrackName, drumsTrackName, sectionsNow, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS } from '../store'
+import { keyLabel, type Mode } from '../music/theory'
+import { engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
 import { SoundButton } from './SoundPanel'
 import { Position } from './Position'
@@ -15,33 +15,13 @@ import { playbackOf } from '../song'
 
 /** The one bar for playback, song settings and editing the selected chord. */
 export function Toolbar() {
-  const { key: songKey, mode: songMode, timeSig, playing, metronome, loopOn, chords, selectedId } = useStore()
+  const { key: songKey, mode: songMode, timeSig, playing, metronome, loopOn } = useStore()
   const { setKey, setMode, setTimeSig, toggleMetronome, toggleLoop, setSectionKey } = useStore()
   // In a section with its own key, the display shows and changes that; otherwise the song's.
   const ownKey = useStore((s) => (s.view === 'section' ? s.sectionKey : null))
   const activeSection = useStore((s) => s.activeSection)
   const { key, mode } = ownKey ?? { key: songKey, mode: songMode }
-  const { updateChord, removeChord, duplicateChord } = useStore()
-  const chord = chords.find((c) => c.id === selectedId)
-  // On a phone the selected chord is edited in the chord pad along the bottom, not here.
   const narrow = useNarrow()
-  const inSection = useStore((s) => s.view === 'section')
-  const padEdits = narrow && inSection
-  const selectedVocal = useStore((s) => s.selectedVocal)
-  const vocalNames = useStore((s) => s.vocalNames)
-  const recording = useStore((s) => s.recording)
-  const vocalSelected = selectedVocal !== null && recording === 'off'
-  const chordsTrackSelected = useStore((s) => s.chordsTrackSelected) && chords.length > 0
-  const clearChords = useStore((s) => s.clearChords)
-  const drumsTrackSelected = useStore((s) => s.drumsTrackSelected && s.drumTrack) && recording === 'off'
-  const removeDrumTrack = useStore((s) => s.removeDrumTrack)
-
-  const editChord = (c: Chord, patch: Partial<Omit<Chord, 'id'>>) => {
-    updateChord(c.id, patch)
-    audition({ ...c, ...patch })
-  }
-
-  const trackSelected = vocalSelected || chordsTrackSelected || drumsTrackSelected
 
   // On a phone the bar is one slim row (play, record, where you are, the key) unless opened up for the rest.
   const [expanded, setExpanded] = useState(false)
@@ -207,78 +187,7 @@ export function Toolbar() {
       </div>
 
       <div className="toolbar-zone toolbar-end">
-        {/* What's selected, as one joined unit, shown only while something is. */}
-        {chord && !padEdits && (
-          <div className="selection" role="group" aria-label="Selected chord">
-            <select
-              aria-label="Selected chord"
-              title="Change the selected chord"
-              className="selection-chord"
-              value={chord.degree}
-              onChange={(e) => editChord(chord, { degree: Number(e.target.value) })}
-            >
-              {Array.from({ length: 7 }, (_, d) => {
-                const o = chordOf(key, mode, { ...chord, degree: d })
-                return (
-                  <option key={d} value={d}>
-                    {o.name} — {o.roman}
-                  </option>
-                )
-              })}
-            </select>
-            <button type="button" className="selection-toggle" aria-pressed={chord.seventh} onClick={() => editChord(chord, { seventh: !chord.seventh })} title="Add 7th (S)">
-              7th
-            </button>
-            <select
-              aria-label="Chord colour"
-              title="Sus or added note"
-              value={chord.color ?? ''}
-              onChange={(e) => editChord(chord, { color: (e.target.value || undefined) as Chord['color'] })}
-            >
-              <option value="">Triad</option>
-              <option value="sus2">sus2</option>
-              <option value="sus4">sus4</option>
-              <option value="add9">add9</option>
-            </select>
-            <select
-              aria-label="Bass note"
-              title="Bass note (slash chord)"
-              value={chord.bass ?? ''}
-              onChange={(e) => editChord(chord, { bass: (e.target.value || undefined) as Chord['bass'] })}
-            >
-              <option value="">Root</option>
-              <option value="third">/3rd</option>
-              <option value="fifth">/5th</option>
-            </select>
-            <button type="button" className="selection-icon" aria-label="Duplicate" title="Duplicate (D)" onClick={() => duplicateChord(chord.id)}>
-              <Icon d="M9 9h10v10H9zM5 15V5h10" />
-            </button>
-            <button type="button" className="selection-icon is-danger" aria-label="Delete" title="Delete the selected chord (⌫)" onClick={() => removeChord(chord.id)}>
-              <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
-            </button>
-          </div>
-        )}
-        {!chord && trackSelected && (
-          <div className="selection" role="group" aria-label="Selected track">
-            <button
-              type="button"
-              className="selection-icon is-danger"
-              aria-label={
-                vocalSelected ? `Delete ${vocalTrackName({ vocalNames }, selectedVocal!)}` : drumsTrackSelected ? 'Remove the drum track' : 'Clear the progression'
-              }
-              title={
-                vocalSelected
-                  ? 'Delete the selected track (⌫)'
-                  : drumsTrackSelected
-                    ? 'Remove the drum track (⌫); each section keeps its groove if you add it back'
-                    : 'Clear every chord (⌫); undo brings them back'
-              }
-              onClick={() => (vocalSelected ? void deleteTake(selectedVocal!) : drumsTrackSelected ? removeDrumTrack() : clearChords())}
-            >
-              <Icon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
-            </button>
-          </div>
-        )}
+        {/* What's selected has its settings in the inspector beside the tracks (on a phone, the sheet along the bottom). */}
         <div className="toolbar-icons">
           <UndoRedo />
         </div>

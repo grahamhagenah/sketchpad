@@ -98,8 +98,8 @@ main > .panel {
 .toolbar-icons { display: flex; align-items: center; gap: 2px; }
 .toolbar-end .toolbar-icons + .toolbar-icons { padding-left: 8px; border-left: 1px solid var(--line); }
 /* With room, the transport and display sit in the middle of the bar, whatever is either side of them. */
-/* If a side needs more than half what's left (a chord's settings on a smaller screen), it takes it, and the middle moves over. */
-@media (min-width: 1420px) {
+/* If a side needs more than half what's left, it takes it, and the middle moves over. */
+@media (min-width: 1100px) {
   .toolbar:not(.toolbar-compact) { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); }
   .toolbar-end { justify-content: flex-end; }
 }
@@ -363,10 +363,52 @@ main > .panel {
   background: var(--line-strong);
   pointer-events: none;
 }
-/* With the section's settings in the column, the line runs under the timeline only. */
-.timeline-wrap:has(.track-headers.is-section)::after { left: 200px; }
 /* The timeline fills the editor's height, its bar and beat lines running on below the last track. */
 .timeline-wrap { flex: 1; }
+/*
+ * Beside the tracks on a wider screen: the inspector, with the settings of
+ * whatever's selected (or the section's), then the track names and timeline.
+ */
+.editor-body { flex: 1; display: flex; min-width: 0; }
+/* The titles over the inspector and the track names, side by side on one line: small capitals, in grey. */
+.column-title { margin: 0; font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.inspector-title { display: flex; align-items: center; justify-content: space-between; height: 30px; margin: 6px 0 10px; }
+.inspector-title .inspector-btn, .timeline-corner .inspector-btn { width: 30px; height: 30px; }
+/* Hidden, the button sits before the Tracks title, and the title after it. */
+.timeline-corner .inspector-btn + .column-title { margin-right: auto; margin-left: 4px; }
+.timeline-corner .inspector-btn { margin-left: -8px; }
+/* Its button, with the zoom buttons: white while it shows, grey while hidden. */
+.inspector-btn { color: var(--muted); }
+.inspector-btn.is-on { color: var(--text); }
+.inspector {
+  flex: none;
+  width: 260px;
+  align-self: flex-start;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  margin-right: 12px;
+  padding: 0 12px 16px 0;
+  border-right: 1px solid var(--line);
+}
+.track-sheet.is-docked { display: flex; flex-direction: column; gap: 12px; }
+.track-sheet.is-docked .track-sheet-head { cursor: auto; touch-action: auto; }
+.track-sheet.is-docked .chord-pad-actions { flex-wrap: wrap; }
+.track-sheet.is-docked .chord-pad-add,
+.track-sheet.is-docked .chord-pad-replace { height: 40px; font-size: var(--fs-body); }
+.inspector-chord { margin-right: auto; display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-display); font-weight: 700; }
+/* A setting with its name above it. */
+.inspector-field { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: var(--fs-body); }
+.inspector-field > span { font-size: var(--fs-small); color: var(--muted); }
+.inspector-field select {
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--raised);
+}
 .timeline-scroll { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-x: auto; padding-bottom: 6px; }
 .timeline {
   position: relative;
@@ -642,41 +684,9 @@ main > .panel {
   gap: 4px;
   padding: 0 4px 0 8px;
 }
-/* Two quiet tabs: plain grey labels, the one showing in white. */
-.pane-switch { display: inline-flex; gap: 2px; height: 26px; }
-.pane-switch button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 6px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  font-size: var(--fs-body);
-  font-weight: 500;
-  color: color-mix(in srgb, var(--muted) 70%, transparent);
-}
-.pane-switch button svg { width: 13px; height: 13px; flex: none; }
-.pane-switch button:hover { color: var(--muted); }
-.pane-switch button[aria-selected='true'] { color: var(--text); }
-.pane-switch button:focus-visible { outline-offset: -2px; }
-/* Beside the switch there's only room for the icon. */
-.timeline-corner .pane-switch ~ .unmute-all { flex: none; width: 26px; padding: 0; justify-content: center; }
-.timeline-corner .pane-switch ~ .unmute-all .unmute-all-label { display: none; }
 
-/* The section's settings, in the column in place of the track names, from the top of the first track down. */
-.section-panel {
-  position: absolute;
-  top: calc(var(--head) - var(--gap) / 2);
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 14px 4px 16px 0;
-  overflow-y: auto;
-}
+/* The section's settings, in the inspector when nothing is selected. */
+.section-panel { display: flex; flex-direction: column; gap: 1px; }
 .section-panel .menu-item { width: 100%; padding: 8px 10px; }
 .section-panel .menu-item-title { font-size: var(--fs-body); font-weight: 600; }
 .section-panel .menu-item.menu-item-row { padding-block: 6px; }
@@ -730,7 +740,8 @@ main > .panel {
 .song-title:hover { border-color: var(--line); }
 .song-title:focus { outline: none; border-color: var(--accent); background: var(--bg); }
 .track-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; color: var(--muted); }
-.track-header.is-selected .track-title { color: var(--accent); }
+/* Selected, like everything selected: in white. */
+.track-header.is-selected .track-title { color: var(--text); }
 .track-icon { flex: none; color: var(--track, inherit); }
 /* The icon is the colour picker: a small button, ringed in its colour when hovered. */
 .track-color {
@@ -793,7 +804,7 @@ main > .panel {
   font-weight: 500;
 }
 .track-name-input:focus-visible { outline: none; border-color: var(--accent); }
-.track-header.is-selected .track-name { color: var(--accent); }
+.track-header.is-selected .track-name { color: var(--text); }
 .track-btn {
   width: 20px;
   height: 20px;
@@ -1248,12 +1259,21 @@ main > .panel {
 .song-row:hover .song-row-grip { opacity: 0.5; }
 .song-row.is-dragging .song-row-grip { opacity: 0.8; }
 /* The row's menu: always there and big enough to find, but quiet until hovered. */
-.song-row-more {
+/* The row's buttons at its end: up, down, remove, and the menu. */
+.song-row-actions {
   position: absolute;
   top: 50%;
   right: 6px;
   transform: translateY(-50%);
   z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.song-row-act { width: 30px; height: 30px; color: var(--muted); }
+.song-row-act svg { width: 16px; height: 16px; }
+.song-row-act:disabled { opacity: 0.25; }
+.song-row-more {
   width: 34px;
   height: 34px;
   min-height: 0;
@@ -1269,27 +1289,34 @@ main > .panel {
   .song-row:not(.is-playing):not(.is-dragging):hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
 }
 /* A small button under the names, like the ones that add tracks. */
-.song-add { position: absolute; left: 4px; padding-top: 4px; }
+.song-add { position: absolute; left: 4px; padding-top: 8px; }
+/* A slot to fill, dashed like the buttons that add tracks; on a phone, the screen's width. */
 .song-add-btn {
-  height: 28px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px 0 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: var(--raised);
+  gap: 8px;
+  padding: 0 16px 0 12px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 10px;
+  background: none;
   font-size: var(--fs-body);
   font-weight: 500;
   color: var(--muted);
 }
-.song-add-btn svg { width: 14px; height: 14px; }
+.song-add-btn svg { width: 16px; height: 16px; }
 .song-add-btn:hover, .song-add-btn[aria-expanded='true'] { color: var(--text); border-color: var(--muted); }
+.song-view.is-narrow .song-add { right: 4px; }
+.song-view.is-narrow .song-add-btn { width: 100%; height: 56px; padding: 0 16px; font-size: var(--fs-title); }
 /* On a phone each row is stacked: its name and menu on a line, its chords the full width under them. */
 .song-view.is-narrow .song-row-body { flex-direction: column; align-items: stretch; }
-.song-view.is-narrow .song-row-head { width: auto; height: 32px; padding: 0 44px 0 8px; }
+.song-view.is-narrow .song-row-head { width: auto; height: 44px; gap: 10px; padding: 4px 150px 0 8px; }
 .song-view.is-narrow .song-row-track { flex: 1; align-self: flex-start; margin-left: var(--song-head); }
-.song-view.is-narrow .song-row-more { top: 16px; }
+.song-view.is-narrow .song-row-actions { top: 24px; gap: 4px; }
+/* A phone drags rows by holding them, so there's no grip; the name has its length beside it. */
+.song-view.is-narrow .song-row-grip { display: none; }
+.song-row-length { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-small); font-weight: 500; color: var(--muted); }
+.song-view.is-narrow .song-row-title { flex: none; }
 
 /* The playhead runs along the row being played, from the start of the grid (under the name, on a phone). */
 .song-playhead {
@@ -1331,8 +1358,10 @@ main > .panel {
 /* The grab handle along the top: drag it down to fold the sheet, or tap it. */
 .chord-pad-handle,
 .chord-pad-unfold { width: 100%; padding: 0; border: 0; background: none; touch-action: none; cursor: grab; }
-.chord-pad-handle { height: 18px; display: grid; place-items: center; margin-bottom: -8px; }
-.chord-pad-grip { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); }
+.chord-pad-handle { height: 30px; display: grid; place-items: center; margin-bottom: -12px; }
+.chord-pad-grip { display: block; width: 44px; height: 5px; border-radius: 3px; background: var(--line-strong); }
+/* The title row drags the sheet too, a bigger thing to catch than the handle. */
+.chord-pad-head, .track-sheet-head { touch-action: none; cursor: grab; }
 .chord-pad-unfold { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 16px 12px; }
 .chord-pad-unfold-row { align-self: stretch; display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-title); font-weight: 700; color: var(--text); }
 .chord-pad-head { display: flex; align-items: center; gap: 6px; }
@@ -1391,9 +1420,8 @@ main > .panel {
 .chord-pad-pad.is-borrowed { border-style: dashed; }
 .chord-pad-pad:active { background: color-mix(in srgb, var(--text) 12%, var(--raised)); }
 .chord-pad-pad.is-picked { border: 2px solid var(--text); background: color-mix(in srgb, var(--text) 10%, var(--raised)); }
-/* A chord that usually comes next: a dot in its corner, and a slightly brighter edge. */
-.chord-pad-pad.is-hinted { border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong)); }
-.chord-pad-pad.is-hinted::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+/* A chord that usually comes next: a small grey dot in its corner, a hint rather than a highlight. */
+.chord-pad-pad.is-hinted::after { content: ''; position: absolute; top: 6px; right: 6px; width: 5px; height: 5px; border-radius: 50%; background: var(--muted); opacity: 0.7; }
 .chord-pad-name { font-size: var(--fs-title); font-weight: 700; }
 .chord-pad-roman { font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); }
 /* The picked chord's options, scrolling sideways if they don't fit. */
@@ -1427,14 +1455,15 @@ main > .panel {
 .chord-pad-add { border: 0; background: var(--accent); color: var(--on-accent); }
 .chord-pad-replace { border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); }
 /* With a vocal track selected, the sheet is its settings: name, take, mix, colour, then delete and record. */
-.vocal-pad { padding-top: 14px; }
-.vocal-pad-head { display: flex; align-items: center; gap: 8px; }
+.track-sheet.is-folded { padding-top: 0; }
+.track-sheet-head { display: flex; align-items: center; gap: 8px; }
 /* The track's colour, a button: tapped, the palette opens under it. */
-.vocal-pad-dot { flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--track); }
-.vocal-pad-dot[aria-expanded='true'] { box-shadow: 0 0 0 2px var(--sheet-bg), 0 0 0 4px var(--track); }
-.vocal-pad-name {
-  flex: 1;
+.track-sheet-dot { flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--track); }
+.track-sheet-dot[aria-expanded='true'] { box-shadow: 0 0 0 2px var(--sheet-bg), 0 0 0 4px var(--track); }
+.track-sheet-name {
+  flex: 0 1 auto;
   min-width: 0;
+  margin-right: auto;
   height: 34px;
   padding: 0 8px;
   margin-left: -4px;
@@ -1444,17 +1473,48 @@ main > .panel {
   font-size: var(--fs-title);
   font-weight: 700;
 }
-.vocal-pad-name:focus { outline: none; border-color: var(--accent); background: var(--bg); }
+.track-sheet-name:focus { outline: none; border-color: var(--accent); background: var(--bg); }
 /* What's on the track, beside its mute and solo. */
-.vocal-pad-status { display: flex; align-items: center; gap: 12px; }
-.vocal-pad-about { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-small); color: var(--muted); }
+.track-sheet-status { display: flex; align-items: center; gap: 12px; }
+/* On as in the track headers: mute in grey, solo in the accent. */
+.track-sheet .chord-pad-seg button.is-mute[aria-pressed='true'] { background: color-mix(in srgb, var(--text) 14%, var(--raised)); color: var(--text); }
+.track-sheet .chord-pad-seg button.is-solo[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, var(--raised)); color: var(--accent); }
+.track-sheet-about { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-small); color: var(--muted); }
 /* A slider with its name before it and its value after. */
-.vocal-pad-slider { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; font-size: var(--fs-body); }
-.vocal-pad-slider > span { flex: none; width: 3.6em; color: var(--muted); }
-.vocal-pad-slider input { flex: 1; min-width: 0; accent-color: var(--text); }
-.vocal-pad-slider output { flex: none; width: 6ch; text-align: right; font-size: var(--fs-small); color: var(--muted); font-variant-numeric: tabular-nums; }
-.vocal-pad-colors { display: grid; grid-template-columns: repeat(8, 26px); justify-content: space-between; row-gap: 10px; padding: 2px 4px; }
-.vocal-pad-colors .swatch[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--sheet-bg), 0 0 0 4px var(--swatch); }
+.track-sheet-slider { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; font-size: var(--fs-body); }
+.track-sheet-slider > span { flex: none; width: 3.6em; color: var(--muted); }
+.track-sheet-slider .track-volume { flex: 1 1 auto; min-width: 0; }
+.track-sheet-slider output { flex: none; width: 6ch; text-align: right; font-size: var(--fs-small); color: var(--muted); font-variant-numeric: tabular-nums; }
+.track-sheet-colors { display: grid; grid-template-columns: repeat(8, 26px); justify-content: space-between; row-gap: 10px; padding: 2px 4px; }
+.track-sheet-colors .swatch[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--sheet-bg), 0 0 0 4px var(--swatch); }
+/* The grooves to pick from, one to a row: its pattern drawn small, its name and what it does; the section's own ringed in white like anything selected. */
+.drum-pad-grooves { display: flex; flex-direction: column; gap: 6px; }
+.drum-pad-grooves button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--raised);
+  text-align: left;
+  color: var(--muted);
+}
+.drum-pad-grooves button:not(:disabled):hover { border-color: var(--muted); }
+.drum-pad-grooves button[aria-checked='true'] { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); color: var(--text); }
+.drum-pad-groove-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.drum-pad-groove-name { font-size: var(--fs-body); font-weight: 600; color: var(--text); }
+.drum-pad-groove-about { font-size: var(--fs-small); line-height: 1.35; }
+.drum-pad-pattern { flex: none; width: 64px; height: 22px; }
+.drum-pad-pattern circle { fill: var(--muted); }
+.drum-pad-pattern .drum-pad-pattern-beat { fill: var(--line-strong); }
+.drum-pad-pattern .is-kick { fill: var(--text); }
+.drum-pad-grooves button[aria-checked='true'] .drum-pad-pattern circle:not(.drum-pad-pattern-beat) { fill: var(--text); }
+/* On a phone, a row of cards to scroll sideways, so the sheet leaves the tracks in view. */
+.chord-pad .drum-pad-grooves { flex-direction: row; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 1px 12px; scroll-padding: 12px; scroll-snap-type: x proximity; }
+.chord-pad .drum-pad-grooves::-webkit-scrollbar { display: none; }
+.chord-pad .drum-pad-grooves button { flex: none; width: 150px; flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; scroll-snap-align: start; }
+.track-sheet-link { align-self: flex-start; padding: 0; border: 0; background: none; font-size: var(--fs-small); color: var(--muted); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
 .vocal-pad-record { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--record); color: #fff; }
 .vocal-pad-record:disabled { opacity: 0.4; }
 .vocal-pad-record-dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; }
@@ -1552,16 +1612,6 @@ main > .panel {
 .status-keys { margin-left: 14px; }
 .status-main > .status-keys:first-child { margin-left: 0; }
 .status-bar kbd { font-size: var(--fs-label); padding: 0 4px; }
-.status-action {
-  margin-left: 14px;
-  padding: 2px 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  background: none;
-  font-size: var(--fs-small);
-  color: var(--muted);
-}
-.status-action:hover { color: var(--text); border-color: var(--muted); }
 .status-bar .status-save { flex: none; margin-left: auto; }
 /* All the keyboard shortcuts, from the corner of the status bar; the list opens upwards. */
 .status-bar .icon-btn { width: 26px; height: 26px; margin-right: -6px; }
@@ -1775,38 +1825,55 @@ main > .panel {
    * so the tracks have the screen's whole width. The names float over the
    * timeline and stay put while it scrolls sideways.
    */
-  .timeline-wrap { --label-h: 24px; }
+  .timeline-wrap { --label-h: 34px; }
   .track-headers { position: absolute; inset: 0; width: auto; z-index: 4; pointer-events: none; }
   .track-header, .track-add, .timeline-corner > * { pointer-events: auto; }
-  /* Level with the chord blocks above, which sit 3px in from the timeline's edge. */
-  .track-add { left: 3px; right: 3px; }
-  /* An empty vocal track: an outline in its place, with what to do in it, kept in view as the timeline scrolls; selected, in its colour. */
-  .vocal-row.is-empty { display: flex; align-items: center; background: none; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+  /* Level with the chord blocks above; one gap apart, as they have no name above them to make room for. */
+  .track-add {
+    left: 3px;
+    right: 3px;
+    top: calc(var(--vocal-top) - var(--label-h) + var(--adds-shift, 0px) + var(--adds-row, 0) * var(--vocal-step) + (var(--row, 0) - var(--adds-row, 0)) * (var(--vocal-h) + var(--gap)));
+  }
+  /* An empty vocal track: an outline the screen's width, with what to do in it; selected, ringed in white like anything selected. */
+  .vocal-row.is-empty { right: auto; width: calc(100vw - 2 * var(--gutter) - 6px); display: flex; align-items: center; background: none; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
   .vocal-row.is-empty:not(:disabled):hover { background: none; }
-  .vocal-row.is-empty.is-selected { background: color-mix(in srgb, var(--track) 8%, transparent); box-shadow: inset 0 0 0 1.5px var(--track); }
-  .vocal-row-empty { display: inline-flex; position: sticky; left: 0; }
-  .vocal-row-empty svg { width: 15px; height: 15px; flex: none; color: var(--track); }
+  .vocal-row.is-empty.is-selected { background: rgb(255 255 255 / 0.04); box-shadow: inset 0 0 0 1.5px var(--text); }
+  .vocal-row-empty { display: inline-flex; }
   .vocal-row.is-selected .vocal-row-empty { color: var(--text); }
+  /* The screen's width, level with the track under it: its name on the left, mute and solo at the far right. */
   .track-header {
-    right: auto;
+    left: 3px;
+    right: 3px;
     flex-wrap: nowrap;
     gap: 4px;
-    padding: 0 18px 0 8px;
-    background: linear-gradient(to right, var(--panel) 75%, transparent);
+    padding: 0 0 0 4px;
+    border-radius: 6px;
+    background: var(--panel);
   }
   .track-header.is-chords { top: calc(var(--chord-top) - var(--label-h) - 1px); height: var(--label-h); }
   .track-header.is-drums { top: calc(var(--drum-top) - var(--label-h) - 1px); height: var(--label-h); }
   .track-header.is-vocal { top: calc(var(--vocal-top) - var(--label-h) - 1px + var(--row, 0) * var(--vocal-step)); height: var(--label-h); }
-  .track-title { flex: none; gap: 4px; }
-  .track-title .track-color { width: 22px; height: 22px; margin: -2px 0 -2px -2px; }
-  .track-name-input { height: 22px; }
-  .track-btn.is-mute { margin-left: 6px; }
-  .track-volume { display: none; }
+  .track-title { flex: 1; min-width: 0; gap: 4px; }
+  .track-title .track-color { width: 28px; height: 28px; margin: -2px 0 -2px -4px; }
+  .track-title .track-color svg { width: 18px; height: 18px; }
+  .track-name { font-size: var(--fs-title); font-weight: 600; }
+  .track-name-input { height: 30px; font-size: var(--fs-title); }
+  .track-btn.is-mute { margin-left: auto; }
+  /* Over the bar numbers, so it covers them rather than mixing with them. */
+  .timeline-corner .unmute-all { background: var(--panel); }
+  /* Bigger to tap: wider, nearly the name row's full height, and reaching up into the gap above for a finger. */
+  .track-btn { position: relative; width: 36px; height: 30px; border-radius: 7px; font-size: var(--fs-body); }
+  .track-btn::before { content: ''; position: absolute; inset: -6px 0 -2px; }
+  .track-header .track-volume { display: none; }
+  /* The status bar's hints are for a keyboard and mouse; a phone does without it (recording timing is in the vocal panel). */
+  .status-bar { display: none; }
   /* No bar lines down through the tracks on a phone; the notches along the top mark the bars and beats. */
   .timeline { background: none; }
   /* The chord pad along the bottom has the key's chords; the starter keeps the rest, the screen's width. */
   .starter { width: calc(100vw - 2 * var(--gutter) - 6px); }
   .starter-group.is-chords { display: none; }
+  /* The names sit above each track on a phone; there's no column to title. */
+  .timeline-corner .column-title { display: none; }
   .timeline-corner { top: var(--ruler-top); height: var(--ruler-h); left: auto; padding: 0; }
   /* Just the gear, to leave the tabs room. */
   .section-settings-label { display: none; }

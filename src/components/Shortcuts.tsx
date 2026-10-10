@@ -19,6 +19,7 @@ const SHORTCUTS: [ReactNode, string][] = [
   [<kbd>L</kbd>, 'Loop'],
   [<kbd>A</kbd>, 'Arpeggiator'],
   [<kbd>R</kbd>, 'Record'],
+  [<kbd>I</kbd>, 'Settings panel'],
   [<><kbd>−</kbd><kbd>+</kbd></>, 'Zoom'],
   [<kbd>?</kbd>, 'This list'],
 ]

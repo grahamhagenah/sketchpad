@@ -35,10 +35,3 @@ export const colorHex = (id: ColorId) => PALETTE.find((c) => c.id === id)?.hex ?
 export const vocalColorId = (colors: readonly (ColorId | null)[] | undefined, lane: number) => colors?.[lane] ?? DEFAULT_VOCAL_COLORS[lane % DEFAULT_VOCAL_COLORS.length]
 
 export const vocalColor = (colors: readonly (ColorId | null)[] | undefined, lane: number) => colorHex(vocalColorId(colors, lane))
-
-/** A colour at random from those no track is using yet; if every one is taken, any of them. */
-export function freshColor(used: readonly ColorId[]): ColorId {
-  const free = PALETTE.filter((c) => !used.includes(c.id))
-  const from = free.length ? free : PALETTE
-  return from[Math.floor(Math.random() * from.length)].id
-}

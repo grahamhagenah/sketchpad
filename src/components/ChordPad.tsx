@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useSheetDrag } from '../hooks/useSheetDrag'
 import { keyOf, useStore, type Chord } from '../store'
 import { BORROWED, chordOf, keyLabel, nextChords, type ChordBass, type ChordColor } from '../music/theory'
 import { audition } from '../audio/engine'
@@ -45,10 +46,6 @@ const savedQuick = () => {
     return false
   }
 }
-
-/** How far the panel is dragged down before it folds, or up before it opens. */
-const FOLD_PX = 60
-const OPEN_PX = 30
 
 /**
  * On a phone, a sheet along the bottom of a section for building its chords
@@ -143,35 +140,8 @@ export function ChordPad() {
     audition(swapped)
   }
 
-  // Dragging the handle folds or opens the sheet; a tap on it does too.
-  const [dragY, setDragY] = useState(0)
-  const drag = useRef<{ y: number; moved: boolean } | null>(null)
-  const handleDown = (e: PointerEvent<HTMLElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId)
-    drag.current = { y: e.clientY, moved: false }
-  }
-  const handleMove = (e: PointerEvent<HTMLElement>) => {
-    if (!drag.current) return
-    const dy = e.clientY - drag.current.y
-    if (Math.abs(dy) > 4) drag.current.moved = true
-    // Open, it follows the finger down; folded, it waits for a pull up.
-    if (open) setDragY(Math.max(0, dy))
-  }
-  const handleUp = (e: PointerEvent<HTMLElement>) => {
-    const d = drag.current
-    drag.current = null
-    setDragY(0)
-    if (!d) return
-    const dy = e.clientY - d.y
-    if (!d.moved) setOpen(!open)
-    else if (open && dy > FOLD_PX) setOpen(false)
-    else if (!open && dy < -OPEN_PX) setOpen(true)
-  }
-  const handleCancel = () => {
-    drag.current = null
-    setDragY(0)
-  }
-  const handle = { onPointerDown: handleDown, onPointerMove: handleMove, onPointerUp: handleUp, onPointerCancel: handleCancel }
+  // Dragging the handle (or the title row) folds or opens the sheet; a tap on the handle does too.
+  const { dragY, handle, area } = useSheetDrag(open, setOpen)
 
   const pads = [
     ...Array.from({ length: 7 }, (_, degree) => ({ degree, borrowed: false })),
@@ -231,7 +201,7 @@ export function ChordPad() {
       <button type="button" className="chord-pad-handle" aria-label="Fold the chord pad" {...handle}>
         <span className="chord-pad-grip" aria-hidden="true" />
       </button>
-      <div className="chord-pad-head">
+      <div className="chord-pad-head" {...area}>
         <span className="chord-pad-title">
           Chords <span className="chord-pad-key">{keyLabel(key, mode)} {mode}</span>
         </span>

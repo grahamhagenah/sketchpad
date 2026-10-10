@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { vocalColorId } from './colors'
 import { LANES } from './audio/take'
 import { audibleTracks, loopRange, sectionsNow, sketchSignature, songOf, songState, songSummary, totalBeats, useStore } from './store'
 
@@ -269,11 +270,20 @@ describe('track colours', () => {
     useStore.getState().loadProgression([0, 4], false)
   })
 
-  it('gives each new track a colour no other track has', () => {
+  it('gives each new track the colour of its place, the same every time', () => {
     const s = () => useStore.getState()
     s().addDrumTrack()
-    for (let i = 0; i < 8; i++) s().addVocalTrack()
-    const colors = [s().chordsColor ?? 'blue', s().drumsColor, ...s().vocalColors]
-    expect(new Set(colors).size).toBe(colors.length)
+    for (let i = 0; i < 3; i++) s().addVocalTrack()
+    expect(s().drumsColor).toBeNull()
+    expect([0, 1, 2].map((lane) => vocalColorId(s().vocalColors, lane))).toEqual(['violet', 'teal', 'orange'])
+  })
+
+  it('gives a track added where one was deleted its place’s colour, not the old one’s', () => {
+    const s = () => useStore.getState()
+    s().addVocalTrack()
+    s().setVocalColor(0, 'red')
+    s().renumberVocals([])
+    s().addVocalTrack()
+    expect(vocalColorId(s().vocalColors, 0)).toBe('violet')
   })
 })

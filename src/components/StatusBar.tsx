@@ -5,7 +5,6 @@ import { grooveLabel } from '../audio/drums'
 import { chordOf } from '../music/theory'
 import { isDirty } from '../library'
 import { ShortcutsButton } from './Shortcuts'
-import { checkLatency } from '../audio/engine'
 
 /**
  * A strip along the bottom of the window: what's selected, with the keys that
@@ -96,14 +95,6 @@ function Status() {
             <kbd>⌫</kbd> delete the take
           </Keys>
         )}
-        <button
-          type="button"
-          className="status-action"
-          onClick={() => void checkLatency()}
-          title="Play a few clicks and listen for them, so takes line up with the beat on this device"
-        >
-          {s.latency === null ? 'Check recording timing' : `Timing ${Math.round(s.latency * 1000)} ms · check again`}
-        </button>
       </>
     )
   }
