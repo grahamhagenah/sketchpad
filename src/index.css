@@ -1976,7 +1976,7 @@ main > .panel {
 /* With room, the panel widens to two columns side by side, half as tall. */
 @media (min-width: 1000px) {
   .toolbar-modes .sound-panel:has(.sound-col) { width: min(660px, calc(100vw - 32px)); }
-  .sound-panel .sound-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .sound-panel .sound-body:has(> .sound-col) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
   .sound-panel .sound-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 }
 .sound-body .sound-section { gap: 8px; }
