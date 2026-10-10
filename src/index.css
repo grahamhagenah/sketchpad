@@ -431,12 +431,19 @@ main > .panel {
 .chord-pad-option > span { font-family: 'DM Mono', monospace; font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .inspector-field select {
   width: 100%;
-  height: 34px;
+  height: 38px;
   padding: 0 8px;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: var(--raised);
 }
+.inspector-field select:not(:disabled):hover { border-color: var(--muted); }
+/* Focused: a ring drawn inside its edge, which the panel's own edge can't cut off. */
+.inspector-field select:focus-visible { outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+/* Buttons at a panel's edge keep their focus ring inside them too, so it isn't cut off there. */
+.inspector button:focus-visible,
+.chord-pad button:focus-visible,
+.sound-panel button:focus-visible { outline-offset: -2px; }
 .timeline-scroll { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-x: auto; padding-bottom: 6px; }
 .timeline {
   position: relative;
@@ -735,8 +742,7 @@ main > .panel {
   padding: 0 4px 0 8px;
 }
 
-/* The section's settings: where it is in the song, with adding it to the end beside; three ways to copy it. */
-.section-sheet-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* The section's settings: three ways to copy it. */
 .section-sheet-copies { width: 100%; }
 .section-sheet-copies button { padding: 0 4px; }
 /* On a blank sketch, under the ways to start: the demo song, to hear what Bounce does first. */

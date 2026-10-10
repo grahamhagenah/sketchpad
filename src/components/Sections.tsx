@@ -420,20 +420,19 @@ export const useSectionSheet = create(() => ({ open: false }))
 
 /**
  * The open section's settings, laid out as a track's are: its name to edit,
- * then its key, its place in the song, copies of it, and deleting it. In the
+ * then its key, copies of it, and deleting it. In the
  * inspector beside the tracks with nothing selected; on a phone, a sheet
  * along the bottom from the gear on the tabs, with a × to put it away.
  */
 export function SectionPanel({ docked = true, onDone }: { docked?: boolean; onDone?: () => void }) {
   const id = useStore((s) => s.activeSection)
   const name = useStore((s) => s.sections.find((sec) => sec.id === s.activeSection)?.name)
-  const { renameSection, duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useStore()
+  const { renameSection, duplicateSection, deleteSection, openSection, setSectionKey, liftSection } = useStore()
   const songKey = useStore((s) => s.key)
   const songMode = useStore((s) => s.mode)
   // The open section's own key lives with its chords, in the editor.
   const sectionKey = useStore((s) => s.sectionKey)
   const count = useStore((s) => s.sections.length)
-  const places = useStore((s) => s.arrangement.filter((entry) => entry.section === s.activeSection).length)
   const recording = useStore((s) => s.recording !== 'off')
   const [confirming, setConfirming] = useState(false)
   if (name === undefined) return null
@@ -471,15 +470,6 @@ export function SectionPanel({ docked = true, onDone }: { docked?: boolean; onDo
           ))}
         </select>
       </label>
-      <div className="inspector-field">
-        <span>In the song</span>
-        <div className="section-sheet-row">
-          <span className="track-sheet-about">{places ? `Plays ${places === 1 ? 'once' : `${places} times`}` : 'Not in the song yet'}</span>
-          <button type="button" className="chord-pad-chip" onClick={() => addToSong(id)} title="Add it to the end of the song">
-            Add to the end
-          </button>
-        </div>
-      </div>
       <div className="inspector-field">
         <span>Make a copy</span>
         <div className="chord-pad-seg section-sheet-copies" role="group" aria-label="Make a copy">
