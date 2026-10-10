@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
+import { useDropBelow } from '../hooks/useDropBelow'
 import { useNarrow } from '../hooks/useNarrow'
 import { chordsTrackName, drumsTrackName, sectionsNow, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS, type Chord } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
@@ -354,6 +355,7 @@ function ExportButton() {
   const ref = useRef<HTMLDivElement>(null)
 
   useDismiss(open, close, ref)
+  const below = useDropBelow(open, ref)
 
   const exportMidi = () => {
     const s = useStore.getState()
@@ -413,7 +415,7 @@ function ExportButton() {
         <Icon d="M12 4v11M7 10l5 5 5-5M5 20h14" />
       </button>
       {open && (
-        <div className="menu" id="export-menu" aria-label="Export as">
+        <div className="menu" id="export-menu" aria-label="Export as" style={below}>
           <button type="button" className="menu-item" onClick={exportMidi} disabled={rendering !== null}>
             <span className="menu-item-title">MIDI</span>
             <span className="menu-item-about">The whole song’s chords, bass and drums on separate tracks, for a DAW</span>

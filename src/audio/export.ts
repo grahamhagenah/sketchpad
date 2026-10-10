@@ -1,7 +1,7 @@
 import * as Tone from 'tone'
 import { keyLabel, keySignature } from '../music/theory'
 import { arrange } from './arrange'
-import { createInstruments, midiToHz } from './instruments'
+import { createInstruments, createVocalRoom, midiToHz, routeVocal } from './instruments'
 import { createKit, DRUM_NOTES, KIT_VOLUME, playDrum } from './drums'
 import { zip } from './zip'
 import { toAudioBuffer, type Take } from './take'
@@ -127,7 +127,7 @@ export function songToMidi(song: ExportSong): Blob {
 // ---- WAV ----
 
 /** A take placed where it plays, and which vocal track it's on. */
-export type PlacedTake = Take & { track: number; db?: number }
+export type PlacedTake = Take & { track: number; db?: number; reverb?: number }
 
 /** The takes that play, each moved to where it plays and cut off at the end of its section. */
 export function placedTakes(song: Pick<Playback, 'bpm' | 'timeSig' | 'vocals'>, audioOf: (id: string) => Take | undefined): PlacedTake[] {
@@ -137,7 +137,7 @@ export function placedTakes(song: Pick<Playback, 'bpm' | 'timeSig' | 'vocals'>, 
     if (!take) return []
     const room = Math.round((vocal.endBeat - vocal.startBeat) * beatSeconds * take.sampleRate)
     const samples = Number.isFinite(room) && room < take.samples.length ? take.samples.subarray(0, Math.max(0, room)) : take.samples
-    return [{ ...take, startBeat: vocal.startBeat, samples, track: vocal.track, db: vocal.db }]
+    return [{ ...take, startBeat: vocal.startBeat, samples, track: vocal.track, db: vocal.db, reverb: vocal.reverb }]
   })
 }
 
@@ -183,8 +183,13 @@ async function render(song: ExportSong, parts: Parts, duration: number) {
       kit.out.volume.value = KIT_VOLUME + (song.drumsDb ?? 0)
       for (const h of song.drums ?? []) playDrum(kit, h.piece, h.beat * beatSeconds, h.velocity)
     }
+    // The vocals' reverb, as in playback, when any take has some.
+    const room = parts.takes.some((take) => take.reverb) ? createVocalRoom() : null
+    if (room) await room.ready
     for (const take of parts.takes) {
-      const player = new Tone.Player(toAudioBuffer(take)).toDestination()
+      const player = new Tone.Player(toAudioBuffer(take))
+      if (room) routeVocal(player, room, take.reverb ?? 0)
+      else player.toDestination()
       player.volume.value = take.db ?? 0
       player.start(take.startBeat * beatSeconds)
     }

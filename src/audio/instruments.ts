@@ -46,3 +46,13 @@ export function applySound({ pad, bass, filter, reverb }: Instruments, sound: So
   reverb.wet.value = sound.reverb
   bass.volume.value = sound.bass ? BASS_VOLUME : -Infinity
 }
+
+/** The room the vocals share, in whichever Tone context is current; each track sends to it as much as its reverb says. */
+export const createVocalRoom = () => new Tone.Reverb({ decay: 2.2, preDelay: 0.02, wet: 1 }).toDestination()
+
+/** Plays a take straight out, and sends it to the room by `amount` (0 to 1); returns the send, to change later. */
+export function routeVocal(player: Tone.Player, room: Tone.Reverb, amount: number) {
+  const send = new Tone.Gain(amount).connect(room)
+  player.toDestination().connect(send)
+  return send
+}

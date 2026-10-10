@@ -69,6 +69,8 @@ export interface SectionParts {
   vocalNames: (string | null)[]
   /** Each vocal track's level, in dB from its usual one. */
   vocalVolume: number[]
+  /** How much reverb each vocal track has, from none (0) to plenty (1). */
+  vocalReverb: number[]
   /** Colours given to the vocal tracks; null keeps the one its lane takes by default. */
   vocalColors: (ColorId | null)[]
   /** How many vocal tracks show, empty ones included. */
@@ -198,6 +200,7 @@ interface State extends SectionParts {
   setChordsVolume: (db: number) => void
   setDrumsVolume: (db: number) => void
   setVocalVolume: (lane: number, db: number) => void
+  setVocalReverb: (lane: number, amount: number) => void
   setChordsColor: (color: ColorId) => void
   setDrumsColor: (color: ColorId) => void
   setVocalColor: (lane: number, color: ColorId) => void
@@ -279,6 +282,7 @@ const partsOf = (p: SectionParts): SectionParts => ({
   vocalSolo: p.vocalSolo,
   vocalNames: p.vocalNames,
   vocalVolume: p.vocalVolume,
+  vocalReverb: p.vocalReverb,
   vocalColors: p.vocalColors,
   vocalTracks: p.vocalTracks,
   drums: p.drums,
@@ -293,6 +297,7 @@ export const emptyParts = (): SectionParts => ({
   vocalSolo: Array(LANES).fill(false),
   vocalNames: Array(LANES).fill(null),
   vocalVolume: Array(LANES).fill(0),
+  vocalReverb: Array(LANES).fill(0),
   vocalColors: Array(LANES).fill(null),
   vocalTracks: 0,
   drums: null,
@@ -356,6 +361,7 @@ function lanesOf(p: LegacySong) {
     vocalSolo: Array.from({ length: LANES }, (_, i) => !!p.vocalSolo?.[i]),
     vocalNames: Array.from({ length: LANES }, (_, i) => p.vocalNames?.[i] ?? null),
     vocalVolume: Array.from({ length: LANES }, (_, i) => p.vocalVolume?.[i] ?? 0),
+    vocalReverb: Array.from({ length: LANES }, (_, i) => p.vocalReverb?.[i] ?? 0),
     vocalColors: Array.from({ length: LANES }, (_, i) => p.vocalColors?.[i] ?? null),
   }
 }
@@ -502,7 +508,7 @@ export const useStore = create<State>()(
       setRhythm: (patch) => set({ rhythm: { ...get().rhythm, ...patch } }),
       setTake: (lane, take) => set({ takes: get().takes.map((t, i) => (i === lane ? take : t)) }),
       renumberVocals: (from) => {
-        const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalColors } = get()
+        const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalReverb, vocalColors } = get()
         const pick = <T,>(list: T[], empty: T) => list.map((_, lane) => (lane < from.length ? list[from[lane]] : empty))
         // Nothing stays selected; the next recording goes in the first free lane.
         set({
@@ -511,6 +517,7 @@ export const useStore = create<State>()(
           vocalSolo: pick(vocalSolo, false),
           vocalNames: pick(vocalNames, null),
           vocalVolume: pick(vocalVolume, 0),
+          vocalReverb: pick(vocalReverb, 0),
           vocalColors: pick(vocalColors, null),
           vocalTracks: from.length,
           selectedVocal: null,
@@ -574,6 +581,7 @@ export const useStore = create<State>()(
       setDrumsColor: (drumsColor) => set({ drumsColor }),
       setVocalColor: (lane, color) => set({ vocalColors: get().vocalColors.map((c, i) => (i === lane ? color : c)) }),
       setVocalVolume: (lane, db) => set({ vocalVolume: get().vocalVolume.map((v, i) => (i === lane ? db : v)) }),
+      setVocalReverb: (lane, amount) => set({ vocalReverb: get().vocalReverb.map((v, i) => (i === lane ? amount : v)) }),
       unmuteAll: () =>
         set({ chordsMuted: false, chordsSolo: false, drumsMuted: false, drumsSolo: false, vocalMuted: Array(LANES).fill(false), vocalSolo: Array(LANES).fill(false) }),
       setArmedLane: (armedLane) => set({ armedLane }),

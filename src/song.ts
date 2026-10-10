@@ -24,6 +24,8 @@ export interface VocalPlacement {
   track: number
   /** Its track's level, in dB. */
   db: number
+  /** Its track's reverb, from none (0) to plenty (1). */
+  reverb: number
 }
 
 /** Everything the engine and exports need to play: the open section, or the whole song. */
@@ -104,7 +106,7 @@ export function playbackOf(s: State, view = s.view): Playback {
       drums: audible.drums && s.drumTrack ? grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords)) : [],
       kicks: s.drumTrack ? kicksOf(grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords))) : undefined,
       vocals: s.takes.flatMap((t, lane) =>
-        t && audible.vocals[lane] ? [{ id: t.id, startBeat: t.startBeat, seconds: t.seconds, endBeat: Infinity, lane, track: lane, db: s.vocalVolume[lane] ?? 0 }] : [],
+        t && audible.vocals[lane] ? [{ id: t.id, startBeat: t.startBeat, seconds: t.seconds, endBeat: Infinity, lane, track: lane, db: s.vocalVolume[lane] ?? 0, reverb: s.vocalReverb[lane] ?? 0 }] : [],
       ),
     }
   }
@@ -124,7 +126,7 @@ export function playbackOf(s: State, view = s.view): Playback {
     if (audible.drums && s.drumTrack) drums.push(...groove)
     kicks.push(...kicksOf(groove))
     section.takes.forEach((t, lane) => {
-      if (t && audible.vocals[lane]) vocals.push({ id: t.id, startBeat: start + t.startBeat, seconds: t.seconds, endBeat: start + beats, lane: null, track: lane, db: section.vocalVolume?.[lane] ?? 0 })
+      if (t && audible.vocals[lane]) vocals.push({ id: t.id, startBeat: start + t.startBeat, seconds: t.seconds, endBeat: start + beats, lane: null, track: lane, db: section.vocalVolume?.[lane] ?? 0, reverb: section.vocalReverb?.[lane] ?? 0 })
     })
   }
   return { ...base, chords, loop: null, vocals, drums, kicks: s.drumTrack ? kicks : undefined }

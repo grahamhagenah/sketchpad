@@ -49,8 +49,10 @@ export function Timeline() {
   const { select, updateChord, reorderChord } = useStore()
   const [num, den] = timeSig
   // Shorter beat units get narrower columns, so a bar stays a sensible width.
+  // A phone has no zoom buttons, and starts zoomed out, to see more of the section at once.
   const zoom = useStore((s) => s.zoom)
-  const beatPx = (den === 16 ? 20 : den === 8 ? 30 : 44) * zoom
+  const narrow = useNarrow()
+  const beatPx = (den === 16 ? 20 : den === 8 ? 30 : 44) * (narrow ? NARROW_ZOOM : zoom)
   const barPx = num * beatPx
 
   // Where a bar divides: 6/8, 9/8 and 12/8 in threes; others halfway, the longer half first in an odd meter (7/8 as 4 + 3); 2/4 and 3/4 not at all.
@@ -603,6 +605,9 @@ function UnmuteAllButton() {
   )
 }
 
+/** A phone's zoom, fixed: about four bars of 4/4 across its width. */
+const NARROW_ZOOM = 0.45
+
 /**
  * Track names with mute and solo, beside each track's row. A switch at the
  * top swaps them for the open section's settings, and back. (On a phone the
@@ -740,9 +745,9 @@ interface TrackHeaderProps {
   onSelect?: () => void
 }
 
-const MIN_DB = -30
-const MAX_DB = 6
-const dbLabel = (db: number) => `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)} dB`
+export const MIN_DB = -30
+export const MAX_DB = 6
+export const dbLabel = (db: number) => `${db > 0 ? '+' : db < 0 ? '−' : ''}${Math.abs(db).toFixed(1)} dB`
 
 function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo, onRename, volume, onVolume, color, onColor, onSelect }: TrackHeaderProps) {
   const [editing, setEditing] = useState(false)

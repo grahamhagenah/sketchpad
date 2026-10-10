@@ -2,7 +2,7 @@ import * as Tone from 'tone'
 import { keyOf, useStore, loopRange, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
 import { arrange, type Hit } from './arrange'
-import { applySound, createInstruments, midiToHz, type Instruments } from './instruments'
+import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Instruments } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
 import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
@@ -54,6 +54,9 @@ class Engine {
   /** Every take's audio this visit, by id, and a player for each once audio has started. */
   private audio = new Map<string, Take>()
   private players = new Map<string, Tone.Player>()
+  /** Each take's send to the vocals' reverb, by id, and the reverb itself. */
+  private sends = new Map<string, Tone.Gain>()
+  private vocalRoom!: Tone.Reverb
   private recording: Recording | null = null
   private ticksPerBeat = 192
   private loopStartTicks = 0
@@ -79,6 +82,7 @@ class Engine {
     }).toDestination()
     this.click.volume.value = -12
     this.kit = createKit()
+    this.vocalRoom = createVocalRoom()
     this.ready = true
   }
 
@@ -87,13 +91,14 @@ class Engine {
     let player = this.players.get(id)
     const take = this.audio.get(id)
     if (!player && take && this.ready) {
-      player = new Tone.Player(toAudioBuffer(take)).toDestination()
+      player = new Tone.Player(toAudioBuffer(take))
+      this.sends.set(id, routeVocal(player, this.vocalRoom, 0))
       this.players.set(id, player)
     }
     return player ?? null
   }
 
-  /** Sets each track's level: the chords, the drums, and every take's player. */
+  /** Sets each track's level: the chords, the drums, and every take's player, with its reverb. */
   setLevels(song: Pick<Playback, 'chordsDb' | 'drumsDb' | 'vocals'>) {
     if (!this.ready) return
     this.instruments.bus.volume.value = song.chordsDb
@@ -101,6 +106,8 @@ class Engine {
     for (const vocal of song.vocals) {
       const player = this.player(vocal.id)
       if (player) player.volume.value = vocal.db
+      const send = this.sends.get(vocal.id)
+      if (send) send.gain.value = vocal.reverb
     }
   }
 
@@ -228,7 +235,10 @@ class Engine {
     this.vocalParts.forEach((part) => part.dispose())
     this.players.forEach((player) => player.dispose())
     this.players.clear()
+    this.sends.forEach((send) => send.dispose())
+    this.sends.clear()
     if (this.ready) {
+      this.vocalRoom.dispose()
       Object.values(this.instruments).forEach((node) => node.dispose())
       this.click.dispose()
       disposeKit(this.kit)
@@ -355,7 +365,7 @@ useStore.setState({ latency: measuredLatency() })
 const unsubscribe = useStore.subscribe((s, prev) => {
   if (s.sound !== prev.sound) engine.setSound(s.sound)
   // Levels change straight away, playing or not, so a chord auditioned after turning the chords down is quieter too.
-  if (s.chordsVolume !== prev.chordsVolume || s.drumsVolume !== prev.drumsVolume || s.vocalVolume !== prev.vocalVolume || s.sections !== prev.sections) {
+  if (s.chordsVolume !== prev.chordsVolume || s.drumsVolume !== prev.drumsVolume || s.vocalVolume !== prev.vocalVolume || s.vocalReverb !== prev.vocalReverb || s.sections !== prev.sections) {
     engine.setLevels(playbackOf(s))
   }
   if (!s.playing) return

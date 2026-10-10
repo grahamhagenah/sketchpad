@@ -9,6 +9,7 @@ import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
 import { colorHex, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR } from './colors'
 import { ChordPad } from './components/ChordPad'
+import { VocalPad } from './components/VocalPad'
 import { RecordingSheet } from './components/RecordingSheet'
 import { useNarrow } from './hooks/useNarrow'
 
@@ -148,6 +149,8 @@ export default function App() {
   const narrow = useNarrow()
   const recording = useStore((s) => s.recording !== 'off')
   const chordPad = narrow && view === 'section' && !recording
+  // With a vocal track selected, the sheet shows its settings instead.
+  const selectedVocal = useStore((s) => s.selectedVocal)
 
   return (
     <div className={`app ${chordPad ? 'has-chord-pad' : ''} ${narrow && recording ? 'has-record-sheet' : ''}`} style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
@@ -159,7 +162,7 @@ export default function App() {
         </section>
       </main>
       <StatusBar />
-      {chordPad && <ChordPad />}
+      {chordPad && (selectedVocal === null ? <ChordPad /> : <VocalPad lane={selectedVocal} />)}
       {/* On a phone, recording takes over the bottom of the screen. */}
       {narrow && recording && <RecordingSheet />}
     </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
+import { useDropBelow } from '../hooks/useDropBelow'
 import { songSummary, useStore } from '../store'
 import { keyLabel } from '../music/theory'
 import { deleteSketch, isDirty, newSketch, openSketch, refreshLibrary, reportStorageError, saveSketch, useLibrary, type SketchRecord } from '../library'
@@ -13,6 +14,7 @@ export function SketchesButton() {
   const close = useCallback(() => setOpen(false), [])
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(open, close, ref)
+  const below = useDropBelow(open, ref)
   const sketches = useLibrary((s) => s.sketches)
   const current = useStore((s) => s.sketchId)
   const dirty = useStore(isDirty)
@@ -37,7 +39,7 @@ export function SketchesButton() {
         </svg>
       </button>
       {open && (
-        <div className="menu sketches-menu" id="sketches-menu" role="dialog" aria-label="Your sketches">
+        <div className="menu sketches-menu" id="sketches-menu" role="dialog" aria-label="Your sketches" style={below}>
           <button
             type="button"
             className="menu-item"

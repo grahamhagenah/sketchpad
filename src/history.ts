@@ -22,10 +22,10 @@ type Snapshot = ReturnType<typeof pick>
 
 /** A section's vocal tracks, as kept for undoing a deleted take. */
 const vocalsOf = (sec: Pick<Section, keyof VocalParts>): VocalParts => {
-  const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalColors, vocalTracks } = sec
-  return { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalColors, vocalTracks }
+  const { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalReverb, vocalColors, vocalTracks } = sec
+  return { takes, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalReverb, vocalColors, vocalTracks }
 }
-type VocalParts = Pick<SectionParts, 'takes' | 'vocalMuted' | 'vocalSolo' | 'vocalNames' | 'vocalVolume' | 'vocalColors' | 'vocalTracks'>
+type VocalParts = Pick<SectionParts, 'takes' | 'vocalMuted' | 'vocalSolo' | 'vocalNames' | 'vocalVolume' | 'vocalReverb' | 'vocalColors' | 'vocalTracks'>
 
 type Step = { kind: 'song'; snapshot: Snapshot } | { kind: 'vocals'; sectionId: string; parts: VocalParts }
 

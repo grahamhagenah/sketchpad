@@ -326,15 +326,15 @@ main > .panel {
 .timeline-wrap {
   /* Row positions, shared by the track headers and the timeline beside them. */
   /* The loop strip along the very top, then the bar numbers under it, with the beats as notches along their foot. */
-  --strip-y: 7px;
-  --ruler-top: 15px;
+  --strip-y: 9px;
+  --ruler-top: 17px;
   --ruler-h: 18px;
   /* Where the bar lines begin, just under the bar numbers and their notches. */
-  --grid-top: 37px;
+  --grid-top: 39px;
   /* Every track is the same height, with --gap between one track's blocks and the next; each name's row reaches halfway into the gaps around it. */
   --track-h: 62px;
   --gap: 10px;
-  --head: 46px;
+  --head: 48px;
   /* Room above each track for its name: none beside a column of names, as on a wide screen; a line's worth on a phone. */
   --label-h: 0px;
   --chord-top: calc(var(--head) + var(--label-h));
@@ -879,6 +879,8 @@ main > .panel {
   cursor: crosshair;
   touch-action: none;
   user-select: none;
+  /* Over the dimming outside the loop, so nothing shades the strip or its tabs. */
+  z-index: 3;
   /* A thin track; the timeline's own beat and bar lines already mark the beats across it. */
   background: linear-gradient(var(--raised), var(--raised)) 0 50% / 100% 4px no-repeat;
 }
@@ -887,7 +889,8 @@ main > .panel {
   top: 50%;
   height: 8px;
   transform: translateY(-50%);
-  border-radius: 4px;
+  /* Square ends, cut where the loop starts and stops. */
+  border-radius: 1px;
   background: var(--accent);
   box-shadow: 0 0 8px rgb(90 216 200 / 0.35);
   cursor: grab;
@@ -910,17 +913,35 @@ main > .panel {
 }
 .loop-handle.is-start { left: -6px; }
 .loop-handle.is-end { right: -6px; }
+/*
+ * Pointed at or dragged, the strip thickens and brightens, and each end shows
+ * a tab to grab, with a line down it; on a touch screen the tabs are always there.
+ */
+.loop-region { transition: height 0.12s ease, filter 0.12s ease; }
+.loop-lane:hover .loop-region,
+.loop-lane.is-dragging .loop-region { height: 12px; filter: brightness(1.12); }
 .loop-handle::after {
   content: '';
   position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 5px;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--accent);
+  top: 50%;
+  left: calc(50% - 4px);
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(var(--on-accent), var(--on-accent)) center / 2px 8px no-repeat, var(--accent);
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.12s ease;
 }
-.loop-region.is-whole .loop-handle::after { opacity: 0.5; }
+.loop-lane:hover .loop-handle::after,
+.loop-lane.is-dragging .loop-handle::after,
+.loop-handle:focus-visible::after { opacity: 1; }
+/* From the very start, the start tab sits just inside the strip, or the edge of the timeline would cut it in half. */
+.loop-region.from-start .loop-handle.is-start::after { left: 50%; }
+@media (hover: none) {
+  .loop-region { height: 12px; }
+  .loop-handle::after { opacity: 1; width: 10px; height: 18px; left: calc(50% - 5px); }
+}
 .loop-handle:focus-visible { outline-offset: 0; border-radius: 4px; }
 .loop-dim {
   position: absolute;
@@ -1403,6 +1424,38 @@ main > .panel {
 .chord-pad-replace { flex: 1; height: 46px; border-radius: 10px; font-size: var(--fs-title); font-weight: 700; }
 .chord-pad-add { border: 0; background: var(--accent); color: var(--on-accent); }
 .chord-pad-replace { border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); }
+/* With a vocal track selected, the sheet is its settings: name, take, mix, colour, then delete and record. */
+.vocal-pad { padding-top: 14px; }
+.vocal-pad-head { display: flex; align-items: center; gap: 8px; }
+/* The track's colour, a button: tapped, the palette opens under it. */
+.vocal-pad-dot { flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--track); }
+.vocal-pad-dot[aria-expanded='true'] { box-shadow: 0 0 0 2px var(--sheet-bg), 0 0 0 4px var(--track); }
+.vocal-pad-name {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  margin-left: -4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  font-size: var(--fs-title);
+  font-weight: 700;
+}
+.vocal-pad-name:focus { outline: none; border-color: var(--accent); background: var(--bg); }
+/* What's on the track, beside its mute and solo. */
+.vocal-pad-status { display: flex; align-items: center; gap: 12px; }
+.vocal-pad-about { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-small); color: var(--muted); }
+/* A slider with its name before it and its value after. */
+.vocal-pad-slider { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; font-size: var(--fs-body); }
+.vocal-pad-slider > span { flex: none; width: 3.6em; color: var(--muted); }
+.vocal-pad-slider input { flex: 1; min-width: 0; accent-color: var(--text); }
+.vocal-pad-slider output { flex: none; width: 6ch; text-align: right; font-size: var(--fs-small); color: var(--muted); font-variant-numeric: tabular-nums; }
+.vocal-pad-colors { display: grid; grid-template-columns: repeat(8, 26px); justify-content: space-between; row-gap: 10px; padding: 2px 4px; }
+.vocal-pad-colors .swatch[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--sheet-bg), 0 0 0 4px var(--swatch); }
+.vocal-pad-record { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--record); color: #fff; }
+.vocal-pad-record:disabled { opacity: 0.4; }
+.vocal-pad-record-dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; }
 
 /* On a phone, the top bar folded to one row: play and record, where you are and the key, and a button for the rest. */
 /*
@@ -1698,7 +1751,6 @@ main > .panel {
   .loop-handle { width: 24px; }
   .loop-handle.is-start { left: -12px; }
   .loop-handle.is-end { right: -12px; }
-  .loop-handle::after { left: 11px; }
 }
 .shortcuts-menu { width: 300px; padding: 14px 16px; }
 .shortcuts-menu dl { margin: 0; display: grid; gap: 8px; }
@@ -1739,6 +1791,8 @@ main > .panel {
   .track-name-input { height: 22px; }
   .track-btn.is-mute { margin-left: 6px; }
   .track-volume { display: none; }
+  /* No bar lines down through the tracks on a phone; the notches along the top mark the bars and beats. */
+  .timeline { background: none; }
   /* The chord pad along the bottom has the key's chords; the starter keeps the rest, the screen's width. */
   .starter { width: calc(100vw - 2 * var(--gutter) - 6px); }
   .starter-group.is-chords { display: none; }
@@ -1746,10 +1800,13 @@ main > .panel {
   /* Just the gear, to leave the tabs room. */
   .section-settings-label { display: none; }
   .section-settings { padding: 0 7px; margin-right: 0; }
-  /* Menus and panels open as a sheet along the bottom, inside the screen. */
+  /* Menus and panels open as a sheet along the bottom, inside the screen, over the chord pad there. */
   .menu,
   .sound-panel {
     position: fixed;
+    z-index: 30;
+    /* A deep shadow, to lift it clear of the pad behind. */
+    box-shadow: 0 -6px 40px rgb(0 0 0 / 0.7);
     top: auto;
     left: 12px;
     right: 12px;

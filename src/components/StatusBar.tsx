@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { create } from 'zustand'
 import { chordsTrackName, drumsTrackName, keyOf, useStore, vocalTrackName } from '../store'
 import { grooveLabel } from '../audio/drums'
 import { chordOf } from '../music/theory'
@@ -35,9 +36,13 @@ export function StatusBar() {
   )
 }
 
+/** What the thing under the pointer does, said in the status bar while it's there (the loop strip's gestures, say). */
+export const useHoverHint = create<{ hint: ReactNode }>(() => ({ hint: null }))
+
 function Status() {
   const s = useStore()
   const sel = s.chords.find((c) => c.id === s.selectedId)
+  const hint = useHoverHint((h) => h.hint)
 
   if (s.recording === 'count-in') return <>Counting in…</>
   if (s.recording === 'on')
@@ -49,6 +54,8 @@ function Status() {
         </Keys>
       </>
     )
+
+  if (hint) return <>{hint}</>
 
   if (s.view === 'song') {
     const shared = new Set(s.arrangement.map((e) => e.section)).size < s.arrangement.length

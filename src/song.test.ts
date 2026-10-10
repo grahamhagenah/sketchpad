@@ -186,6 +186,26 @@ describe('copying chords', () => {
   })
 })
 
+describe('vocal reverb', () => {
+  it('goes with each take into playback, in the section and the song', () => {
+    get().openSection(id('Verse'))
+    get().setVocalReverb(0, 0.4)
+    expect(playbackOf(get()).vocals.map((v) => v.reverb)).toEqual([0.4])
+    get().openSection(id('Chorus'))
+    expect(playbackOf(get(), 'song').vocals.map((v) => v.reverb)).toEqual([0.4, 0.4])
+  })
+
+  it('moves with its track when an earlier one is deleted', () => {
+    get().openSection(id('Verse'))
+    get().setTake(1, take('second', 0))
+    get().setVocalReverb(1, 0.7)
+    get().renumberVocals([1])
+    expect(get().takes[0]?.id).toBe('second')
+    expect(get().vocalReverb[0]).toBe(0.7)
+    expect(get().vocalReverb[1]).toBe(0)
+  })
+})
+
 describe('undoing a deleted take', () => {
   it('brings the track and its take back, and redo deletes it again', () => {
     get().openSection(id('Verse'))
