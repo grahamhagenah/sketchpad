@@ -930,7 +930,6 @@ const trackIcon = {
   className: 'track-icon',
 } as const
 
-/** A piano keyboard, for the chords. */
 export const KeysIcon = () => (
   <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
     <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -940,7 +939,6 @@ export const KeysIcon = () => (
   </svg>
 )
 
-/** A drum, for the drums. */
 export const DrumIcon = () => (
   <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <ellipse cx="12" cy="9" rx="8" ry="3" />
@@ -954,7 +952,6 @@ const PlusIcon = () => (
   </svg>
 )
 
-/** A microphone, for the vocals. */
 export const MicIcon = () => (
   <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="3" width="6" height="11" rx="3" />

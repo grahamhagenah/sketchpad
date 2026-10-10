@@ -39,7 +39,7 @@ type State = ReturnType<typeof useStore.getState>
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`
 
 /** What a change deleted, in a few words, or null if it didn't delete anything. */
-export function whatWasDeleted(s: State, prev: State): string | null {
+function whatWasDeleted(s: State, prev: State): string | null {
   // A section deleted (with whatever was in it), or one place of it in the song.
   if (s.sections.length < prev.sections.length) {
     const ids = new Set(s.sections.map((sec) => sec.id))

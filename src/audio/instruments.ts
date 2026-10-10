@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { DELAY_TIMES, extrasOf, INSTRUMENT_VOLUME, instrumentOf, WAVE_VOLUME, type Instrument, type Sound } from './sound'
+import { extrasOf, INSTRUMENT_VOLUME, instrumentOf, WAVE_VOLUME, type Instrument, type Sound } from './sound'
 
 export const midiToHz = (m: number) => Tone.Frequency(m, 'midi').toFrequency()
 
@@ -19,7 +19,7 @@ let pianoNotes: Record<string, AudioBuffer> | null = null
 /** Loads the piano's notes once; they're plain audio, so playback and the WAV render share them. */
 export function loadPiano() {
   piano ??= Promise.all(
-    PIANO_NOTES.map(async (n) => [n.replace('s', '#'), (await Tone.ToneAudioBuffer.fromUrl(`/samples/piano/${n}.mp3`)).get()!] as const),
+    PIANO_NOTES.map(async (n) => [n.replace('s', '#'), (await Tone.ToneAudioBuffer.fromUrl(`${import.meta.env.BASE_URL}samples/piano/${n}.mp3`)).get()!] as const),
   )
     .then((pairs) => (pianoNotes = Object.fromEntries(pairs)))
     .catch((err) => {
@@ -155,13 +155,7 @@ export class Pad {
 export interface Instruments {
   pad: Pad
   bass: Tone.MonoSynth
-  /** The chords' sound, in order: driven, filtered, chorused, echoed, then into the room. */
-  drive: Tone.Distortion
-  /** Brings a driven sound back down to about the level it had clean. */
-  driveTrim: Tone.Gain
   filter: Tone.Filter
-  chorus: Tone.Chorus
-  delay: Tone.FeedbackDelay
   reverb: Tone.Reverb
   /** The chords track's level: the pad and bass both run through it. */
   bus: Tone.Volume
@@ -171,38 +165,27 @@ export interface Instruments {
  * The pad and bass the song plays on, built in whichever Tone context is
  * current, so live playback and the WAV render sound the same.
  */
-export function createInstruments(sound: Sound, bpm: number): Instruments {
+export function createInstruments(sound: Sound): Instruments {
   const bus = new Tone.Volume(0).toDestination()
   const reverb = new Tone.Reverb({ decay: 2.4 }).connect(bus)
-  const delay = new Tone.FeedbackDelay({ delayTime: 0.25, feedback: 0.35, wet: 0 }).connect(reverb)
-  const chorus = new Tone.Chorus({ frequency: 1.5, delayTime: 3.5, depth: 0.7, wet: 0 }).connect(delay).start()
-  const filter = new Tone.Filter(sound.brightness, 'lowpass').connect(chorus)
-  const driveTrim = new Tone.Gain(1).connect(filter)
-  const drive = new Tone.Distortion({ distortion: 0, wet: 0 }).connect(driveTrim)
-  const pad = new Pad(drive)
+  const filter = new Tone.Filter(sound.brightness, 'lowpass').connect(reverb)
+  const pad = new Pad(filter)
   const bass = new Tone.MonoSynth({
     oscillator: { type: 'triangle' },
     filterEnvelope: { baseFrequency: 160, octaves: 2, attack: 0.01, decay: 0.3, sustain: 0.35 },
     envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.4 },
   }).connect(bus)
-  const instruments = { pad, bass, drive, driveTrim, filter, chorus, delay, reverb, bus }
-  applySound(instruments, sound, bpm)
+  const instruments = { pad, bass, filter, reverb, bus }
+  applySound(instruments, sound)
   return instruments
 }
 
-/** Retunes existing instruments to a sound (at the song's tempo, for the echo), so changes are heard straight away. */
-export function applySound({ pad, bass, drive, driveTrim, filter, chorus, delay, reverb }: Instruments, sound: Sound, bpm: number) {
-  const extras = extrasOf(sound)
+/** Retunes existing instruments to a sound, so changes are heard straight away. */
+export function applySound({ pad, bass, filter, reverb }: Instruments, sound: Sound) {
   pad.set(sound)
   filter.frequency.value = sound.brightness
   // From the gentle bump a filter always has to a sharp, singing peak.
-  filter.Q.value = 0.7 + extras.resonance * 11
-  drive.distortion = 0.1 + extras.drive * 0.7
-  drive.wet.value = extras.drive
-  driveTrim.gain.value = Tone.dbToGain(-12 * extras.drive)
-  chorus.wet.value = extras.chorus
-  delay.delayTime.value = (60 / bpm) * (DELAY_TIMES.find((d) => d.id === extras.delayTime)?.quarters ?? 0.75)
-  delay.wet.value = extras.delay * 0.6
+  filter.Q.value = 0.7 + extrasOf(sound).resonance * 11
   reverb.wet.value = sound.reverb
   bass.volume.value = sound.bass ? BASS_VOLUME : -Infinity
 }

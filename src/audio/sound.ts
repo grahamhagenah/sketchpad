@@ -19,38 +19,19 @@ export interface Sound {
   width?: number
   /** A peak at the brightness cutoff, 0 (none) to 1 (squelchy). */
   resonance?: number
-  /** An echo in time with the song: how much of it, 0–1, and how far behind. */
-  delay?: number
-  delayTime?: DelayTime
-  /** A slow shimmer that widens the sound, 0–1. */
-  chorus?: number
-  /** Saturation, from warm (low) to fuzzy (1). */
-  drive?: number
   bass: boolean
   /** The preset it started from, so the panel can show it picked, and put it back, after the settings are changed. */
   preset?: string
 }
 
-/** How far behind the echo comes, in the song's time. */
-export type DelayTime = '1/8' | '1/8.' | '1/4'
-export const DELAY_TIMES: { id: DelayTime; label: string; quarters: number }[] = [
-  { id: '1/8', label: '1/8', quarters: 0.5 },
-  { id: '1/8.', label: '1/8 dotted', quarters: 0.75 },
-  { id: '1/4', label: '1/4', quarters: 1 },
-]
-
 /**
  * The settings sounds saved before them don't have, filled in as they sounded
- * then: no effects, and the width the synth (or strings) always had.
+ * then: no resonance, and the width the synth (or strings) always had.
  */
 export function extrasOf(sound: Sound) {
   return {
     width: sound.width ?? (instrumentOf(sound) === 'strings' ? 0.5 : 0.36),
     resonance: sound.resonance ?? 0,
-    delay: sound.delay ?? 0,
-    delayTime: sound.delayTime ?? ('1/8.' as DelayTime),
-    chorus: sound.chorus ?? 0,
-    drive: sound.drive ?? 0,
   }
 }
 
@@ -62,8 +43,8 @@ export const WAVES: { id: Wave; label: string }[] = [
 ]
 
 /** Which of the sound's settings each instrument listens to; the panel shows only those. */
-// The effects and the filter's resonance work on every instrument; width only on those built of stacked oscillators.
-const EFFECTS: (keyof Sound)[] = ['brightness', 'resonance', 'reverb', 'delay', 'delayTime', 'chorus', 'drive']
+// The filter and the reverb work on every instrument; width only on those built of stacked oscillators.
+const EFFECTS: (keyof Sound)[] = ['brightness', 'resonance', 'reverb']
 export const CONTROLS: Record<Instrument, (keyof Sound)[]> = {
   synth: ['wave', 'attack', 'decay', 'sustain', 'release', 'width', ...EFFECTS],
   strings: ['attack', 'decay', 'sustain', 'release', 'width', ...EFFECTS],

@@ -278,11 +278,8 @@ interface State extends SectionParts {
 export const chordsTrackName = (s: Pick<State, 'chordsName'>) => s.chordsName ?? 'Chords'
 /** The key a section plays in: its own, or the song's. */
 export const keyOf = (s: Pick<State, 'key' | 'mode'> & Pick<SectionParts, 'sectionKey'>): SectionKey => s.sectionKey ?? { key: s.key, mode: s.mode }
-
-
 export const drumsTrackName = (s: Pick<State, 'drumsName'>) => s.drumsName ?? 'Drums'
 export const vocalTrackName = (s: Pick<State, 'vocalNames'>, lane: number) => s.vocalNames[lane] ?? `Vocal ${lane + 1}`
-
 
 const partsOf = (p: SectionParts): SectionParts => ({
   chords: p.chords,
@@ -326,7 +323,7 @@ export function sectionsNow(s: Pick<State, 'sections' | 'activeSection' | keyof 
 }
 
 /** `name`, or with the lowest number after it that no section has yet ("Verse 2"). */
-export function uniqueName(sections: { name: string }[], name: string) {
+function uniqueName(sections: { name: string }[], name: string) {
   const taken = new Set(sections.map((s) => s.name))
   if (!taken.has(name)) return name
   let n = 2
@@ -382,14 +379,14 @@ function lanesOf(p: LegacySong) {
   }
 }
 
+/** A song as saved, by songOf or, before songs had sections, as one progression. */
+export type SavedSong = Partial<Omit<SongData, 'sections'>> & LegacySong & { sections?: Partial<Section>[] }
+
 /**
  * The state for a saved song, with its first (or last open) section open.
  * Songs saved before sections become a song of one section, called Verse.
  * Takes come empty; they're loaded with their audio.
  */
-/** A song as saved, by songOf or, before songs had sections, as one progression. */
-export type SavedSong = Partial<Omit<SongData, 'sections'>> & LegacySong & { sections?: Partial<Section>[] }
-
 export function songState(p: SavedSong) {
   const sections: Section[] = p.sections?.length
     ? p.sections.map((sec) => ({ ...emptyParts(), id: newId(), name: 'Section', ...sec, ...lanesOf(sec), takes: Array(LANES).fill(null), allTakes: emptyParts().allTakes }))
@@ -424,7 +421,7 @@ export function sketchSignature(s: State) {
 }
 
 /** How long each section is, in beats. */
-export const sectionBeats = (sections: Pick<Section, 'id' | 'chords'>[]) => new Map(sections.map((sec) => [sec.id, totalBeats(sec.chords)]))
+const sectionBeats = (sections: Pick<Section, 'id' | 'chords'>[]) => new Map(sections.map((sec) => [sec.id, totalBeats(sec.chords)]))
 
 const progression = (degrees: number[]): Chord[] => degrees.map((degree) => ({ id: newId(), degree, beats: 4, seventh: false }))
 
@@ -476,7 +473,6 @@ export const useStore = create<State>()(
       ...demoSong(),
       selectedId: null,
       metronome: false,
-      loopOn: true,
       sound: DEFAULT_SOUND,
       arp: DEFAULT_ARP,
       chordsMuted: false,

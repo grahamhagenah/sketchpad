@@ -99,7 +99,7 @@ export async function startCapture(stream: MediaStream): Promise<Capture> {
 }
 
 /** Seconds between the audio clock and sound actually leaving the speakers. */
-export function outputLatency() {
+function outputLatency() {
   const raw = Tone.getContext().rawContext as AudioContext
   return (raw.outputLatency || 0) + (raw.baseLatency || 0)
 }

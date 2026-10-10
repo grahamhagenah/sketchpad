@@ -96,7 +96,7 @@ export function fillLength(timeSig: TimeSig): number {
  * A fill of `length` beats from the start: a kick, then a roll in sixteenths
  * (half eighths) from the snare down the high tom to the low one, building up.
  */
-export function fillHits(timeSig: TimeSig, length: number): DrumHit[] {
+function fillHits(timeSig: TimeSig, length: number): DrumHit[] {
   const step = eighth(timeSig) / 2
   const count = Math.max(1, Math.round(length / step))
   const pieces: DrumPiece[] = ['snare', 'tomHigh', 'tomLow']

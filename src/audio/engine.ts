@@ -74,7 +74,7 @@ class Engine {
   private setup() {
     if (this.ready) return
     setAudioSession('playback')
-    this.instruments = createInstruments(useStore.getState().sound, useStore.getState().bpm)
+    this.instruments = createInstruments(useStore.getState().sound)
     this.pad = this.instruments.pad
     this.bass = this.instruments.bass
     this.click = new Tone.Synth({
@@ -352,7 +352,7 @@ class Engine {
   }
 
   setSound(sound: Sound) {
-    if (this.ready) applySound(this.instruments, sound, useStore.getState().bpm)
+    if (this.ready) applySound(this.instruments, sound)
   }
 
   /** The arpeggio a chord preview is playing, as timers yet to fire; a new preview cuts it short. */
@@ -398,8 +398,7 @@ useStore.setState({ latency: measuredLatency() })
 
 // Keep the loop in step with edits made while it plays.
 const unsubscribe = useStore.subscribe((s, prev) => {
-  // The echo keeps time with the song, so a change of tempo retunes it too.
-  if (s.sound !== prev.sound || s.bpm !== prev.bpm) engine.setSound(s.sound)
+  if (s.sound !== prev.sound) engine.setSound(s.sound)
   // Levels change straight away, playing or not, so a chord auditioned after turning the chords down is quieter too.
   if (s.chordsVolume !== prev.chordsVolume || s.drumsVolume !== prev.drumsVolume || s.vocalVolume !== prev.vocalVolume || s.vocalReverb !== prev.vocalReverb || s.sections !== prev.sections) {
     engine.setLevels(playbackOf(s))
@@ -628,17 +627,22 @@ export function loadSongTakes(takes: SectionTakes) {
 // visit's takes are back, so an early change can't store an empty song over them.
 let lanesLoaded = false
 let storedLanes = ''
+/** Whether the last store failed: said once, not on every change after it, and tried again when the takes next change. */
+let storeFailed = false
 const unsubscribeLanes = useStore.subscribe((s) => {
   if (!lanesLoaded) return
   const lanes = takeIdsBySection(s)
   const key = JSON.stringify(lanes)
   if (key === storedLanes) return
   storedLanes = key
-  storeLanes(lanes, (id) => engine.takeAudio(id)).catch((error) => {
-    console.error(error)
-    storedLanes = ''
-    window.alert(`Bounce couldn’t store your vocal tracks, so recent changes to them will be gone if the page reloads. ${storageErrorMessage(error)}`)
-  })
+  storeLanes(lanes, (id) => engine.takeAudio(id))
+    .then(() => (storeFailed = false))
+    .catch((error) => {
+      console.error(error)
+      if (storeFailed) return
+      storeFailed = true
+      window.alert(`Bounce couldn’t store your vocal tracks, so recent changes to them will be gone if the page reloads. ${storageErrorMessage(error)}`)
+    })
 })
 
 // Bring back the takes from the last visit. Takes kept before sections go to the open section.

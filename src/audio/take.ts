@@ -84,7 +84,7 @@ const STORE = 'takes'
 const LANES_KEY = 'lanes'
 /** Saved sketches, and (kept apart so listing them stays quick) their takes' ids, by section and lane. */
 export const SKETCHES = 'sketches'
-export const SKETCH_TAKES = 'sketch-takes'
+const SKETCH_TAKES = 'sketch-takes'
 /**
  * Each take's audio, once, however many lanes and saved sketches hold it;
  * audio that nothing holds any more is deleted.

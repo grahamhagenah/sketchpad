@@ -85,7 +85,7 @@ export function songBeatOf(s: Pick<State, 'arrangement' | 'sections' | 'activeSe
  * Where a take plays, trimmed: its trimmed start moved later by what's cut,
  * for as long as is left, skipping that much of its audio. A whole take is as it was.
  */
-export function trimmedPlacement(take: TakeInfo, trim: Trim | undefined, beatSeconds: number) {
+function trimmedPlacement(take: TakeInfo, trim: Trim | undefined, beatSeconds: number) {
   if (!trim) return { startBeat: take.startBeat, seconds: take.seconds }
   const { start, end } = trimOf(take, trim)
   return { startBeat: take.startBeat + start / beatSeconds, seconds: end - start, offset: start }

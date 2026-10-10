@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { useDismiss } from '../hooks/useDismiss'
 import { useNarrow } from '../hooks/useNarrow'
 import { useStore } from '../store'
-import { CONTROLS, DELAY_TIMES, PRESETS, WAVES, changedFrom, extrasOf, instrumentOf, presetFor, type Sound } from '../audio/sound'
+import { CONTROLS, PRESETS, WAVES, changedFrom, extrasOf, instrumentOf, presetFor, type Sound } from '../audio/sound'
 import { CHORD_RHYTHMS } from '../audio/arrange'
 import { audition } from '../audio/engine'
 import { loadPiano } from '../audio/instruments'
@@ -301,22 +301,7 @@ function SoundSettings() {
           />
           <SoundSlider label="Brightness" min={0} max={1} step={0.001} value={toSlider(sound.brightness)} format={(v) => `${(fromSlider(v) / 1000).toFixed(1)} kHz`} onChange={(v) => setSound({ brightness: fromSlider(v) })} />
           <SoundSlider label="Resonance" min={0} max={1} step={0.01} value={extras.resonance} format={percent} onChange={(resonance) => setSound({ resonance })} />
-        </div>
-
-        {/* What the sound goes through on its way out: a room, an echo in time with the song, a shimmer and some grit. */}
-        <div className="sound-section">
-          <span className="sound-heading">Effects</span>
           <SoundSlider label="Reverb" min={0} max={0.8} step={0.01} value={sound.reverb} format={percent} onChange={(reverb) => setSound({ reverb })} />
-          <SoundSlider label="Delay" min={0} max={1} step={0.01} value={extras.delay} format={percent} onChange={(delay) => setSound({ delay })} />
-          <div className="sound-grid is-three" role="radiogroup" aria-label="Delay time">
-            {DELAY_TIMES.map((d) => (
-              <button key={d.id} type="button" role="radio" aria-checked={extras.delayTime === d.id} disabled={!extras.delay} onClick={() => setSound({ delayTime: d.id })}>
-                {d.label}
-              </button>
-            ))}
-          </div>
-          <SoundSlider label="Chorus" min={0} max={1} step={0.01} value={extras.chorus} format={percent} onChange={(chorus) => setSound({ chorus })} />
-          <SoundSlider label="Drive" min={0} max={1} step={0.01} value={extras.drive} format={percent} onChange={(drive) => setSound({ drive })} />
           <p className="rhythm-about">Piano recordings: Salamander Grand Piano by Alexander Holm, CC BY 3.0.</p>
         </div>
       </div>

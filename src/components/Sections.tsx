@@ -11,9 +11,8 @@ import { create } from 'zustand'
 import { TrackSheet } from './TrackSheet'
 import { vocalColor } from '../colors'
 
-
 /** A gear, for a section's settings. */
-export const GEAR =
+const GEAR =
   'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'
 
 /** The menu of section kinds to start a new section from. */
@@ -128,10 +127,6 @@ export function MenuButton({
   )
 }
 
-/**
- * The song's sections as tabs above the editor, with the whole song first:
- * pick one to edit its chords and vocals, or + to add a section.
- */
 /** Whether tabs run on past the right edge of the strip, under the +, as it's scrolled or resized. */
 function useTabsBeyond(ref: RefObject<HTMLDivElement | null>) {
   const [more, setMore] = useState(false)
@@ -152,6 +147,10 @@ function useTabsBeyond(ref: RefObject<HTMLDivElement | null>) {
   return more
 }
 
+/**
+ * The song's sections as tabs above the editor, with the whole song first:
+ * pick one to edit its chords and vocals, or + to add a section.
+ */
 export function SectionBar() {
   const view = useStore((s) => s.view)
   const sections = useStore((s) => s.sections)
@@ -293,8 +292,7 @@ function RenameField({ section, onDone }: { section: Section; onDone: () => void
 
 /**
  * The open section's settings and actions: its key, adding it to the song,
- * copies, renaming and deleting. In the menu from the gear on a phone, and
- * in the column beside the tracks on a wider screen.
+ * copies, renaming and deleting, as items in SectionMenu.
  */
 function SectionItems({ section, close, onRename }: { section: Pick<Section, 'id' | 'name'>; close: () => void; onRename?: () => void }) {
   const { duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useStore()
@@ -403,7 +401,7 @@ function SectionItems({ section, close, onRename }: { section: Pick<Section, 'id
   )
 }
 
-/** The open section's settings, from a gear at the end of the tab strip (on a phone, where the column beside the tracks isn't). */
+/** An empty section's settings on a wider screen, from a gear at the end of the tab strip, since it has no column beside its tracks yet. */
 function SectionMenu({ section, onRename }: { section: Section; onRename: () => void }) {
   return (
     <MenuButton label={`${section.name} settings`} title={`${section.name} settings: key, copies, rename, delete`} className="section-settings" align="right" menu={(close) => (
@@ -577,7 +575,7 @@ export function SongView() {
   const narrow = sheetWidth > 0 && sheetWidth < 640
   const rowH = narrow ? NARROW_ROW_H : ROW_H
   const headPx = narrow ? 8 : 176
-  // Room is left at the end of each row for its buttons: up, down, remove and the menu.
+  // Room is left at the end of each row for its buttons (see END_PX).
   // A phone has no zoom buttons, so there the song always fits the screen.
   const beatPx = (sheetWidth ? (sheetWidth - headPx - (narrow ? 16 : END_PX)) / longest : 8) * (narrow ? 1 : Math.max(1, zoom))
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
@@ -890,7 +888,6 @@ export function SongView() {
               {spans.length ? 'Section' : 'Add the song’s first section'}
             </MenuButton>
           </div>
-
 
           {total > 0 && (playing || playhead > 0) && (
             <div
