@@ -7,6 +7,8 @@ import { songBeatOf, songSpans } from '../song'
 import { grooveHits } from '../audio/drums'
 import { Icon, ZoomButtons } from './Toolbar'
 import { useNarrow } from '../hooks/useNarrow'
+import { create } from 'zustand'
+import { TrackSheet } from './TrackSheet'
 
 
 /** A gear, for a section's settings. */
@@ -29,7 +31,7 @@ function NewSectionItems({ onPick }: { onPick: (name: string) => void }) {
 /**
  * A button with a small menu under it, closed by a click outside, Escape, or
  * scrolling. The menu floats over the page, since the tabs and the song both
- * scroll sideways and would clip it; on a phone it's a sheet along the bottom.
+ * scroll sideways and would clip it; on a phone it's the screen's width.
  */
 export function MenuButton({
   label,
@@ -61,7 +63,14 @@ export function MenuButton({
     if (!open) return setPos(null)
     const r = buttonRef.current?.getBoundingClientRect()
     const width = menuRef.current?.offsetWidth ?? 280
-    if (!r || window.matchMedia('(max-width: 640px)').matches) return setPos({})
+    if (!r) return setPos({})
+    // On a phone, the screen's width, just under the button (or over it, if there isn't room below).
+    if (window.matchMedia('(max-width: 640px)').matches) {
+      const height = menuRef.current?.offsetHeight ?? 0
+      const below = r.bottom + 6
+      const top = below + height > window.innerHeight - 12 && r.top - 6 - height > 12 ? r.top - 6 - height : below
+      return setPos({ position: 'fixed', top, bottom: 'auto', left: 12, right: 12, width: 'auto', maxHeight: `calc(100dvh - ${Math.round(top) + 12}px)`, boxShadow: '0 12px 40px rgb(0 0 0 / 0.6)' })
+    }
     const left = align === 'left' ? r.left : r.right - width
     setPos({ position: 'fixed', top: r.bottom + 6, left: Math.min(Math.max(12, left), window.innerWidth - width - 12), right: 'auto' })
   }, [open, align])
@@ -139,6 +148,7 @@ export function SectionBar() {
   // On a wider screen the section's settings are in the column beside the tracks instead, once there are tracks.
   const narrow = useNarrow()
   const empty = useStore((s) => s.chords.length === 0)
+  const sheetOpen = useSectionSheet((s) => s.open)
 
   return (
     <nav className="section-bar" aria-label="Song sections">
@@ -206,7 +216,20 @@ export function SectionBar() {
       </div>
       <div className="section-bar-end">
         {/* The open section's settings: its key, copies, renaming and deleting. */}
-        {open && (narrow || empty) && <SectionMenu section={open} onRename={() => setRenaming(open.id)} />}
+        {/* On a phone the gear brings up the section's settings as a sheet along the bottom; on a wider screen they're in the inspector, or with an empty section (which has none), in the gear's menu. */}
+        {open && narrow && (
+          <button
+            type="button"
+            className="section-settings"
+            aria-label={`${open.name} settings`}
+            aria-pressed={sheetOpen}
+            title={`${open.name} settings: key, copies, rename, delete`}
+            onClick={() => useSectionSheet.setState({ open: !sheetOpen })}
+          >
+            <Icon d={GEAR} />
+          </button>
+        )}
+        {open && !narrow && empty && <SectionMenu section={open} onRename={() => setRenaming(open.id)} />}
         {/* Zoom works on whichever view is showing, so it sits with the views. */}
         <ZoomButtons />
       </div>
@@ -369,40 +392,115 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
   )
 }
 
+/** On a phone, whether the gear has the section's settings up in the sheet along the bottom. */
+export const useSectionSheet = create(() => ({ open: false }))
+
 /**
- * The open section's settings laid out in the column beside the tracks, in
- * place of the track names: its name to edit, then the same settings and
- * actions as the gear's menu.
+ * The open section's settings, laid out as a track's are: its name to edit,
+ * then its key, its place in the song, copies of it, and deleting it. In the
+ * inspector beside the tracks with nothing selected; on a phone, a sheet
+ * along the bottom from the gear on the tabs, with Done to put it away.
  */
-export function SectionPanel() {
+export function SectionPanel({ docked = true, onDone }: { docked?: boolean; onDone?: () => void }) {
   const id = useStore((s) => s.activeSection)
-  const saved = useStore((s) => s.sections.find((sec) => sec.id === s.activeSection)?.name)
-  const renameSection = useStore((s) => s.renameSection)
-  const [name, setName] = useState(saved ?? '')
-  useEffect(() => setName(saved ?? ''), [id, saved])
-  if (saved === undefined) return null
-  const section = { id, name: saved }
-  const save = () => (name.trim() && name.trim() !== section.name ? renameSection(section.id, name) : setName(section.name))
+  const name = useStore((s) => s.sections.find((sec) => sec.id === s.activeSection)?.name)
+  const { renameSection, duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useStore()
+  const songKey = useStore((s) => s.key)
+  const songMode = useStore((s) => s.mode)
+  // The open section's own key lives with its chords, in the editor.
+  const sectionKey = useStore((s) => s.sectionKey)
+  const count = useStore((s) => s.sections.length)
+  const places = useStore((s) => s.arrangement.filter((entry) => entry.section === s.activeSection).length)
+  const recording = useStore((s) => s.recording !== 'off')
+  const [confirming, setConfirming] = useState(false)
+  if (name === undefined) return null
+  const from = sectionKey ?? { key: songKey, mode: songMode }
+  const lift = (step: number) => {
+    const copy = liftSection(id, step)
+    if (copy) openSection(copy)
+  }
+
   return (
-    <div className="section-panel" role="group" aria-label={`${section.name} settings`}>
-      <label className="section-panel-name">
-        <span className="menu-label">Name</span>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={save}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur()
-            if (e.key === 'Escape') {
-              e.stopPropagation()
-              setName(section.name)
-              e.currentTarget.blur()
-            }
+    <TrackSheet title="Section settings" name={name} onRename={(n) => n && renameSection(id, n)} docked={docked} onDone={onDone}>
+      {/* A key change: the section's chords keep their numerals and play in its own key. */}
+      <label className="inspector-field">
+        <span>Key</span>
+        <select
+          value={sectionKey ? `${sectionKey.key}-${sectionKey.mode}` : 'song'}
+          disabled={recording}
+          onChange={(e) => {
+            if (e.target.value === 'song') return setSectionKey(id, null)
+            const [pc, m] = e.target.value.split('-')
+            setSectionKey(id, { key: Number(pc), mode: m as Mode })
           }}
-        />
+        >
+          <option value="song">
+            Song’s ({keyLabel(songKey, songMode)} {songMode})
+          </option>
+          {(['major', 'minor'] as const).map((m) => (
+            <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
+              {Array.from({ length: 12 }, (_, pc) => (
+                <option key={pc} value={`${pc}-${m}`}>
+                  {keyLabel(pc, m)} {m}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
       </label>
-      <SectionItems section={section} close={() => {}} />
-    </div>
+      <div className="inspector-field">
+        <span>In the song</span>
+        <div className="section-sheet-row">
+          <span className="track-sheet-about">{places ? `Plays ${places === 1 ? 'once' : `${places} times`}` : 'Not in the song yet'}</span>
+          <button type="button" className="chord-pad-chip" onClick={() => addToSong(id)} title="Add it to the end of the song">
+            Add to the end
+          </button>
+        </div>
+      </div>
+      <div className="inspector-field">
+        <span>Make a copy</span>
+        <div className="chord-pad-seg section-sheet-copies" role="group" aria-label="Make a copy">
+          <button
+            type="button"
+            disabled={recording}
+            onClick={() => {
+              const copy = duplicateSection(id)
+              if (copy) openSection(copy)
+            }}
+            title="A copy of the chords to change on their own, with no vocals yet"
+          >
+            Same key
+          </button>
+          {[1, 2].map((step) => (
+            <button
+              key={step}
+              type="button"
+              disabled={recording}
+              onClick={() => lift(step)}
+              title={`The same chords in ${keyLabel((from.key + step) % 12, from.mode)} ${from.mode}, for a lift`}
+            >
+              Up {step === 1 ? '½' : '1'} step
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="chord-pad-actions">
+        <button
+          type="button"
+          className="chord-pad-replace"
+          disabled={count < 2 || recording}
+          onBlur={() => setConfirming(false)}
+          onClick={() => {
+            if (!confirming) return setConfirming(true)
+            setConfirming(false)
+            deleteSection(id)
+          }}
+          title={count < 2 ? 'A song keeps at least one section' : 'Also takes it out of the song; undo brings the chords back, not the vocals'}
+        >
+          {confirming ? `Tap again to delete ${name}` : 'Delete section'}
+        </button>
+      </div>
+    </TrackSheet>
   )
 }
 

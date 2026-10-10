@@ -269,34 +269,54 @@ export function ChordPad() {
         })}
       </div>
 
-      {/* The options of the selected chord (or of the one to add), when asked for. */}
+      {/*
+        The options of the selected chord (or of the one to add), when asked
+        for: set off from the pads by a line, each group named, two to a line.
+      */}
       {showOptions && (
         <div className="chord-pad-options">
-          <button type="button" className="chip" aria-pressed={target.seventh} onClick={() => setOption({ seventh: !target.seventh })}>
-            7th
-          </button>
-          <div className="chord-pad-seg" role="group" aria-label="Sus or added note">
-            {COLORS.map((c) => (
-              <button type="button" key={c.label} aria-pressed={target.color === c.id} onClick={() => setOption({ color: c.id })}>
-                {c.label}
-              </button>
-            ))}
+          <div className="chord-pad-option is-wide">
+            <span>Type</span>
+            <div className="chord-pad-seg" role="group" aria-label="Sus or added note">
+              {COLORS.map((c) => (
+                <button type="button" key={c.label} aria-pressed={target.color === c.id} onClick={() => setOption({ color: c.id })}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="chord-pad-seg" role="group" aria-label="Bass note">
-            {BASSES.map((b) => (
-              <button type="button" key={b.label} aria-pressed={target.bass === b.id} onClick={() => setOption({ bass: b.id })}>
-                {b.label}
+          <div className="chord-pad-option">
+            <span>7th</span>
+            <div className="chord-pad-seg" role="group" aria-label="7th">
+              <button type="button" aria-pressed={!target.seventh} onClick={() => setOption({ seventh: false })}>
+                Off
               </button>
-            ))}
+              <button type="button" aria-pressed={target.seventh} onClick={() => setOption({ seventh: true })}>
+                On
+              </button>
+            </div>
           </div>
-          <div className="chord-pad-length" role="group" aria-label="Length">
-            <button type="button" aria-label="Shorter" disabled={target.beats <= 1} onClick={() => setOption({ beats: target.beats - 1 })}>
-              −
-            </button>
-            <span>{length}</span>
-            <button type="button" aria-label="Longer" onClick={() => setOption({ beats: target.beats + 1 })}>
-              +
-            </button>
+          <div className="chord-pad-option is-wide">
+            <span>Bass</span>
+            <div className="chord-pad-seg" role="group" aria-label="Bass note">
+              {BASSES.map((b) => (
+                <button type="button" key={b.label} aria-pressed={target.bass === b.id} onClick={() => setOption({ bass: b.id })}>
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="chord-pad-option">
+            <span>Length</span>
+            <div className="chord-pad-length" role="group" aria-label="Length">
+              <button type="button" aria-label="Shorter" disabled={target.beats <= 1} onClick={() => setOption({ beats: target.beats - 1 })}>
+                −
+              </button>
+              <span>{length}</span>
+              <button type="button" aria-label="Longer" onClick={() => setOption({ beats: target.beats + 1 })}>
+                +
+              </button>
+            </div>
           </div>
         </div>
       )}

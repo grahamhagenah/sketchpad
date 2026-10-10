@@ -17,17 +17,22 @@ export function TrackSheet({
   onColor,
   onDone,
   icon,
+  title = 'Track settings',
   docked = false,
   children,
 }: {
   name: string
-  /** What kind of track it is, as its header shows it. */
-  icon: ReactNode
+  /** What kind of track it is, as its header shows it; a section has none. */
+  icon?: ReactNode
+  /** Whose settings these are, over them in the sheet (the inspector has its own title). */
+  title?: string
   /** An empty name puts the usual one back. */
   onRename: (name: string) => void
-  color: ColorId
-  onColor: (color: ColorId) => void
-  onDone: () => void
+  /** Its colour, and changing it from the palette behind its icon; a section has none. */
+  color?: ColorId
+  onColor?: (color: ColorId) => void
+  /** Closing it; without, there's no Done (as for the section's settings in the inspector, which nothing replaces). */
+  onDone?: () => void
   docked?: boolean
   children: ReactNode
 }) {
@@ -51,7 +56,7 @@ export function TrackSheet({
     }
   }, [open, docked])
 
-  const track = { ['--track' as string]: colorHex(color) }
+  const track = color ? { ['--track' as string]: colorHex(color) } : {}
   if (!open && !docked) {
     return (
       <div className="chord-pad track-sheet is-folded" ref={ref} style={track}>
@@ -81,17 +86,26 @@ export function TrackSheet({
           <span className="chord-pad-grip" aria-hidden="true" />
         </button>
       )}
+      {!docked && <h2 className="column-title track-sheet-title">{title}</h2>}
       <div className="track-sheet-head" {...(docked ? {} : area)}>
-        <button
-          type="button"
-          className="track-sheet-dot"
-          aria-label="Colour"
-          aria-expanded={picking}
-          title="Change the track's colour"
-          onClick={() => setPicking(!picking)}
-        >
-          {icon}
-        </button>
+        {onColor ? (
+          <button
+            type="button"
+            className="track-sheet-dot"
+            aria-label="Colour"
+            aria-expanded={picking}
+            title="Change the track's colour"
+            onClick={() => setPicking(!picking)}
+          >
+            {icon}
+          </button>
+        ) : (
+          icon && (
+            <span className="track-sheet-dot" aria-hidden="true">
+              {icon}
+            </span>
+          )
+        )}
         <input
           className="track-sheet-name"
           aria-label="Track name"
@@ -108,11 +122,13 @@ export function TrackSheet({
             }
           }}
         />
-        <button type="button" className="chord-pad-chip" onClick={onDone} title={docked ? 'Back to the section' : 'Back to the chord pad'}>
-          Done
-        </button>
+        {onDone && (
+          <button type="button" className="chord-pad-chip" onClick={onDone} title={docked ? 'Back to the section' : 'Back to the chord pad'}>
+            Done
+          </button>
+        )}
       </div>
-      {picking && (
+      {picking && onColor && (
         <div className="track-sheet-colors" role="group" aria-label="Colour">
           {PALETTE.map((c) => (
             <button
@@ -123,7 +139,7 @@ export function TrackSheet({
               aria-label={c.label}
               aria-pressed={c.id === color}
               onClick={() => {
-                onColor(c.id)
+                onColor?.(c.id)
                 setPicking(false)
               }}
             />

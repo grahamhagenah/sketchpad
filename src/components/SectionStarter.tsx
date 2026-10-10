@@ -2,6 +2,7 @@ import { keyOf, totalBeats, useStore } from '../store'
 import { chordInfo } from '../music/theory'
 import { audition } from '../audio/engine'
 import { Progressions } from './Palette'
+import { useNarrow } from '../hooks/useNarrow'
 
 /**
  * All an empty section shows: a first chord from the key's seven, a
@@ -15,6 +16,8 @@ export function SectionStarter() {
   const sections = useStore((s) => s.sections)
   const others = sections.filter((sec) => sec.id !== active && sec.chords.length)
   const { addChord, copyChordsFrom } = useStore()
+  // A phone leaves out the row of chords (the chord pad has them), so the progressions come first there.
+  const narrow = useNarrow()
 
   const add = (degree: number) => {
     addChord(degree)
@@ -42,7 +45,7 @@ export function SectionStarter() {
       </div>
       <div className="starter-group" role="group">
         <span className="palette-group-label" id="starter-progressions">
-          Or a progression
+          {narrow ? 'Start with a progression' : 'Or a progression'}
         </span>
         <Progressions keyNum={key} mode={mode} labelledBy="starter-progressions" />
       </div>

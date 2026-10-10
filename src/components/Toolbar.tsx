@@ -111,15 +111,15 @@ export function Toolbar() {
   if (narrow) {
     return (
       <div className={`toolbar toolbar-compact ${expanded ? 'is-expanded' : ''}`} role="toolbar" aria-label="Song">
-        {/* The row that's always there: play and record, where you are and the key, and a button for the rest. */}
+        {/* The row that's always there: play and record, cycle, metronome and sound, undo and redo, and a button for the rest. */}
         <div className="toolbar-compact-row">
           <div className="transport" role="group" aria-label="Transport">
             {playButton}
             <RecordButton />
           </div>
-          <div className="lcd" role="group" aria-label="Position and key">
-            <Position />
-            {keyCell}
+          {modes}
+          <div className="toolbar-icons toolbar-undo">
+            <UndoRedo />
           </div>
           <button
             type="button"
@@ -128,7 +128,7 @@ export function Toolbar() {
             aria-expanded={expanded}
             aria-controls="toolbar-extra"
             onClick={() => setExpanded(!expanded)}
-            title="Title, save, undo, export, tempo, meter and sound"
+            title="Title, save, export, where you are, tempo, meter and key"
           >
             <Icon d="M6 9l6 6 6-6" />
           </button>
@@ -139,16 +139,16 @@ export function Toolbar() {
             <div className="toolbar-extra-row">
               <SongTitle />
               <div className="toolbar-icons">
-                <UndoRedo />
                 <ExportButton />
               </div>
             </div>
             <div className="toolbar-extra-row">
-              <div className="lcd" role="group" aria-label="Tempo and meter">
+              <div className="lcd" role="group" aria-label="Position and song settings">
+                <Position />
                 <TempoField />
                 {meterCell}
+                {keyCell}
               </div>
-              {modes}
             </div>
           </div>
         </div>

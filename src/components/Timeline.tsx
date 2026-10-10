@@ -273,17 +273,16 @@ export function Timeline() {
           }}
         >
           {/*
-            The beats as notches along the foot of the bar numbers, but not on a
-            bar line itself, which marks the bar already; where the bar divides
-            (halfway, or between its groups of three) the notch is longer.
+            The beats as notches along the foot of the bar numbers; where the bar
+            divides (halfway, or between its groups of three) the notch is longer.
+            A bar's own notch shows only on a phone, where there are no bar lines
+            down through the tracks to mark it.
           */}
           {!empty && (
             <div className="ruler-notches" aria-hidden="true">
-              {Array.from({ length: Math.floor(width / beatPx) }, (_, b) => b)
-                .filter((b) => b % num)
-                .map((b) => (
-                  <i key={b} className={divides(b % num) ? 'is-mid' : undefined} style={{ left: b * beatPx }} />
-                ))}
+              {Array.from({ length: Math.floor(width / beatPx) }, (_, b) => (
+                <i key={b} className={b % num === 0 ? 'is-bar' : divides(b % num) ? 'is-mid' : undefined} style={{ left: b * beatPx }} />
+              ))}
             </div>
           )}
           {chords.length > 0 && (

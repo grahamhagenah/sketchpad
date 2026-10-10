@@ -3,7 +3,7 @@ import { useStore } from './store'
 import { deleteTake, seek, togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
-import { SectionBar, SongView } from './components/Sections'
+import { SectionBar, SectionPanel, SongView, useSectionSheet } from './components/Sections'
 import { StatusBar } from './components/StatusBar'
 import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
@@ -127,7 +127,7 @@ function useShortcuts() {
 /**
  * A button clicked with the mouse lets go of focus, as buttons do in a desktop
  * app, so the shortcuts that follow (space to play) don't light up a ring on it
- * or press it again. Not in menus or the section's settings, whose buttons ask
+ * or press it again. Not in menus or settings panels, whose buttons can ask
  * to be clicked twice to confirm, and keep their focus for that. Keyboard focus is left as it is.
  */
 function useClickBlur() {
@@ -136,7 +136,7 @@ function useClickBlur() {
       // A click from the keyboard (Enter or Space on a focused button) has no detail.
       if (!e.detail) return
       const button = (e.target as HTMLElement).closest('button')
-      if (button && button === document.activeElement && !button.closest('.menu, .section-panel')) button.blur()
+      if (button && button === document.activeElement && !button.closest('.menu, .track-sheet')) button.blur()
     }
     document.addEventListener('click', onClick)
     return () => document.removeEventListener('click', onClick)
@@ -158,6 +158,8 @@ export default function App() {
   const selectedVocal = useStore((s) => s.selectedVocal)
   const drumsSelected = useStore((s) => s.drumsTrackSelected && s.drumTrack)
   const chordsSelected = useStore((s) => s.chordsTrackSelected && s.chords.length > 0)
+  // On a phone, the gear on the tabs brings up the section's own settings in the sheet.
+  const sectionSheet = useSectionSheet((s) => s.open)
   // On a wider screen, what's selected has its settings in a column beside the tracks; an empty section has only its ways to start.
   const hasChords = useStore((s) => s.chords.length > 0)
   const inspectorShown = useInspector((s) => s.shown)
@@ -180,7 +182,18 @@ export default function App() {
         </section>
       </main>
       <StatusBar />
-      {chordPad && (selectedVocal !== null ? <VocalPad lane={selectedVocal} /> : drumsSelected ? <DrumPad /> : chordsSelected ? <ChordsTrackPad /> : <ChordPad />)}
+      {chordPad &&
+        (sectionSheet ? (
+          <SectionPanel docked={false} onDone={() => useSectionSheet.setState({ open: false })} />
+        ) : selectedVocal !== null ? (
+          <VocalPad lane={selectedVocal} />
+        ) : drumsSelected ? (
+          <DrumPad />
+        ) : chordsSelected ? (
+          <ChordsTrackPad />
+        ) : (
+          <ChordPad />
+        ))}
       {/* On a phone, recording takes over the bottom of the screen. */}
       {narrow && recording && <RecordingSheet />}
     </div>
