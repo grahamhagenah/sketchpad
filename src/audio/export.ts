@@ -1,7 +1,8 @@
 import * as Tone from 'tone'
 import { keyLabel, keySignature } from '../music/theory'
 import { arrange } from './arrange'
-import { createInstruments, createVocalRoom, midiToHz, routeVocal } from './instruments'
+import { createInstruments, createVocalRoom, loadPiano, midiToHz, routeVocal } from './instruments'
+import { instrumentOf, type Instrument } from './sound'
 import { createKit, DRUM_NOTES, KIT_VOLUME, playDrum } from './drums'
 import { zip } from './zip'
 import { toAudioBuffer, type Take } from './take'
@@ -62,6 +63,9 @@ function track(name: string, events: MidiEvent[]) {
   return chunk('MTrk', body)
 }
 
+/** General MIDI programs for the instruments: acoustic grand, electric piano 1, string ensemble, vibraphone. */
+const GM_PROGRAMS: Record<Instrument, number | null> = { synth: null, piano: 0, epiano: 4, strings: 48, bell: 11 }
+
 function notes(channel: number, hits: { start: number; dur: number; pitches: number[]; velocity: number }[]) {
   const events: MidiEvent[] = []
   for (const h of hits) {
@@ -106,10 +110,11 @@ export function songToMidi(song: ExportSong): Blob {
   }
   conductor.push(...keys.map((k) => keySig(Math.round(k.beat * (4 / den) * PPQ), k.key, k.mode)))
 
-  const tracks = [
-    track('Bounce', conductor),
-    track(song.arp.on ? 'Arpeggio' : 'Chords', notes(0, hits.filter((h) => h.pad.length).map((h) => ({ ...h, pitches: h.pad })))),
-  ]
+  // The instrument, as General MIDI's nearest, so a DAW opens the chords on something like it; the synth leaves the choice to it.
+  const program = GM_PROGRAMS[instrumentOf(song.sound)]
+  const chords = notes(0, hits.filter((h) => h.pad.length).map((h) => ({ ...h, pitches: h.pad })))
+  if (program !== null) chords.unshift({ tick: 0, order: 0, data: [0xc0, program] })
+  const tracks = [track('Bounce', conductor), track(song.arp.on ? 'Arpeggio' : 'Chords', chords)]
   if (song.sound.bass) {
     const bass = hits.flatMap((h) => (h.bass === null ? [] : [{ ...h, pitches: [h.bass], velocity: 0.9 }]))
     tracks.push(track('Bass', notes(1, bass)))
@@ -168,6 +173,8 @@ async function render(song: ExportSong, parts: Parts, duration: number) {
   const quarterSeconds = 60 / song.bpm
   const beatSeconds = quarterSeconds * (4 / song.timeSig[1])
   const hits = arrange(song)
+  // The piano's notes, loaded before the render, so it's made with them in hand.
+  if (parts.pad && instrumentOf(song.sound) === 'piano') await loadPiano()
   const rendered = await Tone.Offline(async () => {
     const { pad, bass, reverb, bus } = createInstruments(song.sound)
     bus.volume.value = song.chordsDb ?? 0

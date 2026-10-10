@@ -2,7 +2,7 @@ import * as Tone from 'tone'
 import { keyOf, useStore, loopRange, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
 import { arrange, type Hit } from './arrange'
-import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Instruments } from './instruments'
+import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
 import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
@@ -43,7 +43,7 @@ interface ClickEvent {
 class Engine {
   private ready = false
   private instruments!: Instruments
-  private pad!: Tone.PolySynth
+  private pad!: Pad
   private bass!: Tone.MonoSynth
   private click!: Tone.Synth
   private kit!: Kit

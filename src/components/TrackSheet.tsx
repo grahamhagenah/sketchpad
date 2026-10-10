@@ -193,7 +193,22 @@ export function MuteSoloRow({ about, muted, solo, onMute, onSolo }: { about: Rea
 }
 
 /** A slider with its name before it and its value after. */
-export function SheetSlider({ label, ...props }: { label: string; value: number; min: number; max: number; step: number; text: string; onChange: (value: number) => void; reset?: number }) {
+export function SheetSlider({
+  label,
+  ...props
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  text: string
+  onChange: (value: number) => void
+  reset?: number
+  /** Called when a drag or key press ends, e.g. to play a preview. */
+  onRelease?: () => void
+  disabled?: boolean
+}) {
   return (
     <label className="track-sheet-slider">
       <span>{label}</span>
@@ -206,8 +221,11 @@ export function SheetSlider({ label, ...props }: { label: string; value: number;
         step={props.step}
         value={props.value}
         aria-valuetext={props.text}
+        disabled={props.disabled}
         onChange={(e) => props.onChange(Number(e.target.value))}
         onDoubleClick={props.reset === undefined ? undefined : () => props.onChange(props.reset!)}
+        onPointerUp={props.onRelease}
+        onKeyUp={(e) => e.key.startsWith('Arrow') && props.onRelease?.()}
       />
       <output>{props.text}</output>
     </label>

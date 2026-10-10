@@ -53,6 +53,13 @@ describe('songToMidi', () => {
     expect(bytes.some((b, i) => b === 0x99 && bytes[i + 1] === 36)).toBe(true)
   })
 
+  it('opens the chords on the instrument nearest the sound, and leaves the synth to the DAW', async () => {
+    const programs = async (instrument: 'piano' | 'synth') =>
+      [...new Uint8Array(await songToMidi({ ...song, sound: { ...song.sound, instrument } }).arrayBuffer())].flatMap((b, i, all) => (b === 0xc0 && all[i - 1] === 0 ? [all[i + 1]] : []))
+    expect(await programs('piano')).toEqual([0])
+    expect(await programs('synth')).toEqual([])
+  })
+
   it('changes the key signature where a section in another key starts', async () => {
     const chords = [{ ...song.chords[0] }, { ...song.chords[1], key: 8, mode: 'minor' as const }]
     const bytes = [...new Uint8Array(await songToMidi({ ...song, chords }).arrayBuffer())]

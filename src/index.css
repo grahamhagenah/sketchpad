@@ -1741,6 +1741,40 @@ main > .panel {
   .toolbar-modes .sound-panel { left: auto; right: 0; }
 }
 .sound-section { display: flex; flex-direction: column; gap: 6px; }
+/* The sound panel: one list, top to bottom, with room between its parts. */
+.sound-body { display: flex; flex-direction: column; gap: 18px; }
+.sound-body .sound-section { gap: 8px; }
+.sound-body .sound-heading:not(:first-child) { margin-top: 6px; }
+/* The recorded piano, a wide card saying what it is; then the synth's sounds, an even grid. */
+.sound-piano,
+.sound-grid button {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--raised);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--text);
+}
+.sound-piano { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 0 12px; text-align: left; font-weight: 600; }
+.sound-piano span { min-width: 0; font-size: var(--fs-small); font-weight: 400; color: var(--muted); text-align: right; }
+.sound-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.sound-grid.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sound-grid button { height: 38px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sound-piano:hover,
+.sound-grid button:not(:disabled):hover { border-color: var(--muted); }
+.sound-grid button:disabled { opacity: 0.45; }
+/* Picked: white, as a selection is everywhere. */
+.sound-piano[aria-checked='true'],
+.sound-grid button[aria-checked='true'] { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+.sound-body .track-sheet-slider > span { width: 5.6em; }
+.sound-body .track-sheet-slider { min-height: 30px; }
+.sound-more-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; margin-top: -4px; border-top: 1px solid var(--line); }
+.sound-more { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font-size: var(--fs-body); font-weight: 500; color: var(--muted); }
+.sound-more:hover { color: var(--text); }
+.sound-more svg { transition: transform 0.15s ease; }
+.sound-more[aria-expanded='true'] { color: var(--text); }
+.sound-more[aria-expanded='true'] svg { transform: rotate(180deg); }
+.track-sheet-slider:has(input:disabled) { opacity: 0.4; }
 .sound-heading {
   font-family: 'DM Mono', monospace;
   font-size: var(--fs-label);
