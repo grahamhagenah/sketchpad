@@ -267,6 +267,8 @@ interface State extends SectionParts {
   addToSong: (sectionId: string) => void
   removeFromSong: (entryId: string) => void
   moveInSong: (entryId: string, toIndex: number) => void
+  /** Plays a place in the song again, straight after itself. */
+  repeatInSong: (entryId: string) => void
   /** Gives one place in the song its own copy of its section, to change without changing the others. */
   makeUnique: (entryId: string) => void
   /** Puts loaded takes in a section, showing enough tracks for them. */
@@ -427,21 +429,29 @@ export const sectionBeats = (sections: Pick<Section, 'id' | 'chords'>[]) => new 
 const progression = (degrees: number[]): Chord[] => degrees.map((degree) => ({ id: newId(), degree, beats: 4, seventh: false }))
 
 /**
- * What a first visit opens on: a short song to press play on, a verse
- * leading into a chorus, with drums and the chords pushed in time with them,
- * so what Bounce does is heard straight away. "New sketch" starts from nothing.
+ * The demo song, and what a first visit opens on: a short song to press play
+ * on, a verse into a chorus and a bridge, with drums (and a fill into each
+ * chorus) and the chords pushed in time with them, so what Bounce does is
+ * heard straight away. "New sketch" starts from nothing; the sketches menu
+ * brings the demo back.
  */
-function starterSong() {
-  const verse = { id: newId(), name: 'Verse', chords: progression([5, 3, 0, 4]), drums: 'light' as const }
+export function demoSong() {
+  const verse = { id: newId(), name: 'Verse', chords: progression([5, 3, 0, 4]), drums: 'light' as const, drumFill: 'end' as const }
   const chorus = { id: newId(), name: 'Chorus', chords: progression([0, 4, 5, 3]), drums: 'backbeat' as const }
+  const bridge = { id: newId(), name: 'Bridge', chords: progression([3, 4, 2, 5]), drums: 'halftime' as const, drumFill: 'end' as const }
   return {
+    key: 0,
+    mode: 'major' as const,
+    bpm: 96,
+    timeSig: [4, 4] as TimeSig,
     ...songState({
-      sections: [verse, chorus],
-      arrangement: [verse, chorus, verse, chorus].map((sec) => ({ id: newId(), section: sec.id })),
+      sections: [verse, chorus, bridge],
+      arrangement: [verse, chorus, verse, chorus, bridge, chorus].map((sec) => ({ id: newId(), section: sec.id })),
       activeSection: verse.id,
     }),
     view: 'song' as const,
     drumTrack: true,
+    loopOn: true,
     rhythm: { ...DEFAULT_RHYTHM, chords: 'tresillo' as const },
   }
 }
@@ -462,11 +472,8 @@ export function audibleTracks(s: Pick<State, 'chordsMuted' | 'chordsSolo' | 'dru
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
-      key: 0,
-      mode: 'major',
-      bpm: 96,
-      timeSig: [4, 4],
-      ...starterSong(),
+      // The demo song, in C major at 96 BPM in 4/4.
+      ...demoSong(),
       selectedId: null,
       metronome: false,
       loopOn: true,
@@ -780,6 +787,12 @@ export const useStore = create<State>()(
         })
       },
       addToSong: (sectionId) => set({ arrangement: [...get().arrangement, { id: newId(), section: sectionId }] }),
+      repeatInSong: (entryId) => {
+        const all = get().arrangement
+        const i = all.findIndex((e) => e.id === entryId)
+        if (i === -1) return
+        set({ arrangement: [...all.slice(0, i + 1), { id: newId(), section: all[i].section }, ...all.slice(i + 1)] })
+      },
       removeFromSong: (entryId) => set({ arrangement: get().arrangement.filter((entry) => entry.id !== entryId) }),
       moveInSong: (entryId, toIndex) => {
         const arrangement = get().arrangement

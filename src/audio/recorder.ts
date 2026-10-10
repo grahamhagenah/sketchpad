@@ -41,6 +41,8 @@ export function openMic() {
 export interface Capture {
   /** Seconds the input lags behind real time, as the browser reports it. */
   inputLatency: number
+  /** How loud the microphone is right now: its loudest sample over the last moment, 0 to 1. */
+  level: () => number
   /** Stops recording; returns the samples and the audio-clock time of the first one. */
   stop: () => Promise<{ startTime: number; samples: Float32Array }>
 }
@@ -61,14 +63,27 @@ export async function startCapture(stream: MediaStream): Promise<Capture> {
 
   const settings = stream.getAudioTracks()[0]?.getSettings() as MediaTrackSettings & { latency?: number }
 
+  // A tap on the input, for the level meter; it leads nowhere and changes nothing that's recorded.
+  const analyser = ctx.createAnalyser()
+  analyser.fftSize = 1024
+  source.connect(analyser)
+  const frame = new Float32Array(analyser.fftSize)
+
   return {
     inputLatency: settings?.latency ?? 0,
+    level: () => {
+      analyser.getFloatTimeDomainData(frame)
+      let peak = 0
+      for (let i = 0; i < frame.length; i++) peak = Math.max(peak, Math.abs(frame[i]))
+      return Math.min(1, peak)
+    },
     stop: async () => {
       node.port.postMessage('stop')
       // Let the last blocks arrive.
       await new Promise((r) => setTimeout(r, 60))
       source.disconnect()
       node.disconnect()
+      analyser.disconnect()
       stream.getTracks().forEach((t) => t.stop())
 
       const length = chunks.reduce((n, c) => n + c.data.length, 0)

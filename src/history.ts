@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { emptyParts, sectionsNow, useStore, type Section, type SectionParts } from './store'
 
-// Undo covers the song itself: its chords, drums, key, tempo, meter and loop,
+// Undo covers the song itself: its chords, drums (the track too), key, tempo, meter and loop,
 // and its sections and their order. Vocal tracks are steps of their own, kept
 // only when a take is trimmed, deleted or recorded over (the audio stays in memory for
 // the visit, so it can come back); muting, naming and the like aren't steps.
@@ -14,6 +14,7 @@ const pick = (s: ReturnType<typeof useStore.getState>) => ({
   loop: s.loop,
   drums: s.drums,
   drumFill: s.drumFill,
+  drumTrack: s.drumTrack,
   sectionKey: s.sectionKey,
   sections: s.sections,
   arrangement: s.arrangement,
@@ -34,6 +35,9 @@ const LIMIT = 100
 /** Changes closer together than this (a drag, typing a tempo) undo as one step. */
 const MERGE_MS = 600
 
+/** Whether undo or redo is putting things back right now, for anything watching changes to leave those out. */
+export const isRestoring = () => applying
+
 const past: Step[] = []
 const future: Step[] = []
 let lastChange = 0
@@ -50,7 +54,7 @@ type State = ReturnType<typeof useStore.getState>
  * between the editor and the sections without changing any, so it isn't a step.
  */
 function songChanged(s: State, prev: State) {
-  if (s.key !== prev.key || s.mode !== prev.mode || s.bpm !== prev.bpm || s.timeSig !== prev.timeSig || s.arrangement !== prev.arrangement) {
+  if (s.key !== prev.key || s.mode !== prev.mode || s.bpm !== prev.bpm || s.timeSig !== prev.timeSig || s.arrangement !== prev.arrangement || s.drumTrack !== prev.drumTrack) {
     return true
   }
   const now = sectionsNow(s)

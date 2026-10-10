@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { chordsTrackName, drumsTrackName, keyOf, useStore, vocalTrackName } from '../store'
 import { grooveLabel } from '../audio/drums'
 import { trimOf } from '../audio/take'
+import { InputMeter } from './InputMeter'
 import { chordOf } from '../music/theory'
 import { isDirty } from '../library'
 import { ShortcutsButton } from './Shortcuts'
@@ -44,11 +45,16 @@ function Status() {
   const sel = s.chords.find((c) => c.id === s.selectedId)
   const hint = useHoverHint((h) => h.hint)
 
-  if (s.recording === 'count-in') return <>Counting in…</>
+  if (s.recording === 'count-in')
+    return (
+      <>
+        Counting in… <InputMeter />
+      </>
+    )
   if (s.recording === 'on')
     return (
       <>
-        Recording{' '}
+        Recording <InputMeter />
         <Keys>
           · <kbd>R</kbd> or <kbd>Space</kbd> to stop
         </Keys>

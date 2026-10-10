@@ -139,6 +139,10 @@ export function Toolbar() {
           <div className="toolbar-extra-inner">
             <div className="toolbar-extra-row">
               <SongTitle />
+              {/* On the smallest phones, undo and redo wait here, leaving the row above room for play and record. */}
+              <div className="toolbar-icons toolbar-undo-extra">
+                <UndoRedo />
+              </div>
               <div className="toolbar-icons">
                 <ExportButton />
               </div>

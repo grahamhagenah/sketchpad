@@ -9,6 +9,7 @@ import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
 import { colorHex, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR } from './colors'
 import { ChordPad } from './components/ChordPad'
+import { UndoNote } from './components/UndoNote'
 import { ToolSheet, useToolSheet } from './components/SoundPanel'
 import { VocalPad } from './components/VocalPad'
 import { DrumPad } from './components/DrumPad'
@@ -201,6 +202,7 @@ export default function App() {
           <ChordPad />
         ))
       )}
+      <UndoNote />
       {/* On a phone, recording takes over the bottom of the screen. */}
       {narrow && recording && <RecordingSheet />}
     </div>

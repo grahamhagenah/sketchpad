@@ -213,7 +213,7 @@ function putAudio(tx: IDBTransaction, take: Take) {
 }
 
 /** Every string in a stored value, however deeply it's nested in arrays and records: the take ids it holds. */
-function idsIn(value: unknown, into = new Set<unknown>()) {
+export function idsIn(value: unknown, into = new Set<unknown>()) {
   if (typeof value === 'string') into.add(value)
   else if (Array.isArray(value)) value.forEach((v) => idsIn(v, into))
   else if (value && typeof value === 'object') Object.values(value).forEach((v) => idsIn(v, into))
@@ -255,7 +255,12 @@ async function loadAudio(lanes: Record<string, unknown[]>): Promise<SectionTakes
   const ids = [...idsIn(lanes)] as string[]
   const stored = await Promise.all(ids.map((id) => idb<StoredTake | undefined>(AUDIO, 'readonly', (s) => s.get(id))))
   const takes = new Map(ids.map((id, i) => [id, stored[i] ? fromStored(id, stored[i]) : null]))
-  const get = (id: unknown) => (typeof id === 'string' ? (takes.get(id) ?? null) : null)
+  return lanesFrom(lanes, (id) => takes.get(id) ?? null)
+}
+
+/** Each section's lanes as stored, with their takes found by id: what's kept on the device, or in a backup file. */
+export function lanesFrom(lanes: Record<string, unknown[]>, take: (id: string) => Take | null): SectionTakes {
+  const get = (id: unknown) => (typeof id === 'string' ? take(id) : null)
   const lane = (value: unknown): LaneTakes => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       const take = get(value)

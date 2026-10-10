@@ -2,13 +2,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { createPortal } from 'react-dom'
 import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
-import { engine, seek } from '../audio/engine'
+import { engine, seek, togglePlay } from '../audio/engine'
 import { songBeatOf, songSpans } from '../song'
 import { grooveHits } from '../audio/drums'
 import { Icon, ZoomButtons } from './Toolbar'
 import { useNarrow } from '../hooks/useNarrow'
 import { create } from 'zustand'
 import { TrackSheet } from './TrackSheet'
+import { vocalColor } from '../colors'
 
 
 /** A gear, for a section's settings. */
@@ -532,8 +533,8 @@ const ROW_H = 82
 const NARROW_ROW_H = 112
 const NARROW_HEAD_H = 44
 const ROW_GAP = 6
-/** Room at the end of each row for its buttons. */
-const END_PX = 150
+/** Room at the end of each row for its buttons: play from here, up, down, remove, and the menu. */
+const END_PX = 184
 const rowTop = (i: number, rowH = ROW_H) => i * (rowH + ROW_GAP)
 
 /** An element's width, kept up to date as it changes. */
@@ -585,7 +586,7 @@ export function SongView() {
   // On a phone the name sits above the chords, so they get the full width.
   const narrow = sheetWidth > 0 && sheetWidth < 640
   const rowH = narrow ? NARROW_ROW_H : ROW_H
-  const headPx = narrow ? 8 : 136
+  const headPx = narrow ? 8 : 176
   // Room is left at the end of each row for its buttons: up, down, remove and the menu.
   // A phone has no zoom buttons, so there the song always fits the screen.
   const beatPx = (sheetWidth ? (sheetWidth - headPx - (narrow ? 16 : END_PX)) / longest : 8) * (narrow ? 1 : Math.max(1, zoom))
@@ -702,11 +703,38 @@ export function SongView() {
   }
 
   const bars = (beats: number) => Math.ceil(beats / num)
+  // Beats as minutes and seconds at the song's tempo: "1:05".
+  const beatSeconds = (60 / bpm) * (4 / den)
+  const clock = (beats: number) => {
+    const seconds = Math.round(beats * beatSeconds)
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+  }
+  // A letter for each section, in the order they first play: its shape at a glance, as A B A B C B.
+  const letters = new Map<string, string>()
+  for (const entry of arrangement) if (!letters.has(entry.section)) letters.set(entry.section, String.fromCharCode(65 + (letters.size % 26)))
+  // From a row's start: there and on, or on from there if it's already playing.
+  const playFrom = (beat: number) => {
+    if (useStore.getState().playing) return void seek(beat)
+    useStore.getState().setPlayhead(beat)
+    void togglePlay()
+  }
   return (
     <div
       className={`song-view ${narrow ? 'is-narrow' : ''}`}
       style={{ ['--song-head' as string]: `${headPx}px`, ['--song-track-top' as string]: narrow ? `${NARROW_HEAD_H}px` : '0px' }}
     >
+      {/* How long the song is, and its shape. */}
+      {total > 0 && (
+        <p className="song-summary">
+          <span>{clock(total)}</span>
+          <span>
+            {bars(total)} {bars(total) === 1 ? 'bar' : 'bars'}
+          </span>
+          <span className="song-summary-shape" aria-label={`Shape: ${arrangement.map((e) => letters.get(e.section)).join(' ')}`}>
+            {arrangement.map((e) => letters.get(e.section)).join(' ')}
+          </span>
+        </p>
+      )}
       <div className="song-scroll" ref={scrollRef}>
         <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + (narrow ? 16 : END_PX)}px)`, height: rowTop(spans.length, rowH) + (narrow ? 80 : 60) }}>
           {/* Faint lines between the rows, staying put while a row is dragged past them. */}
@@ -755,11 +783,15 @@ export function SongView() {
                     <svg className="song-row-grip" width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
                       {[2, 8, 14].flatMap((y) => [2, 8].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" fill="currentColor" />))}
                     </svg>
+                    <span className="song-row-letter" aria-hidden="true">
+                      {letters.get(section.id)}
+                    </span>
                     <span className="song-row-title">{section.name}</span>
-                    {/* On a phone, how long it is and its key, beside its name. */}
+                    {/* When it starts; on a phone, how long it is and its key too. */}
+                    {!narrow && beats > 0 && <span className="song-row-time">{clock(start)}</span>}
                     {narrow && beats > 0 && (
                       <span className="song-row-length">
-                        {bars(beats)} {bars(beats) === 1 ? 'bar' : 'bars'} · {section.chords.length} {section.chords.length === 1 ? 'chord' : 'chords'} ·{' '}
+                        {clock(start)} · {bars(beats)} {bars(beats) === 1 ? 'bar' : 'bars'} · {section.chords.length} {section.chords.length === 1 ? 'chord' : 'chords'} ·{' '}
                         {keyLabel(section.sectionKey?.key ?? key, section.sectionKey?.mode ?? mode)} {section.sectionKey?.mode ?? mode}
                       </span>
                     )}
@@ -806,7 +838,14 @@ export function SongView() {
                             <span
                               key={lane}
                               className="song-take"
-                              style={{ left: t.startBeat * beatPx, width: Math.max(2, length * beatPx), top: `${(slot / used) * 100}%`, height: `${100 / used}%` }}
+                              style={{
+                                left: t.startBeat * beatPx,
+                                width: Math.max(2, length * beatPx),
+                                top: `${(slot / used) * 100}%`,
+                                height: `${100 / used}%`,
+                                // In its track's colour, as on the timeline.
+                                background: vocalColor(section.vocalColors, lane),
+                              }}
                             />
                           )
                         })}
@@ -814,8 +853,20 @@ export function SongView() {
                     )}
                   </span>
                 </button>
-                {/* Move it up or down the song, or take it out; the rest is in its menu. */}
+                {/* Play from it, move it up or down the song, or take it out; the rest is in its menu. */}
                 <div className="song-row-actions">
+                  <button
+                    type="button"
+                    className="icon-btn song-row-act song-row-play"
+                    disabled={!beats}
+                    onClick={() => playFrom(start)}
+                    aria-label={`Play from ${section.name}`}
+                    title={`Play the song from ${section.name}`}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M8 5.5v13l11-6.5z" fill="currentColor" />
+                    </svg>
+                  </button>
                   <button type="button" className="icon-btn song-row-act" disabled={index === 0} onClick={() => moveInSong(entry.id, index - 1)} aria-label={`Move ${section.name} earlier`} title="Move earlier (⌥↑)">
                     <Icon d="M6 15l6-6 6 6" />
                   </button>
@@ -871,7 +922,7 @@ export function SongView() {
 
 /** Move, unlink or remove one place in the song. */
 function BlockMenu({ entryId, section, index, count, shared }: { entryId: string; section: Section; index: number; count: number; shared: boolean }) {
-  const { moveInSong, removeFromSong, makeUnique, openSection, liftSection } = useStore()
+  const { moveInSong, removeFromSong, makeUnique, openSection, liftSection, repeatInSong } = useStore()
   return (
     <MenuButton label={`${section.name} options`} className="song-row-more icon-btn" align="right" menu={(close) => {
       const act = (fn: () => void) => () => {
@@ -888,6 +939,10 @@ function BlockMenu({ entryId, section, index, count, shared }: { entryId: string
           </button>
           <button type="button" className="menu-item" disabled={index === count - 1} onClick={act(() => moveInSong(entryId, index + 1))}>
             <span className="menu-item-title">Move later</span>
+          </button>
+          <button type="button" className="menu-item" onClick={act(() => repeatInSong(entryId))}>
+            <span className="menu-item-title">Repeat it right after</span>
+            <span className="menu-item-about">{section.name} plays again, straight after this one</span>
           </button>
           <button type="button" className="menu-item" disabled={!shared} onClick={act(() => makeUnique(entryId))}>
             <span className="menu-item-title">Make this one a copy</span>

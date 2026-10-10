@@ -3,6 +3,7 @@ import { useSheetDrag } from '../hooks/useSheetDrag'
 import { keyOf, useStore, type Chord } from '../store'
 import { BORROWED, chordOf, keyLabel, nextChords, type ChordBass, type ChordColor } from '../music/theory'
 import { audition } from '../audio/engine'
+import { quietly } from '../undoNote'
 
 /** The chord to add: picked on a pad, with its options. */
 interface Pick {
@@ -169,7 +170,8 @@ export function ChordPad() {
       <button
         type="button"
         onClick={() => {
-          useStore.getState().removeChord(added.id)
+          // Its own undo: no note saying it was deleted.
+          quietly(() => useStore.getState().removeChord(added.id))
           setAdded(null)
         }}
       >

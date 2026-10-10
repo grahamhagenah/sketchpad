@@ -1,14 +1,21 @@
 import { create } from 'zustand'
 import { Icon } from './Toolbar'
 
-/** Whether the inspector shows is a habit of the device's owner, kept on it rather than with the song. */
+/**
+ * Whether the inspector shows is a habit of the device's owner, kept on it
+ * rather than with the song. Until it's chosen, it shows where there's room:
+ * not on a tablet's narrower screen, where it would leave the timeline a sliver.
+ */
 const KEY = 'bounce-inspector'
+const ROOMY = 1000
 const saved = () => {
   try {
-    return localStorage.getItem(KEY) !== '0'
+    const kept = localStorage.getItem(KEY)
+    if (kept !== null) return kept !== '0'
   } catch {
-    return true
+    // Not kept: decided by the screen.
   }
+  return typeof window === 'undefined' || window.innerWidth >= ROOMY
 }
 
 /** Whether the inspector beside the tracks is showing, on a wider screen. */

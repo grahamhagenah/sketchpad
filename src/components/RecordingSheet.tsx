@@ -1,13 +1,15 @@
 import { useStore, vocalTrackName } from '../store'
 import { toggleRecord } from '../audio/engine'
 import { Position } from './Position'
+import { InputMeter } from './InputMeter'
 
 /**
  * On a phone, recording takes over the bottom of the screen, big enough to
  * read and hit from where you stand to sing: the count-in in large numbers
  * (with a reminder that headphones keep the chords out of the take), then
  * which track it's going into and where in the section it's got to, and a
- * large button to stop (or, during the count-in, to call it off).
+ * large button to stop (or, during the count-in, to call it off). Throughout,
+ * how loud the microphone is, to check it hears you before the take starts.
  */
 export function RecordingSheet() {
   const recording = useStore((s) => s.recording)
@@ -41,6 +43,7 @@ export function RecordingSheet() {
           </div>
         </>
       )}
+      <InputMeter className="is-large" />
       <button type="button" className="record-sheet-stop" onClick={() => void toggleRecord()}>
         {counting ? (
           'Cancel'

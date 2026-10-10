@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { keyOf, useStore, loopRange, type Chord } from '../store'
+import { keyOf, useStore, loopRange, vocalTrackName, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
 import { arrange, type Hit } from './arrange'
 import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Instruments, type Pad } from './instruments'
@@ -10,6 +10,7 @@ import { newId } from '../id'
 import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 import { keepVocals } from '../history'
+import { quietly, showUndoNote } from '../undoNote'
 
 interface HitEvent extends Hit {
   time: string
@@ -321,6 +322,11 @@ class Engine {
     at(startAt, on.rolling)
   }
 
+  /** How loud the microphone is while recording (0 to 1), or null when nothing's recording. */
+  inputLevel(): number | null {
+    return this.recording ? this.recording.capture.level() : null
+  }
+
   /** Stops a recording and returns the take, lined up with the song, and its lane. */
   async finishRecording(): Promise<{ lane: number; take: Take | null } | null> {
     const rec = this.recording
@@ -551,9 +557,11 @@ const takeCount = (takes: readonly unknown[]) => takes.reduce<number>((n, t, lan
 export async function deleteTake(lane: number) {
   const s = useStore.getState()
   const tracks = Math.max(s.vocalTracks, takeCount(s.takes))
+  const name = vocalTrackName(s, lane)
   // Undo brings the track and its take back.
   keepVocals()
-  s.renumberVocals(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane))
+  quietly(() => s.renumberVocals(Array.from({ length: tracks }, (_, i) => i).filter((i) => i !== lane)))
+  showUndoNote(`Deleted ${name}`)
 }
 
 /** Trims a take, or with null plays it whole again; undo puts the trim back as it was. */
@@ -564,8 +572,10 @@ export function trimTake(id: string, trim: Trim | null) {
 
 /** Deletes one of a track's takes, keeping the track and its others; undo brings it back. */
 export function deleteOneTake(lane: number, id: string) {
+  const n = useStore.getState().allTakes[lane]?.findIndex((t) => t.id === id) ?? -1
   keepVocals()
   useStore.getState().dropTake(lane, id)
+  showUndoNote(n >= 0 ? `Deleted take ${n + 1}` : 'Deleted a take')
 }
 
 /** Puts a whole song's takes in its sections, as when opening a saved sketch. */

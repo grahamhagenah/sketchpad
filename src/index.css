@@ -427,7 +427,8 @@ main > .panel {
 .inspector-chord { margin-right: auto; display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-display); font-weight: 700; }
 /* A setting with its name above it. */
 .inspector-field { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: var(--fs-body); }
-.inspector-field > span { font-size: var(--fs-small); color: var(--muted); }
+.inspector-field > span,
+.chord-pad-option > span { font-family: 'DM Mono', monospace; font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .inspector-field select {
   width: 100%;
   height: 34px;
@@ -636,6 +637,18 @@ main > .panel {
   background: var(--line-strong);
   pointer-events: none;
 }
+/* Fainter lines between the tracks themselves, in the middle of the gap: chords from drums, and one vocal from the next. */
+.track-line {
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--vocal-top) - var(--label-h) - var(--gap) / 2 + var(--row, 0) * var(--vocal-step));
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.track-line.is-drums { top: calc(var(--drum-top) - var(--label-h) - var(--gap) / 2); }
 /* With nothing on it, the grid would only cut through the hint. */
 .timeline.is-empty { background: none; }
 
@@ -674,6 +687,10 @@ main > .panel {
 
 /* Track names beside the rows: plain text, with mute and solo as small letters. */
 .track-headers { position: relative; flex: none; width: 200px; }
+/* On a tablet, a narrower column of names, for the timeline's sake. */
+@media (min-width: 641px) and (max-width: 999px) {
+  .track-headers { width: 168px; }
+}
 /* Each header fills its whole slot in the column, gaps between rows included, so the clickable area runs edge to edge. */
 .track-header { position: absolute; left: 0; right: 0; display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 6px 4px; padding: 0 8px; }
 /* The track's volume, under its name: a thin line with a small knob. */
@@ -721,7 +738,9 @@ main > .panel {
 /* The section's settings: where it is in the song, with adding it to the end beside; three ways to copy it. */
 .section-sheet-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .section-sheet-copies { width: 100%; }
-.section-sheet-copies button { flex: 1 1 0; padding: 0 4px; }
+.section-sheet-copies button { padding: 0 4px; }
+/* On a blank sketch, under the ways to start: the demo song, to hear what Bounce does first. */
+.starter-demo { margin: 0; font-size: var(--fs-small); color: var(--muted); }
 .section-settings[aria-pressed='true'] { color: var(--text); background: var(--raised); }
 /* Only there while a track is muted or soloed. */
 .unmute-all {
@@ -1242,6 +1261,28 @@ main > .panel {
   white-space: nowrap;
 }
 .song-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The section's letter, the same wherever it plays, so the song's shape reads down the rows. */
+.song-row-letter {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  font-family: 'DM Mono', monospace;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--muted);
+}
+/* When the row starts in the song. */
+.song-row-time { flex: none; margin-left: auto; font-family: 'DM Mono', monospace; font-size: var(--fs-small); font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Over the rows: how long the song is, in time and bars, and its shape in letters. */
+.song-summary { display: flex; align-items: baseline; gap: 14px; margin: 4px 0 8px; padding: 0 12px; font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); }
+.song-summary > span:first-child { font-size: var(--fs-body); color: var(--text); }
+.song-summary-shape { letter-spacing: 0.12em; }
+/* Play from a row: in the play button's colour, as the transport's. */
+.song-row-play:not(:disabled) { color: var(--accent); }
 /*
  * The section's tracks in miniature, as long as it is, all in greys: its
  * chords in a bar, then faint ticks for the drums' kicks and snares, and a
@@ -1277,7 +1318,7 @@ main > .panel {
 .song-drum.is-snare,
 .song-drum.is-tomHigh,
 .song-drum.is-tomLow { height: 60%; top: 20%; bottom: auto; opacity: 0.35; }
-.song-take { position: absolute; border-radius: 2px; background: var(--muted); opacity: 0.45; }
+.song-take { position: absolute; border-radius: 2px; opacity: 0.75; }
 /* An empty section: just its name, with a dashed stub to show there's nothing to play yet. */
 /* An empty section: a dashed slot as tall as a row's chords, asking for some; it opens the section like the name does. */
 .song-row.is-empty .song-row-track { display: flex; align-items: center; }
@@ -1368,7 +1409,7 @@ main > .panel {
 .song-view.is-narrow .song-add-btn { width: 100%; height: 56px; padding: 0 16px; font-size: var(--fs-title); }
 /* On a phone each row is stacked: its name and menu on a line, its chords the full width under them. */
 .song-view.is-narrow .song-row-body { flex-direction: column; align-items: stretch; }
-.song-view.is-narrow .song-row-head { width: auto; height: 44px; gap: 10px; padding: 4px 150px 0 8px; }
+.song-view.is-narrow .song-row-head { width: auto; height: 44px; gap: 10px; padding: 4px 186px 0 8px; }
 .song-view.is-narrow .song-row-track { flex: 1; align-self: flex-start; margin-left: var(--song-head); }
 .song-view.is-narrow .song-row-actions { top: 24px; gap: 4px; }
 /* A phone drags rows by holding them, so there's no grip; the name has its length beside it. */
@@ -1490,18 +1531,37 @@ main > .panel {
 /* A fixed width for the right-hand column, so a longer length ("10 beats") doesn't squeeze the groups beside it. */
 .chord-pad-options { display: grid; grid-template-columns: minmax(0, 1fr) 136px; gap: 12px 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .chord-pad-option { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.chord-pad-option > span { font-size: var(--fs-small); color: var(--muted); }
 /* Each group fills its column, its buttons sharing the width equally, rather than one long button at the end. */
-.chord-pad-option .chord-pad-seg button { flex: 1 1 0; padding: 0 4px; }
+.chord-pad-option .chord-pad-seg { width: 100%; }
+.chord-pad-option .chord-pad-seg button { padding: 0 4px; }
 .chord-pad-option .chord-pad-length { width: 100%; }
 .chord-pad-option .chord-pad-length button { min-width: 36px; padding: 0; }
 .chord-pad-option .chord-pad-length span { flex: 1; min-width: 0; justify-content: center; padding: 0; overflow: hidden; white-space: nowrap; }
-.chord-pad-seg,
-.chord-pad-length { flex: none; display: inline-flex; height: 34px; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--raised); }
-.chord-pad-seg button,
+.chord-pad-length { flex: none; display: inline-flex; height: 38px; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--raised); }
 .chord-pad-length button { min-width: 38px; padding: 0 9px; border: 0; background: none; font-size: var(--fs-body); font-weight: 500; color: var(--text); }
-.chord-pad-seg button + button { border-left: 1px solid var(--line-strong); }
-.chord-pad-seg button[aria-pressed='true'] { background: var(--text); color: var(--on-track); }
+/*
+ * A choice of a few: separate buttons sharing the width, as in the sound panel,
+ * the one picked outlined in white, as a pick is everywhere.
+ */
+.chord-pad-seg { flex: none; display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+.chord-pad-seg button {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--raised);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+.chord-pad-seg button:not(:disabled):hover { border-color: var(--muted); }
+.chord-pad-seg button:disabled { opacity: 0.45; }
+.chord-pad-seg button[aria-pressed='true'],
+.chord-pad-seg button[aria-pressed='true']:not(:disabled):hover { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+/* In a panel's column, a choice fills the width. */
+.inspector-field .chord-pad-seg { width: 100%; }
 .chord-pad-length span { display: flex; align-items: center; padding: 0 6px; font-size: var(--fs-body); white-space: nowrap; }
 .chord-pad-length button { font-size: var(--fs-display); }
 /* The selected chord: its name, then duplicate, delete and done. */
@@ -1574,7 +1634,7 @@ main > .panel {
 .track-sheet-status { display: flex; align-items: center; gap: 12px; }
 /* On as in the track headers: mute in grey, solo in the accent. */
 .track-sheet .chord-pad-seg button.is-mute[aria-pressed='true'] { background: color-mix(in srgb, var(--text) 14%, var(--raised)); color: var(--text); }
-.track-sheet .chord-pad-seg button.is-solo[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, var(--raised)); color: var(--accent); }
+.track-sheet .chord-pad-seg button.is-solo[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, var(--raised)); color: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .track-sheet-about { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-small); color: var(--muted); }
 /* A slider with its name before it and its value after. */
 .track-sheet-slider { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; font-size: var(--fs-body); }
@@ -1652,6 +1712,15 @@ main > .panel {
 .toolbar-compact .lcd { flex: 1; min-width: 0; }
 /* The modes after the transport; undo and redo, then the button for the rest, at the far end. */
 .toolbar-compact-row .toolbar-undo { margin-left: auto; }
+/* Play and record never give up their room. */
+.toolbar-compact-row .transport { flex: none; }
+.toolbar-undo-extra { display: none; }
+/* On the smallest phones, undo and redo move into the panel below, so the row fits. */
+@media (max-width: 360px) {
+  .toolbar-compact-row .toolbar-undo { display: none; }
+  .toolbar-compact-row .toolbar-more { margin-left: auto; }
+  .toolbar-undo-extra { display: flex; }
+}
 .toolbar-compact .lcd-cell { flex: 1; min-width: 0; padding: 0 8px; }
 .toolbar-compact .lcd-position { flex: none; padding: 0 10px; }
 .toolbar-more { flex: none; }
@@ -1775,6 +1844,13 @@ main > .panel {
 .menu-item-title kbd { margin-left: 8px; font-weight: 500; color: var(--muted); }
 .menu-item:disabled .menu-item-title { color: var(--muted); }
 .menu-divider { height: 1px; margin: 4px 6px; background: var(--line); }
+/* An action, with its icon in a column to the left of its title and line, apart from the sketches listed below. */
+.menu-item.has-icon { display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; align-items: center; }
+.menu-item.has-icon .menu-item-icon { grid-row: span 2; color: var(--muted); }
+.menu-item.has-icon:not(:disabled):hover .menu-item-icon { color: var(--text); }
+.menu-item.has-icon:disabled .menu-item-icon { opacity: 0.5; }
+/* Over a list in a menu, such as the saved sketches. */
+.menu-heading { margin: 8px 12px 2px; font-family: 'DM Mono', monospace; font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .menu-empty { margin: 6px 12px 8px; font-size: var(--fs-body); color: var(--muted); }
 
 /* Saving and the sketch library */
@@ -1799,6 +1875,13 @@ main > .panel {
 .sketch-row:not(:hover) .sketch-delete:not(:focus-visible):not(.is-confirming) { opacity: 0; }
 .sketch-delete.is-confirming { background: var(--danger); border-color: var(--danger); color: var(--bg); }
 @media (hover: none) { .sketch-row .sketch-delete { opacity: 1 !important; } }
+/* Recently deleted: a row that folds open the sketches waiting there, each to put back or delete for good. */
+.deleted-toggle .menu-item-title { display: inline-flex; align-items: center; gap: 6px; }
+.deleted-toggle svg { transition: transform 0.15s ease; }
+.deleted-toggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+.sketch-row.is-deleted .menu-item { cursor: default; }
+.sketch-row.is-deleted .menu-item-title { color: var(--muted); }
+.sketch-row.is-deleted .chip { flex: none; }
 .menu-item-about { font-size: var(--fs-small); color: var(--muted); }
 
 /* Sound */
@@ -2020,3 +2103,46 @@ main > .panel {
     overflow-y: auto;
   }
 }
+
+/* How loud the microphone is while recording: a bar on a dB scale, a peak tick, amber when loud, red when it clips. */
+.input-meter { display: inline-flex; align-items: center; gap: 8px; margin: 0 6px; vertical-align: middle; }
+.input-meter-label { font-family: 'DM Mono', monospace; font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.input-meter-track { position: relative; width: 120px; height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+.input-meter-fill { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); border-radius: 3px; background: var(--accent); }
+.input-meter-peak { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text); opacity: 0.7; }
+.input-meter.is-hot .input-meter-fill { background: #f5b84a; }
+.input-meter.is-clipping .input-meter-fill,
+.input-meter.is-clipping .input-meter-peak { background: var(--record); opacity: 1; }
+.input-meter-note { font-size: var(--fs-small); color: var(--muted); white-space: nowrap; }
+.input-meter.is-clipping .input-meter-note { color: var(--record); }
+/* In the recording sheet on a phone: the width of the sheet, the note under the bar. */
+.input-meter.is-large { display: grid; grid-template-columns: auto 1fr; row-gap: 6px; width: 100%; margin: 0; }
+.input-meter.is-large .input-meter-track { width: auto; height: 10px; border-radius: 5px; }
+.input-meter.is-large .input-meter-fill { border-radius: 5px; }
+.input-meter.is-large .input-meter-note { grid-column: 1 / -1; min-height: 1.3em; text-align: center; }
+
+/* "Deleted Am · Undo": over the bottom of the screen, above the status bar or whatever panel is open on a phone. */
+.undo-note {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 20px;
+  background: var(--text);
+  color: var(--on-track);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  animation: undo-note-in 0.18s ease;
+}
+.undo-note button { padding: 4px 12px; border: 0; border-radius: 12px; background: rgb(0 0 0 / 0.12); font-size: var(--fs-body); font-weight: 700; color: inherit; }
+.undo-note button:hover { background: rgb(0 0 0 / 0.2); }
+.app.has-chord-pad .undo-note { bottom: calc(var(--chord-pad-h, 0px) + 12px); }
+@keyframes undo-note-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+@media (prefers-reduced-motion: reduce) { .undo-note { animation: none; } }

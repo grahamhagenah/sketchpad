@@ -21,9 +21,9 @@ export const GROOVES: { id: GrooveId; label: string; about: string }[] = [
 ]
 
 export const FILLS: { id: FillId; label: string; about: string }[] = [
-  { id: 'none', label: 'None', about: 'The groove plays through' },
-  { id: 'end', label: 'At the end', about: 'Rolls into whatever comes next' },
-  { id: 'four', label: 'Every 4 bars', about: 'And at the end' },
+  { id: 'none', label: 'Off', about: 'The groove plays straight through' },
+  { id: 'end', label: 'End', about: 'A fill at the end, rolling into whatever comes next' },
+  { id: 'four', label: 'Every 4', about: 'A fill every four bars, and at the end' },
 ]
 
 export const grooveLabel = (id: GrooveId) => GROOVES.find((g) => g.id === id)?.label ?? id

@@ -51,15 +51,16 @@ export function DrumPad({ docked }: { docked?: boolean }) {
         </button>
       </div>
       {/* A fill where the section ends, rolling into the next one, and every four bars if it's long. */}
-      <div className="inspector-field">
-        <span>Fill</span>
-        <div className="chord-pad-seg section-sheet-copies" role="group" aria-label="Fill">
+      <div className="sound-section">
+        <span className="sound-heading">Fill</span>
+        <div className="sound-grid is-three" role="radiogroup" aria-label="Fill">
           {FILLS.map((f) => (
-            <button key={f.id} type="button" aria-pressed={s.drumFill === f.id} disabled={locked || !s.drums} title={f.about} onClick={() => s.setDrumFill(f.id)}>
+            <button key={f.id} type="button" role="radio" aria-checked={s.drumFill === f.id} disabled={locked || !s.drums} title={f.about} onClick={() => s.setDrumFill(f.id)}>
               {f.label}
             </button>
           ))}
         </div>
+        <p className="rhythm-about">{s.drums ? FILLS.find((f) => f.id === s.drumFill)?.about : 'Pick a groove to add fills to it'}</p>
       </div>
       <LevelSlider value={s.drumsVolume} onChange={s.setDrumsVolume} />
 

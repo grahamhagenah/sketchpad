@@ -255,6 +255,9 @@ export function Timeline() {
         ['--adds-shift' as string]: laneCount ? 'calc(var(--gap) / 2)' : '2px',
       }}
     >
+      {/* Faint lines between tracks, across the names and the timeline: chords from drums, and each vocal from the next. */}
+      {!empty && drumTrack && <div className="track-line is-drums" aria-hidden="true" />}
+      {!empty && Array.from({ length: Math.max(0, laneCount - 1) }, (_, i) => <div key={i} className="track-line" style={{ ['--row' as string]: i + 1 }} aria-hidden="true" />)}
       {/* An empty section has no tracks yet, nor the switch over them; its settings are in the gear on the tabs. */}
       {!empty && <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumTrack={drumTrack} drumHint={drumHint} />}
       <div className="timeline-scroll" ref={scrollRef}>

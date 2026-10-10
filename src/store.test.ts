@@ -132,6 +132,15 @@ describe('sections', () => {
     expect(get().takes[0]?.id).toBe('verse-take')
   })
 
+  it('repeats a place in the song straight after itself', () => {
+    const verse = sectionNamed('Verse').id
+    get().addSection('Chorus')
+    const [first, second] = get().arrangement
+    get().repeatInSong(first.id)
+    expect(get().arrangement.map((e) => e.section)).toEqual([verse, verse, second.section])
+    expect(new Set(get().arrangement.map((e) => e.id)).size).toBe(3)
+  })
+
   it('shares one section between the places it plays', () => {
     const verse = sectionNamed('Verse').id
     get().addToSong(verse)
@@ -249,14 +258,15 @@ describe('sketchSignature', () => {
   })
 })
 
-describe('the starter song', () => {
-  it('opens a first visit on a verse and chorus, twice through, with drums', () => {
+describe('the demo song', () => {
+  it('opens a first visit on a verse, chorus and bridge, with drums and fills into the choruses', () => {
     const s = useStore.getInitialState()
-    expect(s.sections.map((sec) => [sec.name, sec.drums, sec.chords.length])).toEqual([
-      ['Verse', 'light', 4],
-      ['Chorus', 'backbeat', 4],
+    expect(s.sections.map((sec) => [sec.name, sec.drums, sec.drumFill, sec.chords.length])).toEqual([
+      ['Verse', 'light', 'end', 4],
+      ['Chorus', 'backbeat', 'none', 4],
+      ['Bridge', 'halftime', 'end', 4],
     ])
-    expect(s.arrangement.map((e) => s.sections.find((sec) => sec.id === e.section)?.name)).toEqual(['Verse', 'Chorus', 'Verse', 'Chorus'])
+    expect(s.arrangement.map((e) => s.sections.find((sec) => sec.id === e.section)?.name)).toEqual(['Verse', 'Chorus', 'Verse', 'Chorus', 'Bridge', 'Chorus'])
     expect(s.drumTrack).toBe(true)
     expect(s.view).toBe('song')
     // The open section's chords are the verse's, in the editor.

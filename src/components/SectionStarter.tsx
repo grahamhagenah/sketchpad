@@ -1,4 +1,5 @@
-import { keyOf, totalBeats, useStore } from '../store'
+import { keyOf, sectionsNow, totalBeats, useStore } from '../store'
+import { openDemo, reportStorageError } from '../library'
 import { chordInfo } from '../music/theory'
 import { audition } from '../audio/engine'
 import { Progressions } from './Palette'
@@ -16,6 +17,8 @@ export function SectionStarter() {
   const sections = useStore((s) => s.sections)
   const others = sections.filter((sec) => sec.id !== active && sec.chords.length)
   const { addChord, copyChordsFrom } = useStore()
+  // A sketch with nothing in it yet offers the demo song, to hear what Bounce does first.
+  const blank = useStore((s) => sectionsNow(s).every((sec) => !sec.chords.length && !sec.takes.some(Boolean)))
   // A phone leaves out the row of chords (the chord pad has them), so the progressions come first there.
   const narrow = useNarrow()
 
@@ -68,6 +71,14 @@ export function SectionStarter() {
             })}
           </div>
         </div>
+      )}
+      {blank && (
+        <p className="starter-demo">
+          New to Bounce?{' '}
+          <button type="button" className="track-sheet-link" onClick={() => void openDemo().catch(reportStorageError('open the demo song'))}>
+            Hear a demo song
+          </button>
+        </p>
       )}
     </div>
   )
