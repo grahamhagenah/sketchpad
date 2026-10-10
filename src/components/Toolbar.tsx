@@ -6,7 +6,7 @@ import { chordsTrackName, drumsTrackName, sectionsNow, useStore, vocalTrackName,
 import { keyLabel, type Mode } from '../music/theory'
 import { engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
-import { SoundButton } from './SoundPanel'
+import { ArpButton, SoundButton } from './SoundPanel'
 import { Position } from './Position'
 import { SongTitle } from './SongTitle'
 import { download, exportName, placedTakes, songToMidi, songToStems, songToWav, takeToWav } from '../audio/export'
@@ -99,6 +99,7 @@ export function Toolbar() {
       <IconToggle label="Metronome (M)" pressed={metronome} onClick={toggleMetronome}>
         <Icon d="M9 3h6l4 18H5zM12 15l5-8" />
       </IconToggle>
+      <ArpButton />
       <SoundButton />
     </div>
   )

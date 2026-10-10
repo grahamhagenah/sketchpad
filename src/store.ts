@@ -4,7 +4,7 @@ import type { ChordSpec, Mode } from './music/theory'
 import { DEFAULT_SOUND, type Sound } from './audio/sound'
 import { DEFAULT_ARP, DEFAULT_RHYTHM, type Arp, type Rhythm } from './audio/arrange'
 import { LANES, type TakeInfo } from './audio/take'
-import type { GrooveId } from './audio/drums'
+import type { FillId, GrooveId } from './audio/drums'
 import type { ColorId } from './colors'
 import { newId } from './id'
 
@@ -77,6 +77,8 @@ export interface SectionParts {
   vocalTracks: number
   /** The drum groove the section plays, or none. */
   drums: GrooveId | null
+  /** Where the section's drums play a fill. */
+  drumFill: FillId
   /** The section's own key, for a key change; null plays it in the song's key. */
   sectionKey: SectionKey | null
 }
@@ -182,6 +184,7 @@ interface State extends SectionParts {
   toggleChordsMute: () => void
   toggleChordsSolo: () => void
   setDrums: (groove: GrooveId | null) => void
+  setDrumFill: (fill: FillId) => void
   /** Gives a section its own key, or (with null, or the song's own key) puts it back in the song's. */
   setSectionKey: (sectionId: string, sectionKey: SectionKey | null) => void
   /**
@@ -278,6 +281,7 @@ const partsOf = (p: SectionParts): SectionParts => ({
   vocalColors: p.vocalColors,
   vocalTracks: p.vocalTracks,
   drums: p.drums,
+  drumFill: p.drumFill,
   sectionKey: p.sectionKey,
 })
 
@@ -293,6 +297,7 @@ export const emptyParts = (): SectionParts => ({
   vocalColors: Array(LANES).fill(null),
   vocalTracks: 0,
   drums: null,
+  drumFill: 'none',
   sectionKey: null,
 })
 
@@ -537,6 +542,7 @@ export const useStore = create<State>()(
       toggleChordsMute: () => set({ chordsMuted: !get().chordsMuted }),
       toggleChordsSolo: () => set({ chordsSolo: !get().chordsSolo }),
       setDrums: (drums) => set({ drums }),
+      setDrumFill: (drumFill) => set({ drumFill }),
       setSectionKey: (sectionId, k) => {
         const s = get()
         const sectionKey = k && (k.key !== s.key || k.mode !== s.mode) ? k : null
@@ -695,7 +701,7 @@ export const useStore = create<State>()(
         const all = sectionsNow(get())
         const i = all.findIndex((sec) => sec.id === id)
         if (i === -1) return null
-        const { name, chords, loop, drums, sectionKey } = all[i]
+        const { name, chords, loop, drums, drumFill, sectionKey } = all[i]
         // The copy plays the same chords; its vocal tracks start empty, ready for different words.
         const copy: Section = {
           ...emptyParts(),
@@ -704,6 +710,7 @@ export const useStore = create<State>()(
           chords: chords.map((c) => ({ ...c, id: newId() })),
           loop,
           drums,
+          drumFill,
           sectionKey,
         }
         set({ sections: [...all.slice(0, i + 1), copy, ...all.slice(i + 1)] })

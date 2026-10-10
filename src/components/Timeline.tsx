@@ -519,11 +519,12 @@ function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, b
  */
 function DrumLane({ beatPx, beats, muted }: { beatPx: number; beats: number; muted: boolean }) {
   const groove = useStore((s) => s.drums)
+  const fill = useStore((s) => s.drumFill)
   const timeSig = useStore((s) => s.timeSig)
   const locked = useStore((s) => s.recording !== 'off')
   const selected = useStore((s) => s.drumsTrackSelected)
   const selectDrumsTrack = useStore((s) => s.selectDrumsTrack)
-  const hits = grooveHits(groove, timeSig, 0, beats)
+  const hits = grooveHits(groove, timeSig, 0, beats, fill)
   return (
     // Clicking the drums selects the track, as clicking a chord selects it; its groove is chosen in the track's settings.
     <button

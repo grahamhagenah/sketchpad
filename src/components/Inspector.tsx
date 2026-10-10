@@ -2,7 +2,7 @@ import { chordsTrackName, keyOf, totalBeats, useStore, type Chord } from '../sto
 import { chordOf, type ChordBass, type ChordColor } from '../music/theory'
 import { audition } from '../audio/engine'
 import { DEFAULT_CHORDS_COLOR } from '../colors'
-import { LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
+import { CloseButton, LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
 import { VocalPad } from './VocalPad'
 import { DrumPad } from './DrumPad'
 import { SectionPanel } from './Sections'
@@ -101,9 +101,7 @@ function ChordPanel({ chord }: { chord: Chord }) {
           {info.name}
           <span className="chord-pad-roman">{info.roman}</span>
         </span>
-        <button type="button" className="chord-pad-chip" onClick={() => s.select(null)} title="Back to the section (Esc)">
-          Done
-        </button>
+        <CloseButton onClick={() => s.select(null)} title="Back to the section (Esc)" />
       </div>
 
       <label className="inspector-field">

@@ -13,6 +13,7 @@ const pick = (s: ReturnType<typeof useStore.getState>) => ({
   timeSig: s.timeSig,
   loop: s.loop,
   drums: s.drums,
+  drumFill: s.drumFill,
   sectionKey: s.sectionKey,
   sections: s.sections,
   arrangement: s.arrangement,
@@ -56,7 +57,7 @@ function songChanged(s: State, prev: State) {
   const before = sectionsNow(prev)
   return (
     now.length !== before.length ||
-    now.some((sec, i) => sec.id !== before[i].id || sec.name !== before[i].name || sec.chords !== before[i].chords || sec.loop !== before[i].loop || sec.drums !== before[i].drums || sec.sectionKey !== before[i].sectionKey)
+    now.some((sec, i) => sec.id !== before[i].id || sec.name !== before[i].name || sec.chords !== before[i].chords || sec.loop !== before[i].loop || sec.drums !== before[i].drums || sec.drumFill !== before[i].drumFill || sec.sectionKey !== before[i].sectionKey)
   )
 }
 

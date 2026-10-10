@@ -59,8 +59,8 @@ export function RhythmSettings() {
   )
 }
 
-/** The arpeggiator's switch and settings, shown as a tab of the sound panel. */
-export function ArpSettings() {
+/** The arpeggiator's switch and settings, in the panel of its own button. */
+export function ArpSettings({ titled = true }: { titled?: boolean }) {
   const arp = useStore((s) => s.arp)
   const setArp = useStore((s) => s.setArp)
 
@@ -68,7 +68,8 @@ export function ArpSettings() {
     <>
       <label className="arp-switch">
         <span>
-          <span className="arp-switch-title">Arpeggiator</span>
+          {/* In the sheet, its name is already over it. */}
+          {titled && <span className="arp-switch-title">Arpeggiator</span>}
           <span className="arp-switch-about">Plays each chord one note at a time</span>
         </span>
         <input type="checkbox" role="switch" checked={arp.on} onChange={(e) => setArp({ on: e.target.checked })} />

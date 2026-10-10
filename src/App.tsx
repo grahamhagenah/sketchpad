@@ -9,6 +9,7 @@ import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
 import { colorHex, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR } from './colors'
 import { ChordPad } from './components/ChordPad'
+import { ToolSheet, useToolSheet } from './components/SoundPanel'
 import { VocalPad } from './components/VocalPad'
 import { DrumPad } from './components/DrumPad'
 import { ChordsTrackPad, Inspector } from './components/Inspector'
@@ -154,6 +155,8 @@ export default function App() {
   const narrow = useNarrow()
   const recording = useStore((s) => s.recording !== 'off')
   const chordPad = narrow && view === 'section' && !recording
+  // The sound and arpeggiator buttons bring their settings up in the sheet, in either view.
+  const toolSheet = useToolSheet((s) => (narrow && !recording ? s.open : null))
   // With a vocal or the drum track selected, the sheet shows its settings instead.
   const selectedVocal = useStore((s) => s.selectedVocal)
   const drumsSelected = useStore((s) => s.drumsTrackSelected && s.drumTrack)
@@ -166,7 +169,7 @@ export default function App() {
   const inspector = !narrow && view === 'section' && hasChords && inspectorShown
 
   return (
-    <div className={`app ${chordPad ? 'has-chord-pad' : ''} ${narrow && recording ? 'has-record-sheet' : ''}`} style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
+    <div className={`app ${chordPad || toolSheet ? 'has-chord-pad' : ''} ${narrow && recording ? 'has-record-sheet' : ''}`} style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
       <main>
         <section className="panel editor" aria-label={view === 'song' ? 'Song' : 'Section'}>
           <Toolbar />
@@ -182,7 +185,10 @@ export default function App() {
         </section>
       </main>
       <StatusBar />
-      {chordPad &&
+      {toolSheet ? (
+        <ToolSheet which={toolSheet} />
+      ) : (
+        chordPad &&
         (sectionSheet ? (
           <SectionPanel docked={false} onDone={() => useSectionSheet.setState({ open: false })} />
         ) : selectedVocal !== null ? (
@@ -193,7 +199,8 @@ export default function App() {
           <ChordsTrackPad />
         ) : (
           <ChordPad />
-        ))}
+        ))
+      )}
       {/* On a phone, recording takes over the bottom of the screen. */}
       {narrow && recording && <RecordingSheet />}
     </div>

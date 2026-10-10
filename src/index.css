@@ -871,6 +871,9 @@ main > .panel {
 .drum-hit.is-hat { top: 24px; height: 4px; opacity: 0.4; }
 .drum-hit.is-snare { top: 34px; height: 5px; opacity: 0.7; }
 .drum-hit.is-kick { top: 44px; height: 6px; background: var(--text); }
+/* A fill's toms, stepping down from the snare's row toward the kick's. */
+.drum-hit.is-tomHigh { top: 37px; height: 5px; opacity: 0.8; }
+.drum-hit.is-tomLow { top: 40px; height: 5px; opacity: 0.8; }
 .menu-item[aria-checked='true'] .menu-item-title { color: var(--accent); }
 
 /* Track headers: a column beside the timeline, one per track. */
@@ -1212,7 +1215,9 @@ main > .panel {
 .song-chord:first-child { border-left: 0; }
 /* A kick a full tick, a snare a shorter one. */
 .song-drum { position: absolute; bottom: 0; width: 2px; height: 100%; border-radius: 1px; background: var(--muted); opacity: 0.55; }
-.song-drum.is-snare { height: 60%; top: 20%; bottom: auto; opacity: 0.35; }
+.song-drum.is-snare,
+.song-drum.is-tomHigh,
+.song-drum.is-tomLow { height: 60%; top: 20%; bottom: auto; opacity: 0.35; }
 .song-take { position: absolute; border-radius: 2px; background: var(--muted); opacity: 0.45; }
 /* An empty section: just its name, with a dashed stub to show there's nothing to play yet. */
 /* An empty section: a dashed slot as tall as a row's chords, asking for some; it opens the section like the name does. */
@@ -1485,6 +1490,24 @@ main > .panel {
   font-size: var(--fs-title);
   font-weight: 700;
 }
+/* Closing a sheet or panel: a small round ×, quiet until pressed. */
+.track-sheet-close {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--muted);
+}
+.track-sheet-close:hover { background: color-mix(in srgb, var(--text) 14%, transparent); color: var(--text); }
+/* A name that can't be changed (the sound and arpeggiator sheets). */
+.track-sheet-name.is-fixed { display: inline-flex; align-items: center; }
+/* The sound settings run long: the sheet scrolls rather than covering the whole screen. */
+.chord-pad.track-sheet { max-height: 80dvh; overflow-y: auto; }
 /* With no icon before it (a section), the name lines up with the title over it. */
 .track-sheet-head > .track-sheet-name:first-child { margin-left: -9px; }
 .track-sheet-name:focus { outline: none; border-color: var(--accent); background: var(--bg); }
@@ -1711,9 +1734,12 @@ main > .panel {
   color: var(--muted);
 }
 .panel-tabs button[aria-selected='true'] { background: var(--raised); color: var(--text); }
-.tab-on, .sound-btn.has-arp::after { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.sound-btn { position: relative; }
-.sound-btn.has-arp::after { content: ''; position: absolute; top: 4px; right: 4px; }
+/* Lit like the other modes while the arpeggiator is on; the button itself opens its settings. */
+.toolbar-modes .arp-btn.is-lit { color: var(--accent); }
+/* The modes sit right of the middle, so their panels open leftwards, inside the screen. */
+@media (min-width: 641px) {
+  .toolbar-modes .sound-panel { left: auto; right: 0; }
+}
 .sound-section { display: flex; flex-direction: column; gap: 6px; }
 .sound-heading {
   font-family: 'DM Mono', monospace;

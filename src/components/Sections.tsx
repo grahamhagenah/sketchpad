@@ -221,6 +221,7 @@ export function SectionBar() {
           <button
             type="button"
             className="section-settings"
+            data-sheet-toggle
             aria-label={`${open.name} settings`}
             aria-pressed={sheetOpen}
             title={`${open.name} settings: key, copies, rename, delete`}
@@ -399,7 +400,7 @@ export const useSectionSheet = create(() => ({ open: false }))
  * The open section's settings, laid out as a track's are: its name to edit,
  * then its key, its place in the song, copies of it, and deleting it. In the
  * inspector beside the tracks with nothing selected; on a phone, a sheet
- * along the bottom from the gear on the tabs, with Done to put it away.
+ * along the bottom from the gear on the tabs, with a × to put it away.
  */
 export function SectionPanel({ docked = true, onDone }: { docked?: boolean; onDone?: () => void }) {
   const id = useStore((s) => s.activeSection)
@@ -421,7 +422,7 @@ export function SectionPanel({ docked = true, onDone }: { docked?: boolean; onDo
   }
 
   return (
-    <TrackSheet title="Section settings" name={name} onRename={(n) => n && renameSection(id, n)} docked={docked} onDone={onDone}>
+    <TrackSheet title="Section settings" name={name} onRename={(n) => n && renameSection(id, n)} docked={docked} onDone={onDone} dismiss>
       {/* A key change: the section's chords keep their numerals and play in its own key. */}
       <label className="inspector-field">
         <span>Key</span>
@@ -764,7 +765,7 @@ export function SongView() {
                     {/* The drums' kicks and snares, so a row shows at a glance it has a beat. */}
                     {drumTrack && section.drums && beats > 0 && (
                       <span className="song-row-drums" aria-label="Drums">
-                        {grooveHits(section.drums, timeSig, 0, beats)
+                        {grooveHits(section.drums, timeSig, 0, beats, section.drumFill)
                           .filter((h) => h.piece !== 'hat')
                           .map((h, i) => (
                             // Inset from the bar's ends, so the first and last ticks sit under it.

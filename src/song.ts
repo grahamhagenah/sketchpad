@@ -103,8 +103,8 @@ export function playbackOf(s: State, view = s.view): Playback {
       ...keyOf(s),
       chords: audible.chords ? s.chords : s.chords.map((c) => ({ ...c, silent: true })),
       loop: s.loop,
-      drums: audible.drums && s.drumTrack ? grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords)) : [],
-      kicks: s.drumTrack ? kicksOf(grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords))) : undefined,
+      drums: audible.drums && s.drumTrack ? grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords), s.drumFill) : [],
+      kicks: s.drumTrack ? kicksOf(grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords), s.drumFill)) : undefined,
       vocals: s.takes.flatMap((t, lane) =>
         t && audible.vocals[lane] ? [{ id: t.id, startBeat: t.startBeat, seconds: t.seconds, endBeat: Infinity, lane, track: lane, db: s.vocalVolume[lane] ?? 0, reverb: s.vocalReverb[lane] ?? 0 }] : [],
       ),
@@ -122,7 +122,7 @@ export function playbackOf(s: State, view = s.view): Playback {
     // Each place gets its own chord ids, so a section that repeats stays distinct.
     const own = section.sectionKey ?? {}
     chords.push(...section.chords.map((c) => ({ ...c, ...own, id: `${entry.id}:${c.id}`, silent: !audible.chords })))
-    const groove = grooveHits(section.drums, s.timeSig, start, beats)
+    const groove = grooveHits(section.drums, s.timeSig, start, beats, section.drumFill)
     if (audible.drums && s.drumTrack) drums.push(...groove)
     kicks.push(...kicksOf(groove))
     section.takes.forEach((t, lane) => {

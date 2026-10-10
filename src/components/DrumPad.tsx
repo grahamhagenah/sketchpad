@@ -1,13 +1,13 @@
 import { drumsTrackName, sectionsNow, useStore, type TimeSig } from '../store'
 import { DEFAULT_DRUMS_COLOR } from '../colors'
-import { GROOVES, grooveHits, type GrooveId } from '../audio/drums'
+import { FILLS, GROOVES, grooveHits, type GrooveId } from '../audio/drums'
 import { LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
 import { DrumIcon } from './Timeline'
 
 /**
  * The settings of the selected drum track (a sheet on a phone, docked in the
  * inspector otherwise): the groove this section plays, each shown with its
- * pattern and what it does, or none; mute, solo and level; and removing the
+ * pattern and what it does, or none; its fills; mute, solo and level; and removing the
  * drum track.
  */
 export function DrumPad({ docked }: { docked?: boolean }) {
@@ -49,6 +49,17 @@ export function DrumPad({ docked }: { docked?: boolean }) {
             <span className="drum-pad-groove-about">This section plays without drums</span>
           </span>
         </button>
+      </div>
+      {/* A fill where the section ends, rolling into the next one, and every four bars if it's long. */}
+      <div className="inspector-field">
+        <span>Fill</span>
+        <div className="chord-pad-seg section-sheet-copies" role="group" aria-label="Fill">
+          {FILLS.map((f) => (
+            <button key={f.id} type="button" aria-pressed={s.drumFill === f.id} disabled={locked || !s.drums} title={f.about} onClick={() => s.setDrumFill(f.id)}>
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
       <LevelSlider value={s.drumsVolume} onChange={s.setDrumsVolume} />
 

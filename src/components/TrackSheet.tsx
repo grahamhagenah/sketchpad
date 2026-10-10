@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { colorHex, PALETTE, type ColorId } from '../colors'
 import { dbLabel, MAX_DB, MIN_DB } from './Timeline'
 import { useSheetDrag } from '../hooks/useSheetDrag'
 
 /**
  * A selected track's settings: its icon in its colour (the palette behind it), its
- * name to edit, and Done, then whatever settings the track has. On a phone
+ * name to edit, and a × to close it, then whatever settings the track has. On a phone
  * it's a sheet along the bottom in place of the chord pad, folding down to a
  * bar by its handle or title row; `docked`, on a wider screen, it sits in the
  * inspector beside the tracks.
@@ -19,6 +19,7 @@ export function TrackSheet({
   icon,
   title = 'Track settings',
   docked = false,
+  dismiss = false,
   children,
 }: {
   name: string
@@ -26,22 +27,36 @@ export function TrackSheet({
   icon?: ReactNode
   /** Whose settings these are, over them in the sheet (the inspector has its own title). */
   title?: string
-  /** An empty name puts the usual one back. */
-  onRename: (name: string) => void
+  /** An empty name puts the usual one back; without, the name is fixed (the sound and arpeggiator sheets). */
+  onRename?: (name: string) => void
   /** Its colour, and changing it from the palette behind its icon; a section has none. */
   color?: ColorId
   onColor?: (color: ColorId) => void
-  /** Closing it; without, there's no Done (as for the section's settings in the inspector, which nothing replaces). */
+  /** Closing it; without, there's no × (as for the section's settings in the inspector, which nothing replaces). */
   onDone?: () => void
   docked?: boolean
+  /** Put away, rather than folded, when dragged down, and on a tap outside it (the sheets a button opens: sound, arpeggiator and the section's). */
+  dismiss?: boolean
   children: ReactNode
 }) {
   const [picking, setPicking] = useState(false)
-  const [open, setOpen] = useState(true)
+  const [folded, setFolded] = useState(false)
+  const open = !folded
+  const setOpen = (next: boolean) => (!next && dismiss ? onDone?.() : setFolded(!next))
   const { dragY, handle, area } = useSheetDrag(open, setOpen)
   const [text, setText] = useState(name)
   useEffect(() => setText(name), [name])
   const ref = useRef<HTMLDivElement>(null)
+  // A tap outside puts it away (keeping a name being typed); the button that opened it closes it itself.
+  const close = useCallback(() => {
+    if (ref.current?.contains(document.activeElement)) (document.activeElement as HTMLElement).blur()
+    onDone?.()
+  }, [onDone])
+  const outside = useCallback(
+    (target: Node) => !ref.current?.contains(target) && !(target instanceof Element && target.closest('[data-sheet-toggle]')),
+    [],
+  )
+  useOutsideTap(dismiss && !docked, close, outside)
 
   // Leave room under the page for the sheet, as the chord pad does.
   useLayoutEffect(() => {
@@ -106,27 +121,27 @@ export function TrackSheet({
             </span>
           )
         )}
-        <input
-          className="track-sheet-name"
-          aria-label="Track name"
-          // As wide as the name, leaving the rest of the row to drag the sheet by.
-          size={Math.max(4, text.length + 1)}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onBlur={() => text.trim() !== name && onRename(text.trim())}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur()
-            if (e.key === 'Escape') {
-              setText(name)
-              e.currentTarget.blur()
-            }
-          }}
-        />
-        {onDone && (
-          <button type="button" className="chord-pad-chip" onClick={onDone} title={docked ? 'Back to the section' : 'Back to the chord pad'}>
-            Done
-          </button>
+        {onRename ? (
+          <input
+            className="track-sheet-name"
+            aria-label="Track name"
+            // As wide as the name, leaving the rest of the row to drag the sheet by.
+            size={Math.max(4, text.length + 1)}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={() => text.trim() !== name && onRename(text.trim())}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+              if (e.key === 'Escape') {
+                setText(name)
+                e.currentTarget.blur()
+              }
+            }}
+          />
+        ) : (
+          <span className="track-sheet-name is-fixed">{name}</span>
         )}
+        {onDone && <CloseButton onClick={onDone} title={docked ? 'Back to the section' : 'Close'} />}
       </div>
       {picking && onColor && (
         <div className="track-sheet-colors" role="group" aria-label="Colour">
@@ -150,6 +165,15 @@ export function TrackSheet({
     </div>
   )
 }
+
+/** Putting a sheet or the inspector's panel away: a small round ×. */
+export const CloseButton = ({ onClick, title = 'Close' }: { onClick: () => void; title?: string }) => (
+  <button type="button" className="track-sheet-close" onClick={onClick} aria-label="Close" title={title}>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  </button>
+)
 
 /** A line saying what's on the track, beside its mute and solo. */
 export function MuteSoloRow({ about, muted, solo, onMute, onSolo }: { about: ReactNode; muted: boolean; solo: boolean; onMute: () => void; onSolo: () => void }) {
@@ -194,3 +218,22 @@ export function SheetSlider({ label, ...props }: { label: string; value: number;
 export const LevelSlider = ({ value, onChange }: { value: number; onChange: (db: number) => void }) => (
   <SheetSlider label="Level" min={MIN_DB} max={MAX_DB} step={0.5} value={value} text={dbLabel(value)} onChange={onChange} reset={0} />
 )
+
+/** Calls `close` on a press that `outside` says is outside the sheet, and on Escape. */
+function useOutsideTap(on: boolean, close: () => void, outside: (target: Node) => boolean) {
+  useEffect(() => {
+    if (!on) return
+    const onPointer = (e: PointerEvent) => outside(e.target as Node) && close()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      close()
+    }
+    window.addEventListener('pointerdown', onPointer)
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      window.removeEventListener('pointerdown', onPointer)
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [on, close, outside])
+}
