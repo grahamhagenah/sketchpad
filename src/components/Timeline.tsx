@@ -501,7 +501,15 @@ function VocalLane({ lane, name, take, muted, selected, locked, onSelect, bpm, b
         disabled={locked}
         // A click (not a key press, which has no place) also moves the playhead to where it was.
         onClick={(e) => onSelect(e.detail ? e.clientX : null)}
-      />
+      >
+        {/* On a phone, an empty track says what it's for, and once selected, where to record from. */}
+        {!take && (
+          <span className="vocal-row-empty" aria-hidden="true">
+            <MicIcon />
+            {selected ? 'Ready: tap Record below' : 'Empty: tap to record here'}
+          </span>
+        )}
+      </button>
       {content}
     </>
   )

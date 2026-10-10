@@ -581,6 +581,8 @@ main > .panel {
   cursor: pointer;
 }
 .vocal-row:not(:disabled):hover { background: rgb(255 255 255 / 0.04); }
+/* What an empty track is for: shown on a phone only. */
+.vocal-row-empty { display: none; align-items: center; gap: 8px; padding: 0 14px; font-size: var(--fs-body); font-weight: 500; color: var(--muted); white-space: nowrap; }
 .vocal-row:disabled { cursor: default; }
 /* A selected track keeps a soft highlight, a little stronger than hover, on its row and its name. */
 .vocal-row.is-selected,
@@ -1776,6 +1778,15 @@ main > .panel {
   .timeline-wrap { --label-h: 24px; }
   .track-headers { position: absolute; inset: 0; width: auto; z-index: 4; pointer-events: none; }
   .track-header, .track-add, .timeline-corner > * { pointer-events: auto; }
+  /* Level with the chord blocks above, which sit 3px in from the timeline's edge. */
+  .track-add { left: 3px; right: 3px; }
+  /* An empty vocal track: an outline in its place, with what to do in it, kept in view as the timeline scrolls; selected, in its colour. */
+  .vocal-row.is-empty { display: flex; align-items: center; background: none; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+  .vocal-row.is-empty:not(:disabled):hover { background: none; }
+  .vocal-row.is-empty.is-selected { background: color-mix(in srgb, var(--track) 8%, transparent); box-shadow: inset 0 0 0 1.5px var(--track); }
+  .vocal-row-empty { display: inline-flex; position: sticky; left: 0; }
+  .vocal-row-empty svg { width: 15px; height: 15px; flex: none; color: var(--track); }
+  .vocal-row.is-selected .vocal-row-empty { color: var(--text); }
   .track-header {
     right: auto;
     flex-wrap: nowrap;
