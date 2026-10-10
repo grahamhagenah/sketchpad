@@ -550,7 +550,8 @@ main > .panel {
   background: var(--text);
   pointer-events: none;
   will-change: transform;
-  z-index: 3;
+  /* Over the tracks and, on a phone, the names floating above them; under the sheets and menus along the bottom. */
+  z-index: 5;
 }
 
 /* An empty section's ways to start, all it shows: a chord, a progression, or another section's chords. */
@@ -1458,8 +1459,9 @@ main > .panel {
 .track-sheet.is-folded { padding-top: 0; }
 .track-sheet-head { display: flex; align-items: center; gap: 8px; }
 /* The track's colour, a button: tapped, the palette opens under it. */
-.track-sheet-dot { flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--track); }
-.track-sheet-dot[aria-expanded='true'] { box-shadow: 0 0 0 2px var(--sheet-bg), 0 0 0 4px var(--track); }
+.track-sheet-dot { flex: none; width: 32px; height: 32px; display: inline-grid; place-items: center; margin-left: -6px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--track); }
+.track-sheet-dot svg { width: 20px; height: 20px; }
+.track-sheet-dot:hover, .track-sheet-dot[aria-expanded='true'] { background: color-mix(in srgb, var(--track) 18%, transparent); }
 .track-sheet-name {
   flex: 0 1 auto;
   min-width: 0;

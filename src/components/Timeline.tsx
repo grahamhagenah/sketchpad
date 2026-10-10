@@ -808,7 +808,7 @@ const trackIcon = {
 } as const
 
 /** A piano keyboard, for the chords. */
-const KeysIcon = () => (
+export const KeysIcon = () => (
   <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
     <rect x="3" y="5" width="18" height="14" rx="2" />
     <path d="M9 13v6M15 13v6" />
@@ -818,7 +818,7 @@ const KeysIcon = () => (
 )
 
 /** A drum, for the drums. */
-const DrumIcon = () => (
+export const DrumIcon = () => (
   <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <ellipse cx="12" cy="9" rx="8" ry="3" />
     <path d="M4 9v7c0 1.7 3.6 3 8 3s8-1.3 8-3V9M14 4l5-2M10 4 5 2" />
@@ -832,7 +832,7 @@ const PlusIcon = () => (
 )
 
 /** A microphone, for the vocals. */
-const MicIcon = () => (
+export const MicIcon = () => (
   <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="3" width="6" height="11" rx="3" />
     <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" />

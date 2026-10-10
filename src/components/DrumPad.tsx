@@ -2,6 +2,7 @@ import { drumsTrackName, sectionsNow, useStore, type TimeSig } from '../store'
 import { DEFAULT_DRUMS_COLOR } from '../colors'
 import { GROOVES, grooveHits, type GrooveId } from '../audio/drums'
 import { LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
+import { DrumIcon } from './Timeline'
 
 /**
  * The settings of the selected drum track (a sheet on a phone, docked in the
@@ -16,6 +17,7 @@ export function DrumPad({ docked }: { docked?: boolean }) {
 
   return (
     <TrackSheet
+      icon={<DrumIcon />}
       name={drumsTrackName(s)}
       onRename={s.renameDrums}
       color={s.drumsColor ?? DEFAULT_DRUMS_COLOR}

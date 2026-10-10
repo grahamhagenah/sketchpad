@@ -2,6 +2,7 @@ import { useStore, vocalTrackName } from '../store'
 import { checkLatency, deleteTake, toggleRecord } from '../audio/engine'
 import { vocalColorId } from '../colors'
 import { LevelSlider, MuteSoloRow, SheetSlider, TrackSheet } from './TrackSheet'
+import { MicIcon } from './Timeline'
 
 /**
  * The settings of a selected vocal track (a sheet on a phone, docked in the inspector otherwise): what's on it, mute,
@@ -18,6 +19,7 @@ export function VocalPad({ lane, docked }: { lane: number; docked?: boolean }) {
 
   return (
     <TrackSheet
+      icon={<MicIcon />}
       name={name}
       onRename={(n) => s.renameVocal(lane, n)}
       color={vocalColorId(s.vocalColors, lane)}

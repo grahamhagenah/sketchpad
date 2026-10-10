@@ -6,6 +6,7 @@ import { LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
 import { VocalPad } from './VocalPad'
 import { DrumPad } from './DrumPad'
 import { SectionPanel } from './Sections'
+import { KeysIcon } from './Timeline'
 import { InspectorButton } from './InspectorToggle'
 
 const COLORS: { id: ChordColor | undefined; label: string }[] = [
@@ -55,6 +56,7 @@ export function ChordsTrackPad({ docked }: { docked?: boolean }) {
   const bars = Math.ceil(totalBeats(s.chords) / s.timeSig[0])
   return (
     <TrackSheet
+      icon={<KeysIcon />}
       name={chordsTrackName(s)}
       onRename={s.renameChords}
       color={s.chordsColor ?? DEFAULT_CHORDS_COLOR}

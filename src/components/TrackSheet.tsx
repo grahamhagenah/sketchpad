@@ -4,7 +4,7 @@ import { dbLabel, MAX_DB, MIN_DB } from './Timeline'
 import { useSheetDrag } from '../hooks/useSheetDrag'
 
 /**
- * A selected track's settings: its colour (the palette behind the dot), its
+ * A selected track's settings: its icon in its colour (the palette behind it), its
  * name to edit, and Done, then whatever settings the track has. On a phone
  * it's a sheet along the bottom in place of the chord pad, folding down to a
  * bar by its handle or title row; `docked`, on a wider screen, it sits in the
@@ -16,10 +16,13 @@ export function TrackSheet({
   color,
   onColor,
   onDone,
+  icon,
   docked = false,
   children,
 }: {
   name: string
+  /** What kind of track it is, as its header shows it. */
+  icon: ReactNode
   /** An empty name puts the usual one back. */
   onRename: (name: string) => void
   color: ColorId
@@ -55,7 +58,9 @@ export function TrackSheet({
         <button type="button" className="chord-pad-unfold" aria-label={`Open ${name}'s settings`} {...handle}>
           <span className="chord-pad-grip" aria-hidden="true" />
           <span className="chord-pad-unfold-row">
-            <span className="track-sheet-dot" aria-hidden="true" />
+            <span className="track-sheet-dot" aria-hidden="true">
+              {icon}
+            </span>
             {name}
           </span>
         </button>
@@ -84,7 +89,9 @@ export function TrackSheet({
           aria-expanded={picking}
           title="Change the track's colour"
           onClick={() => setPicking(!picking)}
-        />
+        >
+          {icon}
+        </button>
         <input
           className="track-sheet-name"
           aria-label="Track name"
