@@ -15,9 +15,43 @@ export interface Sound {
   /** Low-pass filter cutoff in Hz. */
   brightness: number
   reverb: number
+  /** How far apart the synth's stacked oscillators are tuned, 0 (one clean note) to 1 (wide and thick). */
+  width?: number
+  /** A peak at the brightness cutoff, 0 (none) to 1 (squelchy). */
+  resonance?: number
+  /** An echo in time with the song: how much of it, 0–1, and how far behind. */
+  delay?: number
+  delayTime?: DelayTime
+  /** A slow shimmer that widens the sound, 0–1. */
+  chorus?: number
+  /** Saturation, from warm (low) to fuzzy (1). */
+  drive?: number
   bass: boolean
   /** The preset it started from, so the panel can show it picked, and put it back, after the settings are changed. */
   preset?: string
+}
+
+/** How far behind the echo comes, in the song's time. */
+export type DelayTime = '1/8' | '1/8.' | '1/4'
+export const DELAY_TIMES: { id: DelayTime; label: string; quarters: number }[] = [
+  { id: '1/8', label: '1/8', quarters: 0.5 },
+  { id: '1/8.', label: '1/8 dotted', quarters: 0.75 },
+  { id: '1/4', label: '1/4', quarters: 1 },
+]
+
+/**
+ * The settings sounds saved before them don't have, filled in as they sounded
+ * then: no effects, and the width the synth (or strings) always had.
+ */
+export function extrasOf(sound: Sound) {
+  return {
+    width: sound.width ?? (instrumentOf(sound) === 'strings' ? 0.5 : 0.36),
+    resonance: sound.resonance ?? 0,
+    delay: sound.delay ?? 0,
+    delayTime: sound.delayTime ?? ('1/8.' as DelayTime),
+    chorus: sound.chorus ?? 0,
+    drive: sound.drive ?? 0,
+  }
 }
 
 export const WAVES: { id: Wave; label: string }[] = [
@@ -28,13 +62,15 @@ export const WAVES: { id: Wave; label: string }[] = [
 ]
 
 /** Which of the sound's settings each instrument listens to; the panel shows only those. */
+// The effects and the filter's resonance work on every instrument; width only on those built of stacked oscillators.
+const EFFECTS: (keyof Sound)[] = ['brightness', 'resonance', 'reverb', 'delay', 'delayTime', 'chorus', 'drive']
 export const CONTROLS: Record<Instrument, (keyof Sound)[]> = {
-  synth: ['wave', 'attack', 'decay', 'sustain', 'release', 'brightness', 'reverb'],
-  strings: ['attack', 'decay', 'sustain', 'release', 'brightness', 'reverb'],
-  epiano: ['attack', 'decay', 'sustain', 'release', 'brightness', 'reverb'],
-  bell: ['attack', 'decay', 'sustain', 'release', 'brightness', 'reverb'],
+  synth: ['wave', 'attack', 'decay', 'sustain', 'release', 'width', ...EFFECTS],
+  strings: ['attack', 'decay', 'sustain', 'release', 'width', ...EFFECTS],
+  epiano: ['attack', 'decay', 'sustain', 'release', ...EFFECTS],
+  bell: ['attack', 'decay', 'sustain', 'release', ...EFFECTS],
   // A recorded note has its own decay; only how it starts and stops can change.
-  piano: ['attack', 'release', 'brightness', 'reverb'],
+  piano: ['attack', 'release', ...EFFECTS],
 }
 
 /** The sound's instrument; the synth for sounds saved before there were instruments, or with one since taken out. */
@@ -103,7 +139,12 @@ export const INSTRUMENT_VOLUME: Record<Exclude<Instrument, 'synth'>, number> = {
 /** Whether a sound's settings differ from a preset's; the bass note is a choice of its own, not part of the sound. */
 export function changedFrom(sound: Sound, preset: Sound) {
   const full = { ...sound, instrument: instrumentOf(sound) }
-  return (Object.keys(preset) as (keyof Sound)[]).some((k) => k !== 'bass' && k !== 'preset' && preset[k] !== full[k])
+  const extras = extrasOf(sound)
+  const presetExtras = extrasOf(preset)
+  return (
+    (Object.keys(preset) as (keyof Sound)[]).some((k) => k !== 'bass' && k !== 'preset' && preset[k] !== full[k]) ||
+    (Object.keys(extras) as (keyof typeof extras)[]).some((k) => extras[k] !== presetExtras[k])
+  )
 }
 
 /** The preset a sound was picked from, or the one it matches; null for a sound of one's own. */

@@ -5,6 +5,16 @@ import { BORROWED, chordOf, keyLabel, nextChords, type ChordBass, type ChordColo
 import { audition } from '../audio/engine'
 import { Icon } from './Toolbar'
 
+/**
+ * The computer keyboard as a row of chord keys, as Logic's Musical Typing has
+ * it: the home row the key's own chords, the row above the borrowed ones, as
+ * black keys sit over white. By the keys' places, so it works whatever the
+ * layout; R is left out, as it records.
+ */
+const TYPED = ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ']
+const TYPED_BORROWED = ['KeyW', 'KeyE', 'KeyT', 'KeyY']
+const letter = (code: string) => code.slice(3)
+
 /** How the keys voice each chord, as the chord pad's options do. */
 interface Voicing {
   seventh: boolean
@@ -75,9 +85,10 @@ export function ChordKeysButton() {
 /**
  * On a wider screen, a keyboard floating over the editor with every chord in
  * the key, the usual ones and those borrowed from the parallel key, to play
- * and try out without touching the timeline. Press a key (or ⇧1–⇧7 for the
- * key's own chords) to hear it, even with the song playing; its + adds it
- * after the selected chord. The voicing above the keys applies to them all.
+ * and try out without touching the timeline. Press a key, or play them on
+ * the computer keyboard (A to J, and W E T Y for the borrowed ones, or ⇧1–⇧7),
+ * to hear it, even with the song playing; its + adds it after the selected
+ * chord. The voicing above the keys applies to them all.
  * Drag it by its top to move it anywhere; it stays where it's left.
  */
 export function ChordKeys() {
@@ -104,6 +115,10 @@ export function ChordKeys() {
     ...(voicing.bass && { bass: voicing.bass }),
   })
 
+  // The letter on the computer keyboard that plays a key.
+  const typedKey = (k: { degree: number; borrowed: boolean }) =>
+    letter(k.borrowed ? (TYPED_BORROWED[BORROWED[mode].indexOf(k.degree)] ?? '') : TYPED[k.degree])
+
   const play = (k: { degree: number; borrowed: boolean }) => {
     audition(asChord(k), true)
     setLit(id(k))
@@ -125,20 +140,34 @@ export function ChordKeys() {
     requestAnimationFrame(() => document.querySelector('.chord.is-selected')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }))
   }
 
-  // ⇧1–⇧7 play the key's own chords, as 1–7 add them.
+  // Played from the computer keyboard: the home row and the row above (see TYPED), or ⇧1–⇧7 as 1–7 add them.
+  // Ahead of the app's own shortcuts, so A, S and D play chords while the keys are out, rather than their usual jobs.
   const playRef = useRef(play)
   playRef.current = play
+  const borrowedRef = useRef(BORROWED[mode])
+  borrowedRef.current = BORROWED[mode]
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!e.shiftKey || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
-      if ((e.target as HTMLElement).closest('input, select, textarea')) return
-      const n = /^Digit([1-7])$/.exec(e.code)
-      if (!n) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.target instanceof Element && e.target.closest('input, select, textarea, [contenteditable]')) return
+      const n = e.shiftKey ? /^Digit([1-7])$/.exec(e.code) : null
+      const typed = e.shiftKey ? -1 : TYPED.indexOf(e.code)
+      const borrowed = e.shiftKey ? -1 : TYPED_BORROWED.indexOf(e.code)
+      const k = n
+        ? { degree: Number(n[1]) - 1, borrowed: false }
+        : typed !== -1
+          ? { degree: typed, borrowed: false }
+          : borrowed !== -1 && borrowed < borrowedRef.current.length
+            ? { degree: borrowedRef.current[borrowed], borrowed: true }
+            : null
+      if (!k) return
       e.preventDefault()
-      playRef.current({ degree: Number(n[1]) - 1, borrowed: false })
+      e.stopPropagation()
+      // A key held down plays once, as a piano's would.
+      if (!e.repeat) playRef.current(k)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
   // Kept on the screen: where it was left, pulled back in if the window has since narrowed.
@@ -233,16 +262,16 @@ export function ChordKeys() {
                 type="button"
                 className="chord-key-play"
                 aria-label={`Play ${info.name}, ${info.roman}${k.borrowed ? ', borrowed' : ''}${hinted(k) ? ', a usual next chord' : ''}`}
-                title={k.borrowed ? `${info.name}, borrowed from ${mode === 'major' ? 'minor' : 'major'}` : `${info.name} (⇧${k.degree + 1})`}
+                title={`${k.borrowed ? `${info.name}, borrowed from ${mode === 'major' ? 'minor' : 'major'}` : info.name} (${typedKey(k)})`}
                 // Sounds as the key goes down, as a key does; Enter or Space from the keyboard play it too.
                 onPointerDown={(e) => e.button === 0 && play(k)}
                 onClick={(e) => e.detail === 0 && play(k)}
               >
                 <span className="chord-key-name">{info.name}</span>
                 <span className="chord-key-roman">{info.roman}</span>
-                {/* A borrowed chord has no shortcut, but keeps the line, so its name sits level with the rest. */}
+                {/* The computer key that plays it. */}
                 <span className="chord-key-hint" aria-hidden="true">
-                  {k.borrowed ? '\u00a0' : `⇧${k.degree + 1}`}
+                  {typedKey(k)}
                 </span>
               </button>
               {editing && (

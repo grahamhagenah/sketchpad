@@ -74,7 +74,7 @@ class Engine {
   private setup() {
     if (this.ready) return
     setAudioSession('playback')
-    this.instruments = createInstruments(useStore.getState().sound)
+    this.instruments = createInstruments(useStore.getState().sound, useStore.getState().bpm)
     this.pad = this.instruments.pad
     this.bass = this.instruments.bass
     this.click = new Tone.Synth({
@@ -352,16 +352,43 @@ class Engine {
   }
 
   setSound(sound: Sound) {
-    if (this.ready) applySound(this.instruments, sound)
+    if (this.ready) applySound(this.instruments, sound, useStore.getState().bpm)
   }
 
-  async audition(song: Pick<Playback, 'key' | 'mode'>, chord: Chord) {
+  /** The arpeggio a chord preview is playing, as timers yet to fire; a new preview cuts it short. */
+  private auditionTimers: ReturnType<typeof setTimeout>[] = []
+
+  /**
+   * Plays a chord to hear it. With the arpeggiator on, it's arpeggiated, as it
+   * would be in the song, for up to a bar at the song's tempo; otherwise struck
+   * and held a moment.
+   */
+  async audition(song: Pick<Playback, 'key' | 'mode' | 'timeSig' | 'bpm' | 'arp'>, chord: Chord) {
     await Tone.start()
     this.setup()
-    const info = chordOf(song.key, song.mode, chord)
+    this.auditionTimers.forEach(clearTimeout)
+    this.auditionTimers = []
     const now = Tone.now()
-    this.pad.triggerAttackRelease(voiceChord(info.pcs, null).map(midiToHz), 0.9, now, 0.8)
-    this.bass.triggerAttackRelease(midiToHz(bassNote(info.bassPc)), 0.9, now, 0.9)
+    if (!song.arp.on) {
+      const info = chordOf(song.key, song.mode, chord)
+      this.pad.triggerAttackRelease(voiceChord(info.pcs, null).map(midiToHz), 0.9, now, 0.8)
+      this.bass.triggerAttackRelease(midiToHz(bassNote(info.bassPc)), 0.9, now, 0.9)
+      return
+    }
+    const quarter = 60 / song.bpm
+    const hits = arrange({ key: song.key, mode: song.mode, timeSig: song.timeSig, chords: [{ ...chord, beats: Math.min(chord.beats, song.timeSig[0]) }], arp: song.arp, rhythm: { chords: 'held', bass: 'held' } })
+    const start = now + 0.02
+    for (const h of hits) {
+      const at = start + h.start * quarter
+      const play = () => {
+        if (h.pad.length) this.pad.triggerAttackRelease(h.pad.map(midiToHz), h.dur * quarter, at, h.velocity)
+        if (h.bass !== null) this.bass.triggerAttackRelease(midiToHz(h.bass), h.dur * quarter * 0.97, at, 0.9)
+      }
+      // Handed to the synths a moment ahead, on the audio clock; until then, a newer preview can call it off.
+      const lead = (at - Tone.now() - 0.1) * 1000
+      if (lead <= 0) play()
+      else this.auditionTimers.push(setTimeout(play, lead))
+    }
   }
 }
 
@@ -371,7 +398,8 @@ useStore.setState({ latency: measuredLatency() })
 
 // Keep the loop in step with edits made while it plays.
 const unsubscribe = useStore.subscribe((s, prev) => {
-  if (s.sound !== prev.sound) engine.setSound(s.sound)
+  // The echo keeps time with the song, so a change of tempo retunes it too.
+  if (s.sound !== prev.sound || s.bpm !== prev.bpm) engine.setSound(s.sound)
   // Levels change straight away, playing or not, so a chord auditioned after turning the chords down is quieter too.
   if (s.chordsVolume !== prev.chordsVolume || s.drumsVolume !== prev.drumsVolume || s.vocalVolume !== prev.vocalVolume || s.vocalReverb !== prev.vocalReverb || s.sections !== prev.sections) {
     engine.setLevels(playbackOf(s))
@@ -631,7 +659,7 @@ void loadLanes(useStore.getState().activeSection)
 /** Plays a chord on its own: not while the song plays, unless asked for (the chord keys sound whenever they're pressed). */
 export function audition(chord: Chord, always = false) {
   const s = useStore.getState()
-  if (always || !s.playing) void engine.audition(keyOf(s), chord)
+  if (always || !s.playing) void engine.audition({ ...keyOf(s), timeSig: s.timeSig, bpm: s.bpm, arp: s.arp }, chord)
 }
 
 // In development, a code change reloads this module while Tone's transport

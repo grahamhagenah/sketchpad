@@ -175,12 +175,12 @@ main > .panel {
 .toolbar-icons .icon-btn svg { transition: transform 0.12s ease, filter 0.12s ease; }
 @media (hover: hover) {
   .toolbar-modes .icon-btn:not(:disabled):hover svg,
-  .toolbar-icons .icon-btn:not(:disabled):hover svg { transform: scale(1.2); }
+  .toolbar-icons .icon-btn:not(:disabled):hover svg { transform: scale(1.1); }
   .toolbar-modes .icon-btn:not(:disabled):hover svg { filter: brightness(1.15); }
   .toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover svg,
   .toolbar-modes .arp-btn.is-lit:not(:disabled):hover svg { filter: drop-shadow(0 0 7px rgb(90 216 200 / 0.7)) brightness(1.12); }
   .toolbar-modes .icon-btn:not(:disabled):active svg,
-  .toolbar-icons .icon-btn:not(:disabled):active svg { transform: scale(0.9); }
+  .toolbar-icons .icon-btn:not(:disabled):active svg { transform: scale(0.95); }
 }
 @media (prefers-reduced-motion: reduce) {
   .toolbar-modes .icon-btn svg,
@@ -273,7 +273,7 @@ main > .panel {
   color: var(--text);
 }
 .transport > button svg { transition: transform 0.12s ease, filter 0.12s ease; }
-.transport > button:not(:disabled):active svg { transform: scale(0.86); }
+.transport > button:not(:disabled):active svg { transform: scale(0.95); }
 /* Play and record glow in their colours, as the loop strip does in its. */
 .transport .play { color: var(--accent); }
 .transport .play:not(.is-playing) svg { filter: drop-shadow(0 0 5px rgb(90 216 200 / 0.45)); }
@@ -291,10 +291,10 @@ main > .panel {
   .transport .record-btn.is-count-in:not(:disabled):hover { background: color-mix(in srgb, var(--record) 36%, var(--tile)); }
   .transport .record-btn.is-on:not(:disabled):hover { background: color-mix(in srgb, var(--record) 82%, #000); }
   /* Pointed at, an icon grows and brightens, as the loop strip thickens; pressed, it still gives a little. */
-  .transport > button:not(:disabled):hover svg { transform: scale(1.2); }
+  .transport > button:not(:disabled):hover svg { transform: scale(1.1); }
   .transport .play:not(.is-playing):not(:disabled):hover svg { filter: drop-shadow(0 0 7px rgb(90 216 200 / 0.7)) brightness(1.12); }
   .transport .record-btn:not(.is-on):not(:disabled):hover svg { filter: drop-shadow(0 0 7px rgb(255 90 95 / 0.7)) brightness(1.12); }
-  .transport > button:not(:disabled):active svg { transform: scale(0.9); }
+  .transport > button:not(:disabled):active svg { transform: scale(0.95); }
 }
 @media (prefers-reduced-motion: reduce) {
   .transport > button svg { transition: none; }
@@ -634,12 +634,18 @@ main > .panel {
 .starter-group { display: flex; flex-direction: column; gap: 8px; }
 .starter .palette-group-label { color: var(--muted); }
 .starter-chords { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-/* Progressions and sections to start from: a grid of cards filling the width, two across on a phone. */
+/*
+ * Progressions and sections to start from: a grid of cards filling the width,
+ * each wide enough for a progression's numerals on one line (three across
+ * beside the tracks); two across on a phone, where a long one wraps. Every
+ * card in a group is as tall as the tallest, so a wrapped one doesn't stand out.
+ */
 .starter .progressions,
-.starter-copies { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.starter .progression { min-width: 0; padding: 12px 14px; gap: 4px; border-radius: 10px; }
+.starter-copies { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); grid-auto-rows: 1fr; gap: 8px; }
+.starter .progression { min-width: 0; padding: 12px 14px; gap: 4px; border-radius: 8px; }
+.starter .progression-numerals { max-width: 100%; white-space: normal; }
 .starter .progression-name { font-size: var(--fs-title); }
-.starter-copy { height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 14px; border-radius: 10px; font-size: var(--fs-title); font-weight: 600; }
+.starter-copy { height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 14px; border-radius: 8px; font-size: var(--fs-title); font-weight: 600; }
 .starter-copy-bars { font-size: var(--fs-small); color: var(--muted); }
 /* Buttons to add a vocal or drum track: each a row the size of a track's header, outlined as a slot to fill. */
 .track-add {
@@ -655,7 +661,7 @@ main > .panel {
   gap: 8px;
   padding: 0 12px;
   border: 1.5px dashed var(--line-strong);
-  border-radius: 10px;
+  border-radius: 8px;
   background: none;
   font-size: var(--fs-body);
   font-weight: 500;
@@ -770,6 +776,12 @@ main > .panel {
   gap: 4px;
   padding: 0 4px 0 8px;
 }
+/* The + at the top of the column, to add a track: the title keeps the left, unmute all and the + share the right. */
+.timeline-corner .column-title { margin-right: auto; }
+.track-add-btn { width: 30px; height: 30px; color: var(--muted); }
+.track-add-btn:hover, .track-add-btn[aria-expanded='true'] { color: var(--text); background: var(--raised); }
+.track-add-btn svg { width: 16px; height: 16px; }
+.menu-item.has-icon .menu-item-icon svg { width: 18px; height: 18px; }
 /* Beside the tracks, the column of names ends in a clear edge, with room before it. */
 @media (min-width: 641px) {
   .track-headers { border-right: 1px solid var(--line-strong); }
@@ -1086,7 +1098,7 @@ main > .panel {
   gap: 3px;
   padding: 8px 12px;
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--raised);
   text-align: left;
 }
@@ -1438,7 +1450,7 @@ main > .panel {
   gap: 8px;
   padding: 0 16px 0 12px;
   border: 1.5px dashed var(--line-strong);
-  border-radius: 10px;
+  border-radius: 8px;
   background: none;
   font-size: var(--fs-body);
   font-weight: 500;
@@ -1552,7 +1564,7 @@ main > .panel {
   justify-content: center;
   gap: 3px;
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--raised);
   color: var(--text);
   touch-action: manipulation;
@@ -1620,7 +1632,7 @@ main > .panel {
 .chord-pad-replace:disabled { opacity: 0.4; }
 .chord-pad-actions { display: flex; gap: 8px; }
 .chord-pad-add,
-.chord-pad-replace { flex: 1; height: 50px; border-radius: 12px; font-size: var(--fs-title); font-weight: 700; }
+.chord-pad-replace { flex: 1; height: 50px; border-radius: 8px; font-size: var(--fs-title); font-weight: 700; }
 .chord-pad-add { border: 0; background: var(--accent); color: var(--on-accent); }
 .chord-pad-replace { border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); }
 /* With a vocal track selected, the sheet is its settings: name, take, mix, colour, then delete and record. */
@@ -1692,7 +1704,7 @@ main > .panel {
   gap: 12px;
   padding: 8px 12px 8px 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--raised);
   text-align: left;
   color: var(--muted);
@@ -1815,7 +1827,7 @@ main > .panel {
   justify-content: center;
   gap: 10px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--record);
   font-size: var(--fs-display);
   font-weight: 700;
@@ -1952,6 +1964,21 @@ main > .panel {
 .sound-section { display: flex; flex-direction: column; gap: 6px; }
 /* The sound panel: one list, top to bottom, with room between its parts. */
 .sound-body { display: flex; flex-direction: column; gap: 18px; }
+/*
+ * Its two columns, what plays and how, then the shape of its sound, are only
+ * that on a wider screen; otherwise their parts make one list, in that order.
+ */
+.sound-col { display: contents; }
+/* The shape's heading, with a way back to the sound as it started beside it. */
+.sound-shape-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+/* Floating from the top bar, it never runs past the foot of the window: what doesn't fit scrolls. */
+.toolbar-modes .sound-panel { max-height: calc(100dvh - 72px); overflow-y: auto; }
+/* With room, the panel widens to two columns side by side, half as tall. */
+@media (min-width: 1000px) {
+  .toolbar-modes .sound-panel:has(.sound-col) { width: min(660px, calc(100vw - 32px)); }
+  .sound-panel .sound-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .sound-panel .sound-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+}
 .sound-body .sound-section { gap: 8px; }
 .sound-body .sound-heading:not(:first-child) { margin-top: 6px; }
 /* The recorded piano, a wide card saying what it is; then the synth's sounds, an even grid. */
@@ -1984,12 +2011,6 @@ main > .panel {
 .sound-grid button[aria-checked='true'] { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
 .sound-body .track-sheet-slider > span { width: 5.6em; }
 .sound-body .track-sheet-slider { min-height: 30px; }
-.sound-more-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; margin-top: -4px; border-top: 1px solid var(--line); }
-.sound-more { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font-size: var(--fs-body); font-weight: 500; color: var(--muted); }
-.sound-more:hover { color: var(--text); }
-.sound-more svg { transition: transform 0.15s ease; }
-.sound-more[aria-expanded='true'] { color: var(--text); }
-.sound-more[aria-expanded='true'] svg { transform: rotate(180deg); }
 .track-sheet-slider:has(input:disabled) { opacity: 0.4; }
 .sound-heading {
   font-family: 'DM Mono', monospace;
@@ -2121,6 +2142,8 @@ main > .panel {
   .ruler-notches i.is-bar { display: block; }
   /* The chord pad along the bottom has the key's chords; the starter keeps the rest, the screen's width. */
   .starter { width: calc(100vw - 2 * var(--gutter) - 6px); }
+  .starter .progressions,
+  .starter-copies { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .starter-group.is-chords { display: none; }
   /* The names sit above each track on a phone; there's no column to title. */
   .timeline-corner .column-title { display: none; }
@@ -2244,6 +2267,9 @@ main > .panel {
 .chord-key-play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .chord-key-name { font-size: var(--fs-display); font-weight: 700; }
 .chord-key-roman { font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); }
+/* A name longer than its key (Cmaj7sus4) is cut off at the key's edge; its full name is in the key's tooltip. */
+.chord-key-name,
+.chord-key-roman { max-width: calc(100% - 8px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chord-key-hint { margin-top: 6px; font-family: 'DM Mono', monospace; font-size: var(--fs-label); color: var(--muted); opacity: 0.7; }
 /* A chord that usually comes next: a small dot along the top, as on the chord pad. */
 .chord-key.is-hinted::after { content: ''; position: absolute; top: 10px; left: calc(50% - 3px); width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0.8; pointer-events: none; }

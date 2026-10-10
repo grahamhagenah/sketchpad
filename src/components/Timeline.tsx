@@ -80,10 +80,10 @@ export function Timeline() {
   const hasDrumTrack = useStore((s) => s.drumTrack)
   const drumTrack = hasDrumTrack && !empty
   const drumHint = !hasDrumTrack && recording === 'off' && !empty
-  // Both add buttons share one row, under the vocal tracks.
-  // Each add button takes a row of its own, the size of a track, under the vocal tracks.
-  const addRow = vocalHint || drumHint
-  const rows = laneCount + (vocalHint ? 1 : 0) + (drumHint ? 1 : 0)
+  // On a phone, each add button takes a row of its own, the size of a track, under the vocal tracks;
+  // beside a column of names, they're in a menu from the + at its top instead.
+  const addRow = narrow && (vocalHint || drumHint)
+  const rows = laneCount + (narrow && vocalHint ? 1 : 0) + (narrow && drumHint ? 1 : 0)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
@@ -661,6 +661,7 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
         {/* What the column is, level with the inspector's title beside it. */}
         <span className="column-title">Tracks</span>
         <UnmuteAllButton />
+        {!narrow && <AddTrackButton canVocal={vocalHint} canDrums={drumHint} />}
       </div>
       {/* An empty section has no chords track to show yet. */}
       {s.chords.length > 0 && (
@@ -716,7 +717,7 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
           onSelect={s.recording === 'off' ? () => s.selectVocal(lane) : undefined}
         />
       ))}
-      {vocalHint && (
+      {narrow && vocalHint && (
         <button
           type="button"
           className="track-add"
@@ -729,7 +730,7 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
           <span className="track-add-label">Vocal track</span>
         </button>
       )}
-      {drumHint && (
+      {narrow && drumHint && (
         <button
           type="button"
           className="track-add"
@@ -743,6 +744,49 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
         </button>
       )}
     </div>
+  )
+}
+
+/**
+ * Beside a column of names, the + at its top: a menu to add a vocal track
+ * (selected, ready to record into) or the drum track. It says what's allowed:
+ * as many vocal tracks as there's room for, but one drum track and one chords
+ * track, the chords one always there.
+ */
+function AddTrackButton({ canVocal, canDrums }: { canVocal: boolean; canDrums: boolean }) {
+  const { addVocalTrack, addDrumTrack, drumTrack, recording } = useStore()
+  const item = (icon: ReactNode, title: string, about: string, disabled: boolean, act: () => void, close: () => void) => (
+    <button
+      type="button"
+      className="menu-item has-icon"
+      disabled={disabled}
+      onClick={() => {
+        act()
+        close()
+      }}
+    >
+      <span className="menu-item-icon">{icon}</span>
+      <span className="menu-item-title">{title}</span>
+      <span className="menu-item-about">{about}</span>
+    </button>
+  )
+  return (
+    <MenuButton label="Add a track" title="Add a vocal track, the drum track or chords" className="icon-btn track-add-btn" align="right" menu={(close) => (
+      <>
+        {item(
+          <MicIcon />,
+          'Vocal track',
+          canVocal ? `Add as many as you like, up to ${LANES}` : recording !== 'off' ? 'Not while recording' : `${LANES} is the most a section can have`,
+          !canVocal,
+          addVocalTrack,
+          close,
+        )}
+        {item(<DrumIcon />, 'Drum track', drumTrack ? 'Already added: there’s one per song' : 'One per song, with a groove for each section', !canDrums, addDrumTrack, close)}
+        {item(<KeysIcon />, 'Chords track', 'Already added: there’s one per song', true, () => undefined, close)}
+      </>
+    )}>
+      <PlusIcon />
+    </MenuButton>
   )
 }
 

@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { useDismiss } from '../hooks/useDismiss'
 import { useNarrow } from '../hooks/useNarrow'
 import { useStore } from '../store'
-import { CONTROLS, PRESETS, WAVES, changedFrom, instrumentOf, presetFor, type Sound } from '../audio/sound'
+import { CONTROLS, DELAY_TIMES, PRESETS, WAVES, changedFrom, extrasOf, instrumentOf, presetFor, type Sound } from '../audio/sound'
 import { CHORD_RHYTHMS } from '../audio/arrange'
 import { audition } from '../audio/engine'
 import { loadPiano } from '../audio/instruments'
@@ -146,17 +146,18 @@ function SoundSettings() {
   const arpOn = useStore((s) => s.arp.on)
   const setArp = useStore((s) => s.setArp)
   const drumTrack = useStore((s) => s.drumTrack)
-  const [more, setMore] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const picked = presetFor(sound)
   const base = PRESETS.find((p) => p.name === picked)
   const changed = !!base && changedFrom(sound, base.sound)
   const shows = (k: keyof Sound) => CONTROLS[instrumentOf(sound)].includes(k)
+  const extras = extrasOf(sound)
 
   // Picking a sound plays it; the piano's notes load the first time, and it plays once they're in.
   const choose = (p: (typeof PRESETS)[number]) => {
-    setSound({ ...p.sound, preset: p.name, bass: sound.bass })
+    // A preset is the whole sound, its effects too (none, unless it has its own).
+    setSound({ ...p.sound, ...extrasOf(p.sound), preset: p.name, bass: sound.bass })
     if (p.sound.instrument !== 'piano') return preview()
     setLoading(true)
     loadPiano().then(preview, () => undefined).finally(() => setLoading(false))
@@ -179,96 +180,93 @@ function SoundSettings() {
 
   return (
     <div className="sound-body">
-      <div className="sound-section" role="radiogroup" aria-label="Sound">
-        <span className="sound-heading">Recorded</span>
-        {soundButton(
-          PIANO,
-          'sound-piano',
-          <>
-            {PIANO.name}
-            <span>{loading ? 'Loading…' : PIANO.about}</span>
-          </>,
-        )}
-        <span className="sound-heading">Synth</span>
-        <div className="sound-grid">{SYNTHS.map((p) => soundButton(p, '', p.name))}</div>
-      </div>
-
-      <div className="sound-section">
-        <span className="sound-heading">Rhythm</span>
-        <div className="sound-grid is-three" role="radiogroup" aria-label="Rhythm">
-          {CHORD_RHYTHMS.map((r) => (
-            <button key={r.id} type="button" role="radio" aria-checked={rhythm.chords === r.id} disabled={arpOn} onClick={() => setRhythm({ chords: r.id })}>
-              {r.label}
-            </button>
-          ))}
+      {/* Beside each other on a wider screen: what plays and how, then the shape of its sound; on a phone, one list. */}
+      <div className="sound-col">
+        <div className="sound-section" role="radiogroup" aria-label="Sound">
+          <span className="sound-heading">Recorded</span>
+          {soundButton(
+            PIANO,
+            'sound-piano',
+            <>
+              {PIANO.name}
+              <span>{loading ? 'Loading…' : PIANO.about}</span>
+            </>,
+          )}
+          <span className="sound-heading">Synth</span>
+          <div className="sound-grid">{SYNTHS.map((p) => soundButton(p, '', p.name))}</div>
         </div>
-        {arpOn ? (
-          <p className="rhythm-about">
-            The arpeggiator is playing the chords.{' '}
-            <button type="button" className="track-sheet-link" onClick={() => setArp({ on: false })}>
-              Turn it off
-            </button>
-          </p>
-        ) : (
-          <p className="rhythm-about">{CHORD_RHYTHMS.find((r) => r.id === rhythm.chords)?.about}</p>
-        )}
-      </div>
 
-      <div className="sound-section">
-        <span className="sound-heading">Bass</span>
-        <div className="sound-grid is-three" role="radiogroup" aria-label="Bass">
-          {(
-            [
-              ['off', 'Off'],
-              ['held', 'Held'],
-              ['kick', 'With the kick'],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} type="button" role="radio" aria-checked={bass === id} onClick={() => setBass(id)}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <p className="rhythm-about">
-          {bass === 'off'
-            ? 'Just the chords'
-            : bass === 'held'
-              ? 'One long low note for each chord'
-              : drumTrack
-                ? 'Plays with the kick drum, and walks up into each new chord'
-                : 'Plays with the kick drum once there’s a drum track; held until then'}
-        </p>
-      </div>
-
-      <div className="sound-section">
-        <SoundSlider label="Brightness" min={0} max={1} step={0.001} value={toSlider(sound.brightness)} format={(v) => `${(fromSlider(v) / 1000).toFixed(1)} kHz`} onChange={(v) => setSound({ brightness: fromSlider(v) })} />
-        <SoundSlider label="Reverb" min={0} max={0.8} step={0.01} value={sound.reverb} format={percent} onChange={(reverb) => setSound({ reverb })} />
-      </div>
-
-      {/* The rest of the sound's shape, for whoever wants it, with a way back to where it started. */}
-      <div className="sound-more-row">
-        <button type="button" className="sound-more" aria-expanded={more} onClick={() => setMore(!more)}>
-          More settings
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </button>
-        {changed && base && (
-          <button
-            type="button"
-            className="track-sheet-link"
-            onClick={() => {
-              setSound({ ...base.sound, preset: base.name, bass: sound.bass })
-              preview()
-            }}
-          >
-            Reset {base.name}
-          </button>
-        )}
-      </div>
-      {/* Every setting shows whichever the sound, so the panel keeps its size; those it doesn't use are greyed out. */}
-      {more && (
         <div className="sound-section">
+          <span className="sound-heading">Rhythm</span>
+          <div className="sound-grid is-three" role="radiogroup" aria-label="Rhythm">
+            {CHORD_RHYTHMS.map((r) => (
+              <button key={r.id} type="button" role="radio" aria-checked={rhythm.chords === r.id} disabled={arpOn} onClick={() => setRhythm({ chords: r.id })}>
+                {r.label}
+              </button>
+            ))}
+          </div>
+          {arpOn ? (
+            <p className="rhythm-about">
+              The arpeggiator is playing the chords.{' '}
+              <button type="button" className="track-sheet-link" onClick={() => setArp({ on: false })}>
+                Turn it off
+              </button>
+            </p>
+          ) : (
+            <p className="rhythm-about">{CHORD_RHYTHMS.find((r) => r.id === rhythm.chords)?.about}</p>
+          )}
+        </div>
+
+        <div className="sound-section">
+          <span className="sound-heading">Bass</span>
+          <div className="sound-grid is-three" role="radiogroup" aria-label="Bass">
+            {(
+              [
+                ['off', 'Off'],
+                ['held', 'Held'],
+                ['kick', 'With the kick'],
+              ] as const
+            ).map(([id, label]) => (
+              <button key={id} type="button" role="radio" aria-checked={bass === id} onClick={() => setBass(id)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="rhythm-about">
+            {bass === 'off'
+              ? 'Just the chords'
+              : bass === 'held'
+                ? 'One long low note for each chord'
+                : drumTrack
+                  ? 'Plays with the kick drum, and walks up into each new chord'
+                  : 'Plays with the kick drum once there’s a drum track; held until then'}
+          </p>
+        </div>
+      </div>
+
+      {/*
+        The shape of the sound, always to hand: its wave, how it starts, fades
+        and stops, then how bright and roomy it is, with a way back to where
+        the sound started. Every setting shows whichever the sound, so the
+        panel keeps its size; those it doesn't use are greyed out.
+      */}
+      <div className="sound-col">
+        <div className="sound-section">
+          <div className="sound-shape-head">
+            <span className="sound-heading">Shape</span>
+            {changed && base && (
+              <button
+                type="button"
+                className="track-sheet-link"
+                onClick={() => {
+                  setSound({ ...base.sound, ...extrasOf(base.sound), preset: base.name, bass: sound.bass })
+                  preview()
+                }}
+              >
+                Reset {base.name}
+              </button>
+            )}
+          </div>
           <div className="sound-grid" role="radiogroup" aria-label="Wave">
             {WAVES.map((w) => (
               <button
@@ -291,11 +289,37 @@ function SoundSettings() {
           <SoundSlider label="Decay" min={0.05} max={3} step={0.01} curve value={sound.decay} format={seconds} disabled={!shows('decay')} onChange={(decay) => setSound({ decay })} />
           <SoundSlider label="Sustain" min={0} max={1} step={0.01} value={sound.sustain} format={percent} disabled={!shows('sustain')} onChange={(sustain) => setSound({ sustain })} />
           <SoundSlider label="Release" min={0.02} max={5} step={0.01} curve value={sound.release} format={seconds} disabled={!shows('release')} onChange={(release) => setSound({ release })} />
-          <p className="rhythm-about">
-            Piano recordings: Salamander Grand Piano by Alexander Holm, CC BY 3.0.
-          </p>
+          <SoundSlider
+            label="Width"
+            min={0}
+            max={1}
+            step={0.01}
+            value={extras.width}
+            format={percent}
+            disabled={!shows('width') || (instrumentOf(sound) === 'synth' && sound.wave === 'sine')}
+            onChange={(width) => setSound({ width })}
+          />
+          <SoundSlider label="Brightness" min={0} max={1} step={0.001} value={toSlider(sound.brightness)} format={(v) => `${(fromSlider(v) / 1000).toFixed(1)} kHz`} onChange={(v) => setSound({ brightness: fromSlider(v) })} />
+          <SoundSlider label="Resonance" min={0} max={1} step={0.01} value={extras.resonance} format={percent} onChange={(resonance) => setSound({ resonance })} />
         </div>
-      )}
+
+        {/* What the sound goes through on its way out: a room, an echo in time with the song, a shimmer and some grit. */}
+        <div className="sound-section">
+          <span className="sound-heading">Effects</span>
+          <SoundSlider label="Reverb" min={0} max={0.8} step={0.01} value={sound.reverb} format={percent} onChange={(reverb) => setSound({ reverb })} />
+          <SoundSlider label="Delay" min={0} max={1} step={0.01} value={extras.delay} format={percent} onChange={(delay) => setSound({ delay })} />
+          <div className="sound-grid is-three" role="radiogroup" aria-label="Delay time">
+            {DELAY_TIMES.map((d) => (
+              <button key={d.id} type="button" role="radio" aria-checked={extras.delayTime === d.id} disabled={!extras.delay} onClick={() => setSound({ delayTime: d.id })}>
+                {d.label}
+              </button>
+            ))}
+          </div>
+          <SoundSlider label="Chorus" min={0} max={1} step={0.01} value={extras.chorus} format={percent} onChange={(chorus) => setSound({ chorus })} />
+          <SoundSlider label="Drive" min={0} max={1} step={0.01} value={extras.drive} format={percent} onChange={(drive) => setSound({ drive })} />
+          <p className="rhythm-about">Piano recordings: Salamander Grand Piano by Alexander Holm, CC BY 3.0.</p>
+        </div>
+      </div>
     </div>
   )
 }

@@ -179,7 +179,7 @@ async function render(song: ExportSong, parts: Parts, duration: number) {
   // The piano's notes, loaded before the render, so it's made with them in hand.
   if (parts.pad && instrumentOf(song.sound) === 'piano') await loadPiano()
   const rendered = await Tone.Offline(async () => {
-    const { pad, bass, reverb, bus } = createInstruments(song.sound)
+    const { pad, bass, reverb, bus } = createInstruments(song.sound, song.bpm)
     bus.volume.value = song.chordsDb ?? 0
     await reverb.ready
     for (const h of hits) {
