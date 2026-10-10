@@ -181,8 +181,8 @@ export function Toolbar() {
         <SongTitle />
       </div>
 
-      {/* Laid out like a DAW's control bar: transport, then a display of where you are and the song's settings, then modes. */}
-      <div className="toolbar-zone">
+      {/* In the middle, as in a DAW's control bar: the transport, then a display of where you are and the song's settings, then modes. */}
+      <div className="toolbar-zone toolbar-center">
         <div className="transport" role="group" aria-label="Transport">
           <button type="button" className="to-start" onClick={() => void seek(0)} aria-label="Go to the start" title="Go to the start (↵)">
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -289,13 +289,14 @@ export function Toolbar() {
   )
 }
 
-/** Widens or narrows the beats on the timeline. */
+/** Widens or narrows the beats on the timeline. The song always fills the width, so it zooms no further out than that. */
 export function ZoomButtons() {
   const zoom = useStore((s) => s.zoom)
+  const inSong = useStore((s) => s.view === 'song')
   const zoomBy = useStore((s) => s.zoomBy)
   return (
     <>
-      <button type="button" className="icon-btn" aria-label="Zoom out" title="Zoom out (−)" disabled={zoom === ZOOMS[0]} onClick={() => zoomBy(-1)}>
+      <button type="button" className="icon-btn" aria-label="Zoom out" title="Zoom out (−)" disabled={zoom === ZOOMS[0] || (inSong && zoom <= 1)} onClick={() => zoomBy(-1)}>
         <Icon d="M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM20 20l-4.9-4.9M7.5 10.5h6" />
       </button>
       <button type="button" className="icon-btn" aria-label="Zoom in" title="Zoom in (+)" disabled={zoom === ZOOMS[ZOOMS.length - 1]} onClick={() => zoomBy(1)}>

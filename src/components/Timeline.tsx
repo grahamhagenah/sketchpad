@@ -50,6 +50,10 @@ export function Timeline() {
   const beatPx = (den === 16 ? 20 : den === 8 ? 30 : 44) * zoom
   const barPx = num * beatPx
 
+  // Where a bar divides: 6/8, 9/8 and 12/8 in threes; others halfway, the longer half first in an odd meter (7/8 as 4 + 3); 2/4 and 3/4 not at all.
+  const divides = (beatInBar: number) =>
+    den === 8 && num % 3 === 0 && num > 3 ? beatInBar % 3 === 0 : num >= 4 && beatInBar === Math.ceil(num / 2)
+
   const totalBeats = chords.reduce((sum, c) => sum + c.beats, 0)
   const bars = Math.max(1, Math.ceil(totalBeats / num))
   const width = Math.max(bars * barPx, totalBeats * beatPx) + barPx
@@ -262,6 +266,18 @@ export function Timeline() {
             seekAt(e.clientX)
           }}
         >
+          {/*
+            The beats as notches along the foot of the bar numbers, but not on a
+            bar line itself, which marks the bar already; where the bar divides
+            (halfway, or between its groups of three) the notch is longer.
+          */}
+          <div className="ruler-notches" aria-hidden="true">
+            {Array.from({ length: Math.floor(width / beatPx) }, (_, b) => b)
+              .filter((b) => b % num)
+              .map((b) => (
+                <i key={b} className={divides(b % num) ? 'is-mid' : undefined} style={{ left: b * beatPx }} />
+              ))}
+          </div>
           {chords.length > 0 && (
             <div
               className="ruler"

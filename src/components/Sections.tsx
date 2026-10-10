@@ -348,9 +348,9 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
 }
 
 /** Each place in the song is a row this tall, with this gap under it: room for its chords, and a strip each for its drums and vocals. */
-const ROW_H = 58
+const ROW_H = 82
 /** On a phone a row is stacked: its name on a line of its own, its chords the full width under it. */
-const NARROW_ROW_H = 92
+const NARROW_ROW_H = 106
 const NARROW_HEAD_H = 32
 const ROW_GAP = 6
 const rowTop = (i: number, rowH = ROW_H) => i * (rowH + ROW_GAP)
@@ -395,7 +395,8 @@ export function SongView() {
   // A take's length in beats at the song's tempo.
   const takeBeats = (seconds: number) => seconds * (bpm / 60) * (den / 4)
   const total = spans.reduce((n, span) => n + span.beats, 0)
-  // The longest section's bar fills the width beside the names (at normal zoom), and the others are to scale.
+  // The longest section's bar fills the width beside the names, and the others are to scale.
+  // Zooming the timeline out doesn't shrink the song below that; zooming in widens it.
   const longest = Math.max(4 * num, ...spans.map((span) => span.beats))
   const scrollRef = useRef<HTMLDivElement>(null)
   const sheetWidth = useWidth(scrollRef)
@@ -406,7 +407,7 @@ export function SongView() {
   const headPx = narrow ? 8 : 136
   // Room is left at the end of each row for its menu button.
   // A phone has no zoom buttons, so there the song always fits the screen.
-  const beatPx = (sheetWidth ? (sheetWidth - headPx - (narrow ? 16 : 44)) / longest : 8) * (narrow ? 1 : zoom)
+  const beatPx = (sheetWidth ? (sheetWidth - headPx - (narrow ? 16 : 44)) / longest : 8) * (narrow ? 1 : Math.max(1, zoom))
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
   const uses = new Map<string, number>()
   for (const entry of arrangement) uses.set(entry.section, (uses.get(entry.section) ?? 0) + 1)
@@ -527,6 +528,10 @@ export function SongView() {
     >
       <div className="song-scroll" ref={scrollRef}>
         <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + (narrow ? 16 : 44)}px)`, height: rowTop(spans.length, rowH) + 44 }}>
+          {/* Faint lines between the rows, staying put while a row is dragged past them. */}
+          {spans.slice(1).map((_, i) => (
+            <div key={i} className="song-divider" style={{ top: rowTop(i + 1, rowH) - ROW_GAP / 2 }} />
+          ))}
           {order.map((span) => {
             const { entry, start, beats } = span
             const section = byId.get(entry.section)

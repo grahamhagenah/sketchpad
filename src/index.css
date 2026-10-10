@@ -2,8 +2,8 @@
   --bg: #07080a;
   --panel: #0e1013;
   --raised: #1a1d22;
-  /* The top bar: between the editor and the buttons on it. */
-  --toolbar-bg: #15181c;
+  /* The sheets that come up from the bottom on a phone: a step lighter than the editor they cover. */
+  --sheet-bg: #15181c;
   --line: #262a30;
   --line-strong: #3f454e;
   --text: #f8f9fa;
@@ -22,6 +22,18 @@
   --track-chords: #86a8ff;
   --track-drums: #ffd166;
   --on-track: #0a0c10;
+  /*
+   * Type sizes, a few steps apart so each level reads as its own: tracked
+   * capitals for labels, small for numerals and notes, body for controls
+   * and menus, title for names and headings, display for chord names and
+   * what has to be read from a distance, and hero for the count-in.
+   */
+  --fs-label: 10px;
+  --fs-small: 11px;
+  --fs-body: 13px;
+  --fs-title: 15px;
+  --fs-display: 18px;
+  --fs-hero: 72px;
   --radius: 12px;
   color-scheme: dark;
   font-family: 'DM Sans', system-ui, sans-serif;
@@ -35,12 +47,12 @@ button, select, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:disabled { opacity: 0.4; cursor: default; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-h2 { margin: 0; font-size: 14px; font-weight: 700; }
+h2 { margin: 0; font-size: var(--fs-title); font-weight: 700; }
 .muted { color: var(--muted); font-weight: 400; }
-.hint { margin: 0; font-size: 13px; color: var(--muted); }
+.hint { margin: 0; font-size: var(--fs-body); color: var(--muted); }
 kbd {
   font-family: 'DM Mono', monospace;
-  font-size: 11px;
+  font-size: var(--fs-label);
   padding: 1px 5px;
   border: 1px solid var(--line-strong);
   border-bottom-width: 2px;
@@ -76,15 +88,21 @@ main > .panel {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 20px;
-  /* A band a step lighter than the editor, edge to edge and up to the top of the window. */
+  /* Edge to edge and up to the top of the window, in the editor's own colour. */
   margin: calc(-1 * var(--pad-top)) calc(-1 * var(--gutter)) 0;
   padding: var(--pad-top) var(--gutter) 14px;
-  background: var(--toolbar-bg);
+  background: var(--panel);
 }
 .toolbar-zone { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .toolbar-end { margin-left: auto; gap: 8px; }
 .toolbar-icons { display: flex; align-items: center; gap: 2px; }
 .toolbar-end .toolbar-icons + .toolbar-icons { padding-left: 8px; border-left: 1px solid var(--line); }
+/* With room, the transport and display sit in the middle of the bar, whatever is either side of them. */
+/* If a side needs more than half what's left (a chord's settings on a smaller screen), it takes it, and the middle moves over. */
+@media (min-width: 1420px) {
+  .toolbar:not(.toolbar-compact) { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); }
+  .toolbar-end { justify-content: flex-end; }
+}
 
 /* Icon buttons: no outline of their own, a soft fill when hovered, the accent when on. */
 .icon-btn {
@@ -113,7 +131,7 @@ main > .panel {
   border-radius: 7px;
   background: var(--raised);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 500;
 }
 .chip:not(:disabled):hover { border-color: var(--muted); }
@@ -145,8 +163,10 @@ main > .panel {
 .toolbar-modes > :last-child,
 .toolbar-modes > :last-child .icon-btn { border-radius: 0 7px 7px 0; }
 .toolbar-modes .icon-btn:not(:disabled):hover { background: var(--tile-hover); }
-.toolbar-modes .toggle-btn[aria-pressed='true'] { color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--tile)); }
-.toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 26%, var(--tile)); }
+/* On is shown in the icon alone: grey when off, the accent when on, with no fill of its own. */
+.toolbar-modes .toggle-btn { color: var(--muted); }
+.toolbar-modes .toggle-btn[aria-pressed='true'],
+.toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover { color: var(--accent); }
 .toolbar-modes .icon-btn[aria-expanded='true'] { background: var(--tile-hover); }
 
 /* The selected chord's settings, joined like the transport, each part split from the next by a line. */
@@ -165,7 +185,7 @@ main > .panel {
   border-radius: 0;
   background-color: var(--tile);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 500;
 }
 .selection select {
@@ -188,8 +208,12 @@ main > .panel {
   .selection-toggle[aria-pressed='true']:hover { color: var(--accent); }
   .selection-icon.is-danger:not(:disabled):hover { color: var(--danger); }
 }
+/* Inside a joined unit a ring sits within its part, so the unit's corners and its neighbours don't cut it off. */
 .selection select:focus-visible,
-.selection button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.selection button:focus-visible,
+.transport > button:focus-visible,
+.toolbar-modes .icon-btn:focus-visible,
+.chord-pad-length button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Transport: start, play and record joined in one group. */
 .transport { display: inline-flex; height: var(--control-h); overflow: hidden; }
@@ -241,7 +265,6 @@ main > .panel {
   color: var(--text);
   cursor: pointer;
 }
-.lcd-cell:hover, .lcd-cell:focus-within { background: #15171a; }
 .lcd-value,
 .lcd select,
 .lcd .tempo {
@@ -251,7 +274,7 @@ main > .panel {
   border: 0;
   background: none;
   font-family: 'DM Mono', monospace;
-  font-size: 16px;
+  font-size: var(--fs-title);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
@@ -261,13 +284,13 @@ main > .panel {
 }
 .lcd select { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .lcd select:focus-visible { outline: none; }
-.lcd-value small { font-size: 11px; color: var(--muted); }
+.lcd-value small { font-size: var(--fs-small); color: var(--muted); }
 .lcd .tempo { width: 3.2ch; -moz-appearance: textfield; appearance: textfield; cursor: text; }
 .lcd .tempo:focus-visible { outline: none; color: var(--accent); }
 .lcd .tempo::-webkit-inner-spin-button,
 .lcd .tempo::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.lcd-label { font-size: 9px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.lcd-position { min-width: 88px; }
+.lcd-label { font-size: var(--fs-label); font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.lcd-position { min-width: 88px; cursor: default; }
 /* The reading and the widest it can be, in the same place: the cell takes the widest's width. */
 .lcd-position-value { display: grid; }
 .lcd-position-value > span { grid-area: 1 / 1; }
@@ -278,7 +301,7 @@ main > .panel {
 .lcd-meter:hover select, .lcd-key:hover select { color: var(--accent); }
 /* A section in its own key: the key and its label show in the accent, so the change is noticed. */
 .lcd-key.is-own-key select, .lcd-key.is-own-key .lcd-label { color: var(--accent); }
-.record-count { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; line-height: 1; color: var(--text); }
+.record-count { font-family: 'DM Mono', monospace; font-size: var(--fs-title); font-weight: 500; line-height: 1; color: var(--text); }
 .toolbar :disabled { opacity: 0.4; }
 
 @media (max-width: 720px) {
@@ -302,15 +325,16 @@ main > .panel {
 /* Timeline */
 .timeline-wrap {
   /* Row positions, shared by the track headers and the timeline beside them. */
-  /* The loop strip runs along the bottom of the ruler, under the bar numbers, so it takes no room of its own. */
+  /* The loop strip along the very top, then the bar numbers under it, with the beats as notches along their foot. */
+  --strip-y: 7px;
+  --ruler-top: 15px;
   --ruler-h: 18px;
-  --strip-y: 25px;
-  /* Where the bar and beat lines begin, just under the bar numbers; the track names' column starts there too. */
-  --grid-top: 20px;
+  /* Where the bar lines begin, just under the bar numbers and their notches. */
+  --grid-top: 37px;
   /* Every track is the same height, with --gap between one track's blocks and the next; each name's row reaches halfway into the gaps around it. */
   --track-h: 62px;
   --gap: 10px;
-  --head: 32px;
+  --head: 46px;
   /* Room above each track for its name: none beside a column of names, as on a wide screen; a line's worth on a phone. */
   --label-h: 0px;
   --chord-top: calc(var(--head) + var(--label-h));
@@ -347,12 +371,14 @@ main > .panel {
   flex: 1 0 auto;
   min-width: 100%;
   min-height: calc(var(--vocal-top) - var(--gap) / 2 - 4px + var(--lanes) * var(--vocal-step));
-  /* A line down from each bar; the beats are only notches along the foot of the bar numbers, so the tracks stay clear. */
-  background:
-    repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat,
-    repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--beat)) 0 calc(var(--grid-top) - 5px) / 100% 5px no-repeat;
+  /* A line down from each bar; the beats are only notches along the foot of the bar numbers (.ruler-notches), so the tracks stay clear. */
+  background: repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px var(--bar)) 0 var(--grid-top) / 100% calc(100% - var(--grid-top)) no-repeat;
 }
-.ruler { position: absolute; top: 0; left: 0; right: 0; height: var(--ruler-h); cursor: pointer; }
+.ruler-notches { position: absolute; top: 0; left: 0; right: 0; height: var(--grid-top); pointer-events: none; }
+.ruler-notches i { position: absolute; bottom: 0; width: 1px; height: 5px; background: color-mix(in srgb, var(--muted) 55%, transparent); }
+/* Halfway through the bar: longer, and a little brighter. */
+.ruler-notches i.is-mid { height: 9px; background: color-mix(in srgb, var(--muted) 80%, transparent); }
+.ruler { position: absolute; top: var(--ruler-top); left: 0; right: 0; height: var(--ruler-h); cursor: pointer; }
 .ruler span { pointer-events: none; }
 .ruler span {
   position: absolute;
@@ -361,7 +387,7 @@ main > .panel {
   line-height: var(--ruler-h);
   padding-left: 6px;
   font-family: 'DM Mono', monospace;
-  font-size: 11px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .chord {
@@ -410,8 +436,8 @@ main > .panel {
   -webkit-touch-callout: none;
   user-select: none;
 }
-.chord-name { font-size: 17px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
-.chord-roman { font-family: 'DM Mono', monospace; font-size: 11px; line-height: 1; opacity: 0.7; white-space: nowrap; }
+.chord-name { font-size: var(--fs-display); line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
+.chord-roman { font-family: 'DM Mono', monospace; font-size: var(--fs-small); line-height: 1; opacity: 0.7; white-space: nowrap; }
 .resize {
   position: absolute;
   top: 0;
@@ -443,7 +469,7 @@ main > .panel {
   border: 1.5px dashed var(--line-strong);
   background: var(--panel);
   color: var(--muted);
-  font-size: 20px;
+  font-size: var(--fs-display);
 }
 .add-slot.is-open { border-color: var(--accent); color: var(--accent); }
 .add-chord-menu { position: fixed; z-index: 30; padding: 12px; gap: 10px; }
@@ -462,14 +488,14 @@ main > .panel {
 }
 .add-chord:hover { border-color: var(--muted); }
 .add-chord:active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.add-chord-name { font-size: 15px; font-weight: 700; }
-.add-chord-roman { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+.add-chord-name { font-size: var(--fs-title); font-weight: 700; }
+.add-chord-roman { font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); }
 .add-chord:active .add-chord-roman { color: inherit; }
 /* Ready-made progressions under the chords, two to a row to fit the menu. */
 .add-chord-menu .progressions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .add-chord-menu .progression { min-width: 0; padding: 7px 10px; border-radius: 8px; }
 .add-chord-menu .progression-numerals { white-space: normal; }
-.add-chord-note { font-size: 12px; color: var(--muted); }
+.add-chord-note { font-size: var(--fs-small); color: var(--muted); }
 .add-slot:not(.is-moved):hover { border-color: var(--muted); color: var(--text); }
 .playhead {
   position: absolute;
@@ -491,7 +517,7 @@ main > .panel {
   display: flex;
   align-items: center;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: var(--fs-body);
   pointer-events: none;
 }
 .timeline-empty span { color: var(--text); }
@@ -511,7 +537,7 @@ main > .panel {
   border: 1.5px dashed var(--line-strong);
   border-radius: 10px;
   background: none;
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: var(--muted);
 }
@@ -608,7 +634,7 @@ main > .panel {
 .timeline-corner {
   position: absolute;
   /* The ruler's row; the buttons are centred on it, overhanging it equally above and below. */
-  top: 0;
+  top: var(--ruler-top);
   height: var(--ruler-h);
   left: 0;
   right: 0;
@@ -626,7 +652,7 @@ main > .panel {
   border: 0;
   border-radius: 6px;
   background: none;
-  font-size: 12px;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: var(--muted);
 }
@@ -638,14 +664,14 @@ main > .panel {
 .song-bar .menu { left: 0; right: auto; }
 .song-bar .save-btn.has-changes::after { top: 4px; right: 4px; }
 .song-title {
-  width: 116px;
+  width: 136px;
   height: 34px;
   padding: 0 6px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: none;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-title);
   font-weight: 700;
   color: var(--text);
   text-overflow: ellipsis;
@@ -694,7 +720,7 @@ main > .panel {
   border: 0;
   background: none;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
@@ -713,7 +739,7 @@ main > .panel {
   background: var(--bg);
   color: var(--text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-body);
   font-weight: 500;
 }
 .track-name-input:focus-visible { outline: none; border-color: var(--accent); }
@@ -726,7 +752,7 @@ main > .panel {
   border-radius: 5px;
   background: none;
   font-family: 'DM Mono', monospace;
-  font-size: 11px;
+  font-size: var(--fs-small);
   font-weight: 500;
   color: color-mix(in srgb, var(--muted) 80%, transparent);
 }
@@ -783,8 +809,8 @@ main > .panel {
 .drum-region.is-empty:hover, .drum-region.is-empty[aria-expanded='true'] { border-color: var(--muted); color: var(--text); }
 .drum-region.is-muted { filter: grayscale(1); opacity: 0.45; }
 .drum-region.is-selected { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
-.drum-label { position: absolute; top: 4px; left: 9px; font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
-.drum-region.is-empty .drum-label { top: 50%; transform: translateY(-50%); font-size: 12px; color: inherit; }
+.drum-label { position: absolute; top: 4px; left: 9px; font-size: var(--fs-small); font-weight: 700; color: var(--muted); white-space: nowrap; }
+.drum-region.is-empty .drum-label { top: 50%; transform: translateY(-50%); font-size: var(--fs-body); color: inherit; }
 /* Hits in greys: hats faintest, kicks strongest. */
 .drum-hit { position: absolute; width: 4px; margin-left: 4px; border-radius: 2px; background: var(--muted); pointer-events: none; }
 .drum-hit.is-hat { top: 24px; height: 4px; opacity: 0.4; }
@@ -811,10 +837,11 @@ main > .panel {
 .loop-region {
   position: absolute;
   top: 50%;
-  height: 6px;
+  height: 8px;
   transform: translateY(-50%);
-  border-radius: 3px;
-  background: rgb(90 216 200 / 0.5);
+  border-radius: 4px;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgb(90 216 200 / 0.35);
   cursor: grab;
 }
 .loop-region::before {
@@ -824,7 +851,7 @@ main > .panel {
   inset: -5px 0;
 }
 .loop-region:active { cursor: grabbing; }
-.loop-region.is-whole { background: rgb(90 216 200 / 0.16); }
+.loop-region.is-whole { background: rgb(90 216 200 / 0.6); box-shadow: none; }
 .loop-handle {
   position: absolute;
   top: -5px;
@@ -849,7 +876,7 @@ main > .panel {
 .loop-handle:focus-visible { outline-offset: 0; border-radius: 4px; }
 .loop-dim {
   position: absolute;
-  top: calc(var(--strip-y) + 5px);
+  top: calc(var(--strip-y) + 6px);
   bottom: 0;
   background: rgb(18 20 22 / 0.45);
   pointer-events: none;
@@ -860,7 +887,7 @@ main > .panel {
 .palette-group { display: flex; flex-direction: column; gap: 8px; }
 .palette-group-label {
   font-family: 'DM Mono', monospace;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -880,11 +907,11 @@ main > .panel {
 }
 .progression:hover { border-color: var(--muted); }
 .progression.is-confirming { border-color: var(--accent); }
-.progression-name { display: grid; font-size: 13px; font-weight: 700; }
+.progression-name { display: grid; font-size: var(--fs-body); font-weight: 700; }
 .progression-name > span { grid-area: 1 / 1; }
 .progression-name > span[aria-hidden='true'] { visibility: hidden; }
 .progression.is-confirming .progression-name { color: var(--accent); }
-.progression-numerals { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.progression-numerals { font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); white-space: nowrap; }
 
 /* Sections: tabs for the song and each of its sections, above the editor. */
 .section-bar {
@@ -945,7 +972,7 @@ main > .panel {
   border-radius: 9px 9px 0 0;
   background: none;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -980,7 +1007,7 @@ main > .panel {
   border: 0;
   border-radius: 7px;
   background: none;
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: var(--muted);
 }
@@ -996,7 +1023,7 @@ main > .panel {
   border: 0;
   border-radius: 8px;
   background: none;
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: var(--muted);
 }
@@ -1009,7 +1036,7 @@ main > .panel {
   border: 1px solid var(--accent);
   border-radius: 7px;
   background: var(--bg);
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .section-rename:focus-visible { outline: none; }
@@ -1022,7 +1049,7 @@ main > .panel {
 .section-menu { width: 280px; z-index: 30; }
 .menu-item.menu-item-row { flex-direction: row; align-items: center; gap: 10px; padding-block: 8px; }
 .menu-item.menu-item-row .menu-item-about { margin-left: auto; }
-.menu-label { margin: 6px 12px 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.menu-label { margin: 6px 12px 2px; font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .menu-item.is-danger .menu-item-title { color: var(--danger); }
 
 /*
@@ -1042,6 +1069,7 @@ main > .panel {
   touch-action: pan-y;
   transition: top 0.16s ease, background 0.08s;
 }
+.song-divider { position: absolute; left: 0; right: 0; height: 1px; background: var(--line); pointer-events: none; }
 .song-row.is-playing { background: color-mix(in srgb, var(--text) 6%, transparent); }
 /* Picked up: lifted off the sheet, lighter, with a white ring like a selected region. */
 .song-row.is-dragging {
@@ -1071,7 +1099,7 @@ main > .panel {
   align-items: center;
   gap: 8px;
   padding: 0 10px 0 8px;
-  font-size: 14px;
+  font-size: var(--fs-title);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1086,10 +1114,10 @@ main > .panel {
 .song-row-bar,
 .song-row-drums,
 .song-row-vocals { position: absolute; left: 0; right: 0; overflow: hidden; }
-.song-row-bar { top: calc(50% - 13px); height: 26px; border-radius: 6px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--tile-edge); }
+.song-row-bar { top: calc(50% - 18px); height: 36px; border-radius: 6px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--tile-edge); }
 .song-row.is-playing .song-row-bar { background: color-mix(in srgb, var(--text) 12%, var(--raised)); }
-.song-row-drums { top: calc(50% + 17px); height: 6px; }
-.song-row-vocals { bottom: calc(50% + 17px); height: 5px; }
+.song-row-drums { top: calc(50% + 22px); height: 10px; }
+.song-row-vocals { bottom: calc(50% + 22px); height: 8px; }
 /* Each chord a segment of the bar, its name inside, split from the next by a thin line. */
 .song-chord {
   position: absolute;
@@ -1097,10 +1125,10 @@ main > .panel {
   bottom: 0;
   display: flex;
   align-items: center;
-  padding: 0 7px;
+  padding: 0 8px;
   border-left: 1px solid var(--line-strong);
   font-family: 'DM Mono', monospace;
-  font-size: 12px;
+  font-size: var(--fs-body);
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -1122,7 +1150,7 @@ main > .panel {
   border-radius: 6px;
   background: var(--raised);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-body);
 }
 .song-row-grip { flex: none; width: 8px; margin-left: -2px; color: var(--muted); opacity: 0.2; cursor: grab; transition: opacity 0.1s; }
 .song-row:hover .song-row-grip { opacity: 0.5; }
@@ -1159,7 +1187,7 @@ main > .panel {
   border: 1px solid var(--line-strong);
   border-radius: 7px;
   background: var(--raised);
-  font-size: 12px;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: var(--muted);
 }
@@ -1202,7 +1230,7 @@ main > .panel {
   padding: 0 12px calc(12px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line-strong);
   border-radius: 16px 16px 0 0;
-  background: var(--toolbar-bg);
+  background: var(--sheet-bg);
   box-shadow: 0 -10px 30px rgb(0 0 0 / 0.45);
   transition: transform 0.2s ease;
   touch-action: manipulation;
@@ -1214,10 +1242,10 @@ main > .panel {
 .chord-pad-handle { height: 18px; display: grid; place-items: center; margin-bottom: -8px; }
 .chord-pad-grip { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); }
 .chord-pad-unfold { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 16px 12px; }
-.chord-pad-unfold-row { align-self: stretch; display: flex; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 700; color: var(--text); }
+.chord-pad-unfold-row { align-self: stretch; display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-title); font-weight: 700; color: var(--text); }
 .chord-pad-head { display: flex; align-items: center; gap: 6px; }
-.chord-pad-title { margin-right: auto; font-size: 14px; font-weight: 700; white-space: nowrap; }
-.chord-pad-key { font-size: 12px; font-weight: 500; color: var(--muted); }
+.chord-pad-title { margin-right: auto; font-size: var(--fs-title); font-weight: 700; white-space: nowrap; }
+.chord-pad-key { font-size: var(--fs-small); font-weight: 500; color: var(--muted); }
 .chord-pad-chip {
   height: 30px;
   display: inline-flex;
@@ -1227,7 +1255,7 @@ main > .panel {
   border: 1px solid var(--line-strong);
   border-radius: 15px;
   background: none;
-  font-size: 12px;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
@@ -1247,12 +1275,12 @@ main > .panel {
   border-radius: 20px;
   background: var(--text);
   color: var(--on-track);
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 600;
   white-space: nowrap;
   box-shadow: 0 6px 18px rgb(0 0 0 / 0.4);
 }
-.chord-pad-note button { padding: 4px 10px; border: 0; border-radius: 12px; background: rgb(0 0 0 / 0.12); font-size: 13px; font-weight: 700; color: inherit; }
+.chord-pad-note button { padding: 4px 10px; border: 0; border-radius: 12px; background: rgb(0 0 0 / 0.12); font-size: var(--fs-body); font-weight: 700; color: inherit; }
 .chord-pad-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; }
 .chord-pad-pad {
   position: relative;
@@ -1274,8 +1302,8 @@ main > .panel {
 /* A chord that usually comes next: a dot in its corner, and a slightly brighter edge. */
 .chord-pad-pad.is-hinted { border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong)); }
 .chord-pad-pad.is-hinted::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.chord-pad-name { font-size: 16px; font-weight: 700; }
-.chord-pad-roman { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+.chord-pad-name { font-size: var(--fs-title); font-weight: 700; }
+.chord-pad-roman { font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); }
 /* The picked chord's options, scrolling sideways if they don't fit. */
 .chord-pad-options { display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none; }
 .chord-pad-options::-webkit-scrollbar { display: none; }
@@ -1283,11 +1311,11 @@ main > .panel {
 .chord-pad-seg,
 .chord-pad-length { flex: none; display: inline-flex; height: 34px; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; background: var(--raised); }
 .chord-pad-seg button,
-.chord-pad-length button { min-width: 38px; padding: 0 9px; border: 0; background: none; font-size: 13px; font-weight: 500; color: var(--text); }
+.chord-pad-length button { min-width: 38px; padding: 0 9px; border: 0; background: none; font-size: var(--fs-body); font-weight: 500; color: var(--text); }
 .chord-pad-seg button + button { border-left: 1px solid var(--line-strong); }
 .chord-pad-seg button[aria-pressed='true'] { background: var(--text); color: var(--on-track); }
-.chord-pad-length span { display: flex; align-items: center; padding: 0 6px; font-size: 13px; white-space: nowrap; }
-.chord-pad-length button { font-size: 17px; }
+.chord-pad-length span { display: flex; align-items: center; padding: 0 6px; font-size: var(--fs-body); white-space: nowrap; }
+.chord-pad-length button { font-size: var(--fs-display); }
 /* The selected chord: its name, then duplicate, delete and done. */
 .chord-pad-selected {
   display: flex;
@@ -1298,12 +1326,12 @@ main > .panel {
   border-radius: 10px;
   background: color-mix(in srgb, var(--text) 6%, var(--raised));
 }
-.chord-pad-selected-name { display: flex; align-items: baseline; gap: 6px; font-size: 16px; font-weight: 700; }
-.chord-pad-selected-label { margin-right: auto; margin-left: 8px; font-size: 12px; color: var(--muted); }
+.chord-pad-selected-name { display: flex; align-items: baseline; gap: 6px; font-size: var(--fs-title); font-weight: 700; }
+.chord-pad-selected-label { margin-right: auto; margin-left: 8px; font-size: var(--fs-small); color: var(--muted); }
 .chord-pad-replace:disabled { opacity: 0.4; }
 .chord-pad-actions { display: flex; gap: 8px; }
 .chord-pad-add,
-.chord-pad-replace { flex: 1; height: 46px; border-radius: 10px; font-size: 15px; font-weight: 700; }
+.chord-pad-replace { flex: 1; height: 46px; border-radius: 10px; font-size: var(--fs-title); font-weight: 700; }
 .chord-pad-add { border: 0; background: var(--accent); color: var(--on-accent); }
 .chord-pad-replace { border: 1px solid var(--line-strong); background: var(--raised); color: var(--text); }
 
@@ -1348,14 +1376,14 @@ main > .panel {
   padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line-strong);
   border-radius: 18px 18px 0 0;
-  background: var(--toolbar-bg);
+  background: var(--sheet-bg);
   box-shadow: 0 -10px 30px rgb(0 0 0 / 0.5);
   text-align: center;
 }
 .record-sheet.is-recording { border-top-color: var(--record); }
-.record-sheet-count { font-family: 'DM Mono', monospace; font-size: 72px; font-weight: 500; line-height: 1; color: var(--record); min-height: 72px; }
-.record-sheet-title { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; }
-.record-sheet-tip { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.record-sheet-count { font-family: 'DM Mono', monospace; font-size: var(--fs-hero); font-weight: 500; line-height: 1; color: var(--record); min-height: var(--fs-hero); }
+.record-sheet-title { margin: 0; display: flex; align-items: center; gap: 10px; font-size: var(--fs-display); font-weight: 700; }
+.record-sheet-tip { margin: 0; display: flex; align-items: center; gap: 6px; font-size: var(--fs-body); color: var(--muted); }
 .record-sheet-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--record); animation: record-pulse 1.2s ease-in-out infinite; }
 @keyframes record-pulse { 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .record-sheet-dot { animation: none; } }
@@ -1371,7 +1399,7 @@ main > .panel {
   border: 0;
   border-radius: 14px;
   background: var(--record);
-  font-size: 17px;
+  font-size: var(--fs-display);
   font-weight: 700;
   color: #fff;
 }
@@ -1390,7 +1418,7 @@ main > .panel {
   padding: 0 var(--gutter);
   border-top: 1px solid var(--line);
   background: var(--bg);
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .status-bar p { margin: 0; white-space: nowrap; }
@@ -1399,14 +1427,14 @@ main > .panel {
 .status-sep::before { content: '·'; margin: 0 6px; }
 .status-keys { margin-left: 14px; }
 .status-main > .status-keys:first-child { margin-left: 0; }
-.status-bar kbd { font-size: 10px; padding: 0 4px; }
+.status-bar kbd { font-size: var(--fs-label); padding: 0 4px; }
 .status-action {
   margin-left: 14px;
   padding: 2px 8px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: none;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .status-action:hover { color: var(--text); border-color: var(--muted); }
@@ -1445,11 +1473,11 @@ main > .panel {
   text-align: left;
 }
 .menu-item:not(:disabled):hover, .menu-item:focus-visible { background: var(--raised); }
-.menu-item-title { font-size: 14px; font-weight: 700; }
+.menu-item-title { font-size: var(--fs-title); font-weight: 700; }
 .menu-item-title kbd { margin-left: 8px; font-weight: 500; color: var(--muted); }
 .menu-item:disabled .menu-item-title { color: var(--muted); }
 .menu-divider { height: 1px; margin: 4px 6px; background: var(--line); }
-.menu-empty { margin: 6px 12px 8px; font-size: 13px; color: var(--muted); }
+.menu-empty { margin: 6px 12px 8px; font-size: var(--fs-body); color: var(--muted); }
 
 /* Saving and the sketch library */
 .save-btn { position: relative; }
@@ -1473,7 +1501,7 @@ main > .panel {
 .sketch-row:not(:hover) .sketch-delete:not(:focus-visible):not(.is-confirming) { opacity: 0; }
 .sketch-delete.is-confirming { background: var(--danger); border-color: var(--danger); color: var(--bg); }
 @media (hover: none) { .sketch-row .sketch-delete { opacity: 1 !important; } }
-.menu-item-about { font-size: 12px; color: var(--muted); }
+.menu-item-about { font-size: var(--fs-small); color: var(--muted); }
 
 /* Sound */
 .sound-panel { left: 0; right: auto; width: min(360px, calc(100vw - 32px)); padding: 16px; gap: 16px; }
@@ -1488,7 +1516,7 @@ main > .panel {
   border: 0;
   border-radius: 7px;
   background: none;
-  font-size: 13px;
+  font-size: var(--fs-body);
   font-weight: 500;
   color: var(--muted);
 }
@@ -1499,7 +1527,7 @@ main > .panel {
 .sound-section { display: flex; flex-direction: column; gap: 6px; }
 .sound-heading {
   font-family: 'DM Mono', monospace;
-  font-size: 11px;
+  font-size: var(--fs-label);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -1508,8 +1536,8 @@ main > .panel {
 .sound-chips .chip { min-height: 36px; }
 .sound-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
 .sound-slider { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.sound-slider-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
-.sound-slider-head output { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sound-slider-head { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-body); }
+.sound-slider-head output { font-size: var(--fs-small); color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* A thin track that fills up to the thumb. */
 .sound-slider input {
@@ -1551,14 +1579,14 @@ main > .panel {
 .sound-slider input:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--accent); }
 .sound-slider input:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--accent); }
 .sound-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--line); }
-.sound-toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.sound-toggle { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-body); cursor: pointer; }
 .sound-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 
 .toggle-btn.is-on { color: var(--accent); border-color: var(--accent); }
 .arp-switch { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; }
 .arp-switch > span { display: flex; flex-direction: column; gap: 2px; }
-.arp-switch-title { font-size: 14px; font-weight: 700; }
-.arp-switch-about { font-size: 12px; color: var(--muted); }
+.arp-switch-title { font-size: var(--fs-title); font-weight: 700; }
+.arp-switch-about { font-size: var(--fs-small); color: var(--muted); }
 /* A small on/off switch drawn from the checkbox itself. */
 .arp-switch input {
   -webkit-appearance: none;
@@ -1589,7 +1617,7 @@ main > .panel {
 .arp-switch input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .arp-options { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 14px 0 0; border: 0; border-top: 1px solid var(--line); min-width: 0; }
 .arp-options:disabled { opacity: 0.45; }
-.rhythm-about { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.rhythm-about { margin: 2px 0 0; font-size: var(--fs-small); color: var(--muted); }
 .arp-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: end; }
 
 /* Touch screens: no keyboard to list shortcuts for, and handles big enough for a finger. */
@@ -1605,7 +1633,7 @@ main > .panel {
 }
 .shortcuts-menu { width: 300px; padding: 14px 16px; }
 .shortcuts-menu dl { margin: 0; display: grid; gap: 8px; }
-.shortcuts-menu dl div { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.shortcuts-menu dl div { display: flex; align-items: center; gap: 12px; font-size: var(--fs-body); }
 .shortcuts-menu dt { display: inline-flex; align-items: center; gap: 3px; min-width: 76px; color: var(--muted); }
 .shortcuts-menu dd { margin: 0; }
 
@@ -1640,7 +1668,6 @@ main > .panel {
   .track-header::before { top: 5px; bottom: 5px; }
   .track-title { flex: none; gap: 4px; }
   .track-title .track-color { width: 22px; height: 22px; margin: -2px 0 -2px -2px; }
-  .track-name { font-size: 12px; }
   .track-name-input { height: 22px; }
   .track-btn.is-mute { margin-left: 6px; }
   .track-volume { display: none; }

@@ -105,7 +105,8 @@ function useShortcuts() {
         if (target.closest('button')) return
         void seek(0)
       } else if (e.key === '-' || e.key === '_') {
-        s.zoomBy(-1)
+        // The song fills the width, and goes no narrower.
+        if (s.view !== 'song' || s.zoom > 1) s.zoomBy(-1)
       } else if (e.key === '=' || e.key === '+') {
         s.zoomBy(1)
       } else if (e.key === 'Escape') {
@@ -117,8 +118,28 @@ function useShortcuts() {
   }, [])
 }
 
+/**
+ * A button clicked with the mouse lets go of focus, as buttons do in a desktop
+ * app, so the shortcuts that follow (space to play) don't light up a ring on it
+ * or press it again. Not in menus, whose buttons ask to be clicked twice to
+ * confirm, and keep their focus for that. Keyboard focus is left as it is.
+ */
+function useClickBlur() {
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      // A click from the keyboard (Enter or Space on a focused button) has no detail.
+      if (!e.detail) return
+      const button = (e.target as HTMLElement).closest('button')
+      if (button && button === document.activeElement && !button.closest('.menu')) button.blur()
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [])
+}
+
 export default function App() {
   useShortcuts()
+  useClickBlur()
   const view = useStore((s) => s.view)
   // The chords' and drums' colours, as chosen, for everything drawn in them.
   const chordsColor = useStore((s) => s.chordsColor) ?? DEFAULT_CHORDS_COLOR
