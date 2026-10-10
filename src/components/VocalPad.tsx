@@ -1,4 +1,4 @@
-import { useStore, vocalTrackName } from '../store'
+import { useFields, useStore, vocalTrackName } from '../store'
 import { checkLatency, deleteOneTake, deleteTake, toggleRecord, trimTake } from '../audio/engine'
 import { trimOf, type TakeInfo, type Trim } from '../audio/take'
 import { vocalColorId } from '../colors'
@@ -11,7 +11,7 @@ import { MicIcon } from './Timeline'
  * and buttons to record another take or delete it.
  */
 export function VocalPad({ lane, docked }: { lane: number; docked?: boolean }) {
-  const s = useStore()
+  const s = useFields('allTakes', 'bpm', 'chords', 'latency', 'recording', 'renameVocal', 'selectVocal', 'setVocalColor', 'setVocalReverb', 'setVocalVolume', 'takes', 'timeSig', 'toggleVocalMute', 'toggleVocalSolo', 'trims', 'vocalColors', 'vocalMuted', 'vocalNames', 'vocalReverb', 'vocalSolo', 'vocalVolume')
   const name = vocalTrackName(s, lane)
   const take = s.takes[lane]
   const all = s.allTakes[lane] ?? []

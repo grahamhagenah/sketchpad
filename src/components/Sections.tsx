@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { SECTION_KINDS, sectionsNow, totalBeats, useStore, type Section } from '../store'
+import { PART_KEYS, SECTION_KINDS, sectionsNow, totalBeats, useFields, useStore, type Section } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { engine, seek, togglePlay } from '../audio/engine'
 import { songBeatOf, songSpans } from '../song'
@@ -128,7 +128,7 @@ export function MenuButton({
 }
 
 /** Whether tabs run on past the right edge of the strip, under the +, as it's scrolled or resized. */
-function useTabsBeyond(ref: RefObject<HTMLDivElement | null>) {
+function useTabsBeyond(ref: RefObject<HTMLDivElement | null>, tabs: number) {
   const [more, setMore] = useState(false)
   useEffect(() => {
     const el = ref.current
@@ -143,7 +143,8 @@ function useTabsBeyond(ref: RefObject<HTMLDivElement | null>) {
       observer.disconnect()
       el.removeEventListener('scroll', check)
     }
-  })
+    // Watched afresh as tabs come and go, since each one is observed.
+  }, [ref, tabs])
   return more
 }
 
@@ -157,7 +158,7 @@ export function SectionBar() {
   const activeSection = useStore((s) => s.activeSection)
   const arrangement = useStore((s) => s.arrangement)
   const recording = useStore((s) => s.recording !== 'off')
-  const { openSection, setView, addSection, addToSong } = useStore()
+  const { openSection, setView, addSection, addToSong } = useFields('openSection', 'setView', 'addSection', 'addToSong')
   const inSong = new Set(arrangement.map((entry) => entry.section))
   // In the order they first play in the song; those not in it yet come last, as they were made.
   const firstPlays = new Map<string, number>()
@@ -170,7 +171,7 @@ export function SectionBar() {
   const empty = useStore((s) => s.chords.length === 0)
   const sheetOpen = useSectionSheet((s) => s.open)
   const tabsRef = useRef<HTMLDivElement>(null)
-  const more = useTabsBeyond(tabsRef)
+  const more = useTabsBeyond(tabsRef, sections.length)
 
   return (
     <nav className="section-bar" aria-label="Song sections">
@@ -295,7 +296,7 @@ function RenameField({ section, onDone }: { section: Section; onDone: () => void
  * copies, renaming and deleting, as items in SectionMenu.
  */
 function SectionItems({ section, close, onRename }: { section: Pick<Section, 'id' | 'name'>; close: () => void; onRename?: () => void }) {
-  const { duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useStore()
+  const { duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useFields('duplicateSection', 'deleteSection', 'openSection', 'addToSong', 'setSectionKey', 'liftSection')
   const songKey = useStore((s) => s.key)
   const songMode = useStore((s) => s.mode)
   // The open section's own key lives with its chords, in the editor.
@@ -425,7 +426,7 @@ export const useSectionSheet = create(() => ({ open: false }))
 export function SectionPanel({ docked = true, onDone }: { docked?: boolean; onDone?: () => void }) {
   const id = useStore((s) => s.activeSection)
   const name = useStore((s) => s.sections.find((sec) => sec.id === s.activeSection)?.name)
-  const { renameSection, duplicateSection, deleteSection, openSection, setSectionKey, liftSection } = useStore()
+  const { renameSection, duplicateSection, deleteSection, openSection, setSectionKey, liftSection } = useFields('renameSection', 'duplicateSection', 'deleteSection', 'openSection', 'setSectionKey', 'liftSection')
   const songKey = useStore((s) => s.key)
   const songMode = useStore((s) => s.mode)
   // The open section's own key lives with its chords, in the editor.
@@ -539,6 +540,18 @@ function useWidth(ref: RefObject<HTMLElement | null>) {
   return width
 }
 
+/** Where each chord starts, in beats; kept per progression, so a row works it out once. */
+const starts = new WeakMap<object, number[]>()
+function chordStarts(chords: { beats: number }[]) {
+  let at = starts.get(chords)
+  if (!at) {
+    let beat = 0
+    at = chords.map((c) => ((beat += c.beats), beat - c.beats))
+    starts.set(chords, at)
+  }
+  return at
+}
+
 /** Which row a beat of the song falls in, and how far along it, in beats; past the end, the end of the last row. */
 function rowAt(spans: ReturnType<typeof songSpans>, beat: number) {
   const i = spans.findIndex((span) => span.beats && beat < span.start + span.beats)
@@ -556,7 +569,7 @@ function rowAt(spans: ReturnType<typeof songSpans>, beat: number) {
  * playhead running along each row in turn.
  */
 export function SongView() {
-  const state = useStore()
+  const state = useFields(...PART_KEYS, 'sections', 'activeSection', 'key', 'mode', 'timeSig', 'zoom', 'playing', 'playhead', 'arrangement', 'drumTrack', 'bpm', 'openSection', 'addToSong', 'addSection', 'moveInSong', 'removeFromSong')
   const { key, mode, timeSig, zoom, playing, playhead, arrangement, openSection, addToSong, addSection, moveInSong, removeFromSong, drumTrack, bpm } = state
   // Worked out here rather than in a selector, since they're new arrays each time.
   const sections = sectionsNow(state)
@@ -794,8 +807,8 @@ export function SongView() {
                           Add chords
                         </>
                       )}
-                      {section.chords.map((c, i) => {
-                        const at = section.chords.slice(0, i).reduce((n, prev) => n + prev.beats, 0)
+                      {section.chords.map((c, i, all) => {
+                        const at = chordStarts(all)[i]
                         return (
                           <span key={c.id} className="song-chord" style={{ left: at * beatPx, width: c.beats * beatPx }}>
                             {chordOf(section.sectionKey?.key ?? key, section.sectionKey?.mode ?? mode, c).name}
@@ -909,7 +922,7 @@ export function SongView() {
 
 /** Move, unlink or remove one place in the song. */
 function BlockMenu({ entryId, section, index, count, shared }: { entryId: string; section: Section; index: number; count: number; shared: boolean }) {
-  const { moveInSong, removeFromSong, makeUnique, openSection, liftSection, repeatInSong } = useStore()
+  const { moveInSong, removeFromSong, makeUnique, openSection, liftSection, repeatInSong } = useFields('moveInSong', 'removeFromSong', 'makeUnique', 'openSection', 'liftSection', 'repeatInSong')
   return (
     <MenuButton label={`${section.name} options`} className="song-row-more icon-btn" align="right" menu={(close) => {
       const act = (fn: () => void) => () => {

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSheetDrag } from '../hooks/useSheetDrag'
-import { keyOf, useStore, type Chord } from '../store'
+import { keyOf, useFields, useStore, type Chord } from '../store'
 import { BORROWED, chordOf, keyLabel, nextChords, type ChordBass, type ChordColor } from '../music/theory'
 import { audition } from '../audio/engine'
 import { quietly } from '../undoNote'
@@ -58,7 +58,7 @@ const savedQuick = () => {
  * undo. Drag the handle (or tap it) to fold the sheet down to a bar and back.
  */
 export function ChordPad() {
-  const state = useStore()
+  const state = useFields('key', 'mode', 'sectionKey', 'selectedId', 'chords', 'timeSig')
   const { key, mode } = keyOf(state)
   const { selectedId, chords, timeSig } = state
   const selected = chords.find((c) => c.id === selectedId)

@@ -140,12 +140,12 @@ export async function newSketch() {
   clearHistory()
 }
 
-/** Opens the demo song as a new, unsaved sketch, keeping the sound and arpeggiator settings. */
+/** Opens the demo song, with its own sound and arpeggiator settings, as a new, unsaved sketch. */
 export async function openDemo() {
   if (useStore.getState().recording !== 'off') return
   if (!(await keepCurrent())) return
   stopEverything()
-  quietly(() => useStore.setState({ title: 'Demo song', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumsMuted: false, drumsSolo: false, chordsVolume: 0, drumsVolume: 0, chordsColor: null, drumsColor: null, ...demoSong() }))
+  quietly(() => useStore.setState({ title: 'Demo song', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumsMuted: false, drumsSolo: false, chordsColor: null, drumsColor: null, ...demoSong() }))
   useStore.getState().setSaved(null, null)
   clearHistory()
 }

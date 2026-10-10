@@ -1,4 +1,4 @@
-import { chordsTrackName, keyOf, totalBeats, useStore, type Chord } from '../store'
+import { chordsTrackName, keyOf, totalBeats, useFields, type Chord } from '../store'
 import { chordOf, type ChordBass, type ChordColor } from '../music/theory'
 import { audition } from '../audio/engine'
 import { DEFAULT_CHORDS_COLOR } from '../colors'
@@ -28,7 +28,7 @@ const BASSES: { id: ChordBass | undefined; label: string }[] = [
  * nothing selected, the section's own.
  */
 export function Inspector() {
-  const s = useStore()
+  const s = useFields('chords', 'chordsTrackSelected', 'drumTrack', 'drumsTrackSelected', 'selectedId', 'selectedVocal')
   const chord = s.chords.find((c) => c.id === s.selectedId)
   let body
   let title
@@ -54,7 +54,7 @@ export function Inspector() {
 
 /** The chords track's settings: mute, solo and level, and clearing it. */
 export function ChordsTrackPad({ docked }: { docked?: boolean }) {
-  const s = useStore()
+  const s = useFields('chords', 'chordsColor', 'chordsMuted', 'chordsName', 'chordsSolo', 'chordsVolume', 'clearChords', 'renameChords', 'select', 'setChordsColor', 'setChordsVolume', 'timeSig', 'toggleChordsMute', 'toggleChordsSolo')
   const bars = Math.ceil(totalBeats(s.chords) / s.timeSig[0])
   return (
     <TrackSheet
@@ -85,7 +85,7 @@ export function ChordsTrackPad({ docked }: { docked?: boolean }) {
 
 /** The selected chord: which chord it is, its 7th, sus or add9, bass note and length, and duplicating or deleting it. */
 function ChordPanel({ chord }: { chord: Chord }) {
-  const s = useStore()
+  const s = useFields('duplicateChord', 'key', 'mode', 'removeChord', 'sectionKey', 'select', 'timeSig', 'updateChord')
   const { key, mode } = keyOf(s)
   const info = chordOf(key, mode, chord)
   const perBar = s.timeSig[0]

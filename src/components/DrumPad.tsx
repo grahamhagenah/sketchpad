@@ -1,4 +1,4 @@
-import { drumsTrackName, sectionsNow, useStore, type TimeSig } from '../store'
+import { drumsTrackName, useFields, useStore, type TimeSig } from '../store'
 import { DEFAULT_DRUMS_COLOR } from '../colors'
 import { FILLS, GROOVES, grooveHits, type GrooveId } from '../audio/drums'
 import { LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
@@ -11,8 +11,8 @@ import { DrumIcon } from './Timeline'
  * drum track.
  */
 export function DrumPad({ docked }: { docked?: boolean }) {
-  const s = useStore()
-  const section = sectionsNow(s).find((sec) => sec.id === s.activeSection)
+  const s = useFields('drumFill', 'drums', 'drumsColor', 'drumsMuted', 'drumsName', 'drumsSolo', 'drumsVolume', 'recording', 'removeDrumTrack', 'renameDrums', 'select', 'setDrumFill', 'setDrums', 'setDrumsColor', 'setDrumsVolume', 'timeSig', 'toggleDrumsMute', 'toggleDrumsSolo')
+  const sectionName = useStore((st) => st.sections.find((sec) => sec.id === st.activeSection)?.name)
   const locked = s.recording !== 'off'
 
   return (
@@ -26,7 +26,7 @@ export function DrumPad({ docked }: { docked?: boolean }) {
       onDone={() => s.select(null)}
     >
       <MuteSoloRow
-        about={`The groove in ${section?.name ?? 'this section'}; each section has its own`}
+        about={`The groove in ${sectionName ?? 'this section'}; each section has its own`}
         muted={s.drumsMuted}
         solo={s.drumsSolo}
         onMute={s.toggleDrumsMute}

@@ -1,4 +1,4 @@
-import { keyOf, sectionsNow, totalBeats, useStore } from '../store'
+import { keyOf, sectionsNow, totalBeats, useFields, useStore } from '../store'
 import { openDemo, reportStorageError } from '../library'
 import { chordInfo } from '../music/theory'
 import { audition } from '../audio/engine'
@@ -11,12 +11,12 @@ import { useNarrow } from '../hooks/useNarrow'
  * Once it has a chord, the timeline takes over.
  */
 export function SectionStarter() {
-  const { key, mode } = keyOf(useStore())
+  const { key, mode } = keyOf(useFields('key', 'mode', 'sectionKey'))
   const perBar = useStore((s) => s.timeSig[0])
   const active = useStore((s) => s.activeSection)
   const sections = useStore((s) => s.sections)
   const others = sections.filter((sec) => sec.id !== active && sec.chords.length)
-  const { addChord, copyChordsFrom } = useStore()
+  const { addChord, copyChordsFrom } = useFields('addChord', 'copyChordsFrom')
   // A sketch with nothing in it yet offers the demo song, to hear what Bounce does first.
   const blank = useStore((s) => sectionsNow(s).every((sec) => !sec.chords.length && !sec.takes.some(Boolean)))
   // A phone leaves out the row of chords (the chord pad has them), so the progressions come first there.

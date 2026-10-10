@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
 import { useDropBelow } from '../hooks/useDropBelow'
 import { useNarrow } from '../hooks/useNarrow'
-import { chordsTrackName, drumsTrackName, sectionsNow, useStore, vocalTrackName, TIME_SIGS, TIME_SIG_GROUPS, MIN_BPM, MAX_BPM, ZOOMS } from '../store'
+import { chordsTrackName, drumsTrackName, MAX_BPM, MIN_BPM, sectionsNow, TIME_SIG_GROUPS, TIME_SIGS, useFields, useStore, vocalTrackName, ZOOMS } from '../store'
 import { keyLabel, type Mode } from '../music/theory'
 import { engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
@@ -16,8 +16,8 @@ import { playbackOf } from '../song'
 
 /** The one bar for playback, song settings and editing the selected chord. */
 export function Toolbar() {
-  const { key: songKey, mode: songMode, timeSig, playing, metronome, loopOn } = useStore()
-  const { setKey, setMode, setTimeSig, toggleMetronome, toggleLoop, setSectionKey } = useStore()
+  const { key: songKey, mode: songMode, timeSig, playing, metronome, loopOn } = useFields('key', 'mode', 'timeSig', 'playing', 'metronome', 'loopOn')
+  const { setKey, setMode, setTimeSig, toggleMetronome, toggleLoop, setSectionKey } = useFields('setKey', 'setMode', 'setTimeSig', 'toggleMetronome', 'toggleLoop', 'setSectionKey')
   // In a section with its own key, the display shows and changes that; otherwise the song's.
   const ownKey = useStore((s) => (s.view === 'section' ? s.sectionKey : null))
   const activeSection = useStore((s) => s.activeSection)

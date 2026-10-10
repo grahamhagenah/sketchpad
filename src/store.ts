@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
 import type { ChordSpec, Mode } from './music/theory'
 import { DEFAULT_SOUND, type Sound } from './audio/sound'
 import { DEFAULT_ARP, DEFAULT_RHYTHM, type Arp, type Rhythm } from './audio/arrange'
@@ -281,23 +282,27 @@ export const keyOf = (s: Pick<State, 'key' | 'mode'> & Pick<SectionParts, 'secti
 export const drumsTrackName = (s: Pick<State, 'drumsName'>) => s.drumsName ?? 'Drums'
 export const vocalTrackName = (s: Pick<State, 'vocalNames'>, lane: number) => s.vocalNames[lane] ?? `Vocal ${lane + 1}`
 
-const partsOf = (p: SectionParts): SectionParts => ({
-  chords: p.chords,
-  loop: p.loop,
-  takes: p.takes,
-  allTakes: p.allTakes,
-  trims: p.trims,
-  vocalMuted: p.vocalMuted,
-  vocalSolo: p.vocalSolo,
-  vocalNames: p.vocalNames,
-  vocalVolume: p.vocalVolume,
-  vocalReverb: p.vocalReverb,
-  vocalColors: p.vocalColors,
-  vocalTracks: p.vocalTracks,
-  drums: p.drums,
-  drumFill: p.drumFill,
-  sectionKey: p.sectionKey,
-})
+// Every one of SectionParts' fields, listed so a new one can't be left out.
+const PART_FIELDS: Record<keyof SectionParts, true> = {
+  chords: true,
+  loop: true,
+  takes: true,
+  allTakes: true,
+  trims: true,
+  vocalMuted: true,
+  vocalSolo: true,
+  vocalNames: true,
+  vocalVolume: true,
+  vocalReverb: true,
+  vocalColors: true,
+  vocalTracks: true,
+  drums: true,
+  drumFill: true,
+  sectionKey: true,
+}
+export const PART_KEYS = Object.keys(PART_FIELDS) as (keyof SectionParts)[]
+
+const partsOf = (p: SectionParts) => Object.fromEntries(PART_KEYS.map((k) => [k, p[k]])) as unknown as SectionParts
 
 export const emptyParts = (): SectionParts => ({
   chords: [],
@@ -331,30 +336,17 @@ function uniqueName(sections: { name: string }[], name: string) {
   return `${name} ${n}`
 }
 
+/** The song-wide settings a saved sketch keeps. */
+const SONG_FIELDS = [
+  'key', 'mode', 'bpm', 'timeSig', 'metronome', 'loopOn', 'sound', 'arp', 'rhythm',
+  'chordsMuted', 'chordsSolo', 'drumTrack', 'drumsMuted', 'drumsSolo', 'chordsVolume', 'drumsVolume',
+  'chordsColor', 'drumsColor', 'title', 'chordsName', 'drumsName',
+] as const satisfies readonly (keyof State)[]
+
 /** Everything a saved sketch keeps, apart from its takes, which are stored with their audio. */
 export function songOf(s: State) {
   return {
-    key: s.key,
-    mode: s.mode,
-    bpm: s.bpm,
-    timeSig: s.timeSig,
-    metronome: s.metronome,
-    loopOn: s.loopOn,
-    sound: s.sound,
-    arp: s.arp,
-    rhythm: s.rhythm,
-    chordsMuted: s.chordsMuted,
-    chordsSolo: s.chordsSolo,
-    drumTrack: s.drumTrack,
-    drumsMuted: s.drumsMuted,
-    drumsSolo: s.drumsSolo,
-    chordsVolume: s.chordsVolume,
-    drumsVolume: s.drumsVolume,
-    chordsColor: s.chordsColor,
-    drumsColor: s.drumsColor,
-    title: s.title,
-    chordsName: s.chordsName,
-    drumsName: s.drumsName,
+    ...(Object.fromEntries(SONG_FIELDS.map((k) => [k, s[k]])) as Pick<State, (typeof SONG_FIELDS)[number]>),
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     sections: sectionsNow(s).map(({ takes, allTakes, ...section }) => section),
     arrangement: s.arrangement,
@@ -414,42 +406,64 @@ export function songSummary(song: SavedSong) {
  * A fingerprint of the sketch, takes included, to compare against the saved
  * one. Which section is open doesn't count: looking around isn't a change.
  */
+/** Everything the signature is made from; while none of it changes, neither does the signature. */
+const SIGNED_FIELDS = [...SONG_FIELDS, ...PART_KEYS, 'sections', 'arrangement', 'activeSection'] as const
+let lastSignature: { from: State; signature: string } | null = null
+
 export function sketchSignature(s: State) {
+  const last = lastSignature
+  if (last && SIGNED_FIELDS.every((k) => last.from[k] === s[k])) return last.signature
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeSection, ...song } = songOf(s)
-  return JSON.stringify([song, sectionsNow(s).map((sec) => sec.takes.map((t, lane) => [t?.id ?? null, ...(sec.allTakes[lane] ?? []).map((a) => a.id)]))])
+  const signature = JSON.stringify([song, sectionsNow(s).map((sec) => sec.takes.map((t, lane) => [t?.id ?? null, ...(sec.allTakes[lane] ?? []).map((a) => a.id)]))])
+  lastSignature = { from: s, signature }
+  return signature
 }
 
 /** How long each section is, in beats. */
 const sectionBeats = (sections: Pick<Section, 'id' | 'chords'>[]) => new Map(sections.map((sec) => [sec.id, totalBeats(sec.chords)]))
 
-const progression = (degrees: number[]): Chord[] => degrees.map((degree) => ({ id: newId(), degree, beats: 4, seventh: false }))
+const chord = (degree: number, beats: number, more: Partial<ChordSpec> = {}): Chord => ({ id: newId(), degree, beats, seventh: false, ...more })
 
 /**
- * The demo song, and what a first visit opens on: a short song to press play
- * on, a verse into a chorus and a bridge, with drums (and a fill into each
- * chorus) and the chords pushed in time with them, so what Bounce does is
- * heard straight away. "New sketch" starts from nothing; the sketches menu
- * brings the demo back.
+ * The demo song, and what a first visit opens on: a quick minor song in G,
+ * a verse into a chorus and back, then the chorus again lifted a half step.
+ * A down-arpeggiated saw over half-time drums, so what Bounce does is heard
+ * straight away. "New sketch" starts from nothing; the sketches menu brings
+ * the demo back.
  */
 export function demoSong() {
-  const verse = { id: newId(), name: 'Verse', chords: progression([5, 3, 0, 4]), drums: 'light' as const, drumFill: 'end' as const }
-  const chorus = { id: newId(), name: 'Chorus', chords: progression([0, 4, 5, 3]), drums: 'backbeat' as const }
-  const bridge = { id: newId(), name: 'Bridge', chords: progression([3, 4, 2, 5]), drums: 'halftime' as const, drumFill: 'end' as const }
+  // The hook, C B♭ E♭ · C F E♭: the major IV borrowed from G major, against the minor key's ♭III and ♭VI.
+  const hook = (end: Chord[]) => [chord(3, 2, { borrowed: true }), chord(2, 2), chord(5, 4), chord(3, 2, { borrowed: true }), ...end]
+  const verse = {
+    id: newId(),
+    name: 'Verse',
+    chords: [...hook([chord(6, 2), chord(5, 4)]), ...hook([chord(5, 2), chord(6, 4)])],
+    drums: 'halftime' as const,
+    drumFill: 'end' as const,
+  }
+  // Gm7 E♭maj7 C B♭, then down to the minor iv and v and up to F, back round to Gm.
+  const choruses = () => [chord(0, 4, { seventh: true }), chord(5, 4, { seventh: true }), chord(3, 4, { borrowed: true }), chord(2, 4), chord(0, 4, { seventh: true }), chord(5, 4, { seventh: true }), chord(3, 2), chord(4, 2), chord(6, 4)]
+  const chorus = { id: newId(), name: 'Chorus', chords: choruses(), drums: 'backbeat' as const, drumFill: 'four' as const }
+  const lift = { ...chorus, id: newId(), name: 'Last chorus', chords: choruses(), drumFill: 'end' as const, sectionKey: { key: 8, mode: 'minor' as const } }
   return {
-    key: 0,
-    mode: 'major' as const,
-    bpm: 96,
+    key: 7,
+    mode: 'minor' as const,
+    bpm: 132,
     timeSig: [4, 4] as TimeSig,
     ...songState({
-      sections: [verse, chorus, bridge],
-      arrangement: [verse, chorus, verse, chorus, bridge, chorus].map((sec) => ({ id: newId(), section: sec.id })),
+      sections: [verse, chorus, lift],
+      arrangement: [verse, chorus, verse, chorus, lift].map((sec) => ({ id: newId(), section: sec.id })),
       activeSection: verse.id,
     }),
     view: 'song' as const,
     drumTrack: true,
     loopOn: true,
-    rhythm: { ...DEFAULT_RHYTHM, chords: 'tresillo' as const },
+    sound: { ...DEFAULT_SOUND, instrument: 'synth', preset: 'Synth', wave: 'sawtooth', attack: 0.045, decay: 0.16, sustain: 0.02, release: 0.03, brightness: 6856, reverb: 0.28, bass: true } satisfies Sound,
+    arp: { on: true, pattern: 'down', rate: '1/16', octaves: 3, gate: 0.7, swing: 0, accent: 0.37 } satisfies Arp,
+    rhythm: { ...DEFAULT_RHYTHM, chords: 'held', bass: 'kick' } satisfies Rhythm,
+    chordsVolume: -3.5,
+    drumsVolume: 6,
   }
 }
 
@@ -457,12 +471,55 @@ export function demoSong() {
  * Which tracks sound: with any track soloed, only soloed tracks play; mute
  * always silences a track, soloed or not. Vocal lanes without a take never play.
  */
-export function audibleTracks(s: Pick<State, 'chordsMuted' | 'chordsSolo' | 'drumsMuted' | 'drumsSolo' | 'vocalMuted' | 'vocalSolo' | 'takes'>) {
+/** What audibleTracks reads, for a component to watch. */
+export const AUDIBLE_FIELDS = ['chordsMuted', 'chordsSolo', 'drumsMuted', 'drumsSolo', 'vocalMuted', 'vocalSolo', 'takes'] as const
+
+export function audibleTracks(s: Pick<State, (typeof AUDIBLE_FIELDS)[number]>) {
   const anySolo = s.chordsSolo || s.drumsSolo || s.vocalSolo.some((solo, lane) => solo && s.takes[lane])
   return {
     chords: !s.chordsMuted && (!anySolo || s.chordsSolo),
     drums: !s.drumsMuted && (!anySolo || s.drumsSolo),
     vocals: s.takes.map((take, lane) => !!take && !s.vocalMuted[lane] && (!anySolo || s.vocalSolo[lane])),
+  }
+}
+
+/**
+ * localStorage, written a moment after the last change rather than on every
+ * one (a slider drag makes dozens), and straight away when the page is hidden.
+ */
+function lazyStorage<T>(wait = 400): PersistStorage<T> {
+  let pending: { name: string; value: StorageValue<T> } | null = null
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const flush = () => {
+    clearTimeout(timer)
+    if (!pending) return
+    const { name, value } = pending
+    pending = null
+    try {
+      localStorage.setItem(name, JSON.stringify(value))
+    } catch (error) {
+      console.error(error)
+    }
+  }
+  if (typeof document !== 'undefined') {
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush())
+  }
+  return {
+    getItem: (name) => {
+      const raw = localStorage.getItem(name)
+      return raw === null ? null : JSON.parse(raw)
+    },
+    setItem: (name, value) => {
+      pending = { name, value }
+      clearTimeout(timer)
+      timer = setTimeout(flush, wait)
+    },
+    removeItem: (name) => {
+      pending = null
+      clearTimeout(timer)
+      localStorage.removeItem(name)
+    },
   }
 }
 
@@ -473,14 +530,10 @@ export const useStore = create<State>()(
       ...demoSong(),
       selectedId: null,
       metronome: false,
-      sound: DEFAULT_SOUND,
-      arp: DEFAULT_ARP,
       chordsMuted: false,
       chordsSolo: false,
       drumsMuted: false,
       drumsSolo: false,
-      chordsVolume: 0,
-      drumsVolume: 0,
       chordsColor: null,
       drumsColor: null,
       title: '',
@@ -819,6 +872,7 @@ export const useStore = create<State>()(
     {
       // Named before the app was called Bounce; kept, so saved work still loads.
       name: 'sketchpad-song',
+      storage: lazyStorage(),
       // Fill in settings saved before they existed, and give songs saved before sections one section.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SongData> & LegacySong
@@ -829,3 +883,11 @@ export const useStore = create<State>()(
     },
   ),
 )
+
+/**
+ * Some of the store's fields (actions included, which never change), for a
+ * component to re-render only when one of them changes, not on every change.
+ */
+export function useFields<K extends keyof State>(...keys: K[]): Pick<State, K> {
+  return useStore(useShallow((s) => Object.fromEntries(keys.map((k) => [k, s[k]])) as Pick<State, K>))
+}

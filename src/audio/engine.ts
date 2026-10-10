@@ -629,8 +629,10 @@ let lanesLoaded = false
 let storedLanes = ''
 /** Whether the last store failed: said once, not on every change after it, and tried again when the takes next change. */
 let storeFailed = false
-const unsubscribeLanes = useStore.subscribe((s) => {
+const unsubscribeLanes = useStore.subscribe((s, prev) => {
   if (!lanesLoaded) return
+  // Takes only change with these; anything else (a slider, play) is skipped without looking.
+  if (s.takes === prev.takes && s.allTakes === prev.allTakes && s.sections === prev.sections) return
   const lanes = takeIdsBySection(s)
   const key = JSON.stringify(lanes)
   if (key === storedLanes) return

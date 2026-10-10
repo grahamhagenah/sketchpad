@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { audibleTracks, chordsTrackName, drumsTrackName, keyOf, useStore, vocalTrackName, type Chord } from '../store'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
+import { AUDIBLE_FIELDS, audibleTracks, chordsTrackName, drumsTrackName, keyOf, useFields, useStore, vocalTrackName, type Chord } from '../store'
 import { chordOf } from '../music/theory'
 import { audition, engine, seek, trimTake } from '../audio/engine'
 import { sectionBeatOf } from '../song'
@@ -43,10 +43,9 @@ function dragLayout(chords: Chord[], drag: Drag | null, beatPx: number) {
 }
 
 export function Timeline() {
-  const { chords, timeSig, selectedId, playing, loopOn } = useStore()
+  const { chords, timeSig, selectedId, playing, loopOn, select, updateChord, reorderChord } = useFields('chords', 'timeSig', 'selectedId', 'playing', 'loopOn', 'select', 'updateChord', 'reorderChord')
   // The open section's key: its own, if it has one.
-  const { key, mode } = keyOf(useStore())
-  const { select, updateChord, reorderChord } = useStore()
+  const { key, mode } = keyOf(useFields('key', 'mode', 'sectionKey'))
   const [num, den] = timeSig
   // Shorter beat units get narrower columns, so a bar stays a sensible width.
   // A phone has no zoom buttons, and starts zoomed out, to see more of the section at once.
@@ -66,8 +65,10 @@ export function Timeline() {
   const playheadRef = useRef<HTMLDivElement>(null)
   const playhead = useStore((s) => s.playhead)
   const recordingRef = useRef<HTMLDivElement>(null)
-  const { takes, allTakes, trims, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames, vocalColors, chordsTrackSelected } = useStore()
-  const audible = audibleTracks(useStore())
+  const { takes, allTakes, trims, recording, bpm, armedLane, selectedVocal, selectVocal, vocalTracks, vocalNames, vocalColors, chordsTrackSelected } = useFields(
+    'takes', 'allTakes', 'trims', 'recording', 'bpm', 'armedLane', 'selectedVocal', 'selectVocal', 'vocalTracks', 'vocalNames', 'vocalColors', 'chordsTrackSelected',
+  )
+  const audible = audibleTracks(useFields(...AUDIBLE_FIELDS))
   // The tracks added so far, plus the one a recording is adding.
   // An empty section shows only its chords track and the + to start it; its other tracks come back with its chords.
   const empty = totalBeats === 0
@@ -485,24 +486,27 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
   // The trim while an end is dragged, saved only when it's let go.
   const [dragging, setDragging] = useState<Trim | null>(null)
   const drag = useRef<{ edge: 'start' | 'end'; x: number; from: Trim; moved: boolean } | null>(null)
+  const pxPerSecond = (bpm / 60) * beatsPerQuarter * beatPx
+  const fullWidth = take ? take.seconds * pxPerSecond - 6 : 0
+  // The whole take's waveform, one bar every 4px, each as tall as the loudest moment it covers;
+  // worked out once for the take and width, not on every render (a trim drag re-renders each move).
+  const count = Math.max(1, Math.floor((fullWidth - 4) / 4))
+  const peaks = take?.peaks
+  const bars = useMemo(
+    () => (peaks ? waveHeights(peaks, count).map((h, i) => <span key={i} style={{ height: `${Math.max(6, h * 80)}%` }} />) : null),
+    [peaks, count],
+  )
   let content = null
   if (take) {
-    const pxPerSecond = (bpm / 60) * beatsPerQuarter * beatPx
     const kept = dragging ?? trimOf(take, trim)
     const cut = kept.start > 0.001 || kept.end < take.seconds - 0.001
     const fullLeft = take.startBeat * beatPx
     const left = fullLeft + kept.start * pxPerSecond
     const width = (kept.end - kept.start) * pxPerSecond - 6
-    const fullWidth = take.seconds * pxPerSecond - 6
-    // The whole take's waveform, one bar every 4px, each as tall as the loudest moment it covers. A trimmed take
-    // shows the part of it that plays, shifted by what's cut, so its bars stay put while an end is dragged.
-    const count = Math.max(1, Math.floor((fullWidth - 4) / 4))
-    const per = take.peaks.length / count
+    // A trimmed take shows the part of it that plays, shifted by what's cut, so its bars stay put while an end is dragged.
     const wave = (shift: number) => (
       <div className="vocal-take-wave" style={{ left: -shift, width: fullWidth }}>
-        {Array.from({ length: count }, (_, i) => (
-          <span key={i} style={{ height: `${Math.max(6, Math.max(...take.peaks.slice(Math.floor(i * per), Math.ceil((i + 1) * per)), 0) * 80)}%` }} />
-        ))}
+        {bars}
       </div>
     )
 
@@ -644,12 +648,22 @@ function UnmuteAllButton() {
   )
 }
 
+/** `peaks` gathered into `count` bars, each the loudest of the peaks it covers. */
+function waveHeights(peaks: number[], count: number) {
+  const per = peaks.length / count
+  return Array.from({ length: count }, (_, i) => {
+    let max = 0
+    for (let j = Math.floor(i * per), end = Math.ceil((i + 1) * per); j < end && j < peaks.length; j++) max = Math.max(max, peaks[j])
+    return max
+  })
+}
+
 /** A phone's zoom, fixed: about four bars of 4/4 across its width. */
 const NARROW_ZOOM = 0.45
 
 /** Track names with mute and solo, beside each track's row; what's selected has its settings in the inspector beside them. */
 function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount: number; vocalHint: boolean; drumTrack: boolean; drumHint: boolean }) {
-  const s = useStore()
+  const s = useFields('addDrumTrack', 'addVocalTrack', 'chords', 'chordsColor', 'chordsMuted', 'chordsName', 'chordsSolo', 'chordsTrackSelected', 'chordsVolume', 'drumsColor', 'drumsMuted', 'drumsName', 'drumsSolo', 'drumsTrackSelected', 'drumsVolume', 'recording', 'renameChords', 'renameDrums', 'renameVocal', 'selectChordsTrack', 'selectDrumsTrack', 'selectVocal', 'selectedVocal', 'setChordsColor', 'setChordsVolume', 'setDrumsColor', 'setDrumsVolume', 'setVocalColor', 'setVocalVolume', 'toggleChordsMute', 'toggleChordsSolo', 'toggleDrumsMute', 'toggleDrumsSolo', 'toggleVocalMute', 'toggleVocalSolo', 'vocalColors', 'vocalMuted', 'vocalNames', 'vocalSolo', 'vocalVolume')
   // With the settings panel hidden, its button waits here, where the panel would be.
   const narrow = useNarrow()
   const shown = useInspector((i) => i.shown)
@@ -754,7 +768,7 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
  * track, the chords one always there.
  */
 function AddTrackButton({ canVocal, canDrums }: { canVocal: boolean; canDrums: boolean }) {
-  const { addVocalTrack, addDrumTrack, drumTrack, recording } = useStore()
+  const { addVocalTrack, addDrumTrack, drumTrack, recording } = useFields('addVocalTrack', 'addDrumTrack', 'drumTrack', 'recording')
   const item = (icon: ReactNode, title: string, about: string, disabled: boolean, act: () => void, close: () => void) => (
     <button
       type="button"

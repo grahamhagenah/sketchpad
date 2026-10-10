@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { create } from 'zustand'
-import { chordsTrackName, drumsTrackName, keyOf, useStore, vocalTrackName } from '../store'
+import { chordsTrackName, drumsTrackName, keyOf, useFields, useStore, vocalTrackName } from '../store'
 import { grooveLabel } from '../audio/drums'
 import { trimOf } from '../audio/take'
 import { InputMeter } from './InputMeter'
@@ -41,7 +41,7 @@ export function StatusBar() {
 export const useHoverHint = create<{ hint: ReactNode }>(() => ({ hint: null }))
 
 function Status() {
-  const s = useStore()
+  const s = useFields('arrangement', 'chords', 'chordsName', 'chordsTrackSelected', 'clipboard', 'drumTrack', 'drums', 'drumsName', 'drumsTrackSelected', 'key', 'mode', 'recording', 'sectionKey', 'selectedId', 'selectedVocal', 'takes', 'trims', 'view', 'vocalNames')
   const sel = s.chords.find((c) => c.id === s.selectedId)
   const hint = useHoverHint((h) => h.hint)
 

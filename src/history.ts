@@ -49,6 +49,9 @@ const publish = () => useHistory.setState({ canUndo: past.length > 0, canRedo: f
 
 type State = ReturnType<typeof useStore.getState>
 
+/** Where the rest of a change to the song would be: the open section's parts, and the others. */
+const SECTION_FIELDS = ['chords', 'loop', 'drums', 'drumFill', 'sectionKey', 'sections', 'activeSection'] as const
+
 /**
  * Whether the song itself changed. Opening another section moves chords
  * between the editor and the sections without changing any, so it isn't a step.
@@ -57,6 +60,7 @@ function songChanged(s: State, prev: State) {
   if (s.key !== prev.key || s.mode !== prev.mode || s.bpm !== prev.bpm || s.timeSig !== prev.timeSig || s.arrangement !== prev.arrangement || s.drumTrack !== prev.drumTrack) {
     return true
   }
+  if (SECTION_FIELDS.every((k) => s[k] === prev[k])) return false
   const now = sectionsNow(s)
   const before = sectionsNow(prev)
   return (

@@ -259,14 +259,15 @@ describe('sketchSignature', () => {
 })
 
 describe('the demo song', () => {
-  it('opens a first visit on a verse, chorus and bridge, with drums and fills into the choruses', () => {
+  it('opens a first visit on a verse and chorus twice, then the chorus lifted a half step', () => {
     const s = useStore.getInitialState()
-    expect(s.sections.map((sec) => [sec.name, sec.drums, sec.drumFill, sec.chords.length])).toEqual([
-      ['Verse', 'light', 'end', 4],
-      ['Chorus', 'backbeat', 'none', 4],
-      ['Bridge', 'halftime', 'end', 4],
+    expect(s.sections.map((sec) => [sec.name, sec.drums, sec.drumFill, totalBeats(sec.chords), sec.sectionKey])).toEqual([
+      ['Verse', 'halftime', 'end', 32, null],
+      ['Chorus', 'backbeat', 'four', 32, null],
+      ['Last chorus', 'backbeat', 'end', 32, { key: 8, mode: 'minor' }],
     ])
-    expect(s.arrangement.map((e) => s.sections.find((sec) => sec.id === e.section)?.name)).toEqual(['Verse', 'Chorus', 'Verse', 'Chorus', 'Bridge', 'Chorus'])
+    expect(s.arrangement.map((e) => s.sections.find((sec) => sec.id === e.section)?.name)).toEqual(['Verse', 'Chorus', 'Verse', 'Chorus', 'Last chorus'])
+    expect([s.key, s.mode, s.bpm, s.arp.on]).toEqual([7, 'minor', 132, true])
     expect(s.drumTrack).toBe(true)
     expect(s.view).toBe('song')
     // The open section's chords are the verse's, in the editor.

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
-import { keyOf, useStore, type Chord } from '../store'
+import { keyOf, useFields, useStore, type Chord } from '../store'
 import { BORROWED, chordOf, keyLabel, nextChords, type ChordBass, type ChordColor } from '../music/theory'
 import { audition } from '../audio/engine'
 import { Icon } from './Toolbar'
@@ -92,7 +92,7 @@ export function ChordKeysButton() {
  * Drag it by its top to move it anywhere; it stays where it's left.
  */
 export function ChordKeys() {
-  const state = useStore()
+  const state = useFields('chords', 'key', 'mode', 'recording', 'sectionKey', 'selectedId', 'timeSig', 'view')
   const { key, mode } = keyOf(state)
   const place = useChordKeys((s) => s.place)
   const [voicing, setVoicing] = useState<Voicing>({ seventh: false, color: null, bass: null })
