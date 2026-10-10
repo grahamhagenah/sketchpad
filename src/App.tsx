@@ -121,8 +121,8 @@ function useShortcuts() {
 /**
  * A button clicked with the mouse lets go of focus, as buttons do in a desktop
  * app, so the shortcuts that follow (space to play) don't light up a ring on it
- * or press it again. Not in menus, whose buttons ask to be clicked twice to
- * confirm, and keep their focus for that. Keyboard focus is left as it is.
+ * or press it again. Not in menus or the section's settings, whose buttons ask
+ * to be clicked twice to confirm, and keep their focus for that. Keyboard focus is left as it is.
  */
 function useClickBlur() {
   useEffect(() => {
@@ -130,7 +130,7 @@ function useClickBlur() {
       // A click from the keyboard (Enter or Space on a focused button) has no detail.
       if (!e.detail) return
       const button = (e.target as HTMLElement).closest('button')
-      if (button && button === document.activeElement && !button.closest('.menu')) button.blur()
+      if (button && button === document.activeElement && !button.closest('.menu, .section-panel')) button.blur()
     }
     document.addEventListener('click', onClick)
     return () => document.removeEventListener('click', onClick)

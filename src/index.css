@@ -16,7 +16,7 @@
    * Track colours, as in Logic: chords blue and drums yellow to start with,
    * each vocal track its own, and any of them changeable to another from the
    * palette in colors.ts (the app sets these two from the song). Regions are
-   * neutral; the colour marks the track in its header (its side bar and
+   * neutral; the colour marks the track in its header (its
    * icon) and tints vocal waveforms. A selected region gets a white ring.
    */
   --track-chords: #86a8ff;
@@ -363,6 +363,8 @@ main > .panel {
   background: var(--line-strong);
   pointer-events: none;
 }
+/* With the section's settings in the column, the line runs under the timeline only. */
+.timeline-wrap:has(.track-headers.is-section)::after { left: 200px; }
 /* The timeline fills the editor's height, its bar and beat lines running on below the last track. */
 .timeline-wrap { flex: 1; }
 .timeline-scroll { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-x: auto; padding-bottom: 6px; }
@@ -509,18 +511,24 @@ main > .panel {
   z-index: 3;
 }
 
-.timeline-empty {
-  position: absolute;
-  top: var(--chord-top);
-  height: var(--chord-h);
-  margin: 0;
+/* An empty section's ways to start, all it shows: a chord, a progression, or another section's chords. */
+.starter {
+  /* In the flow, unlike the timeline's other parts, so the timeline grows to hold it rather than cutting it off. */
+  position: relative;
+  /* At the top, level with the switch beside it: there's no ruler or track above it yet. */
+  margin: 10px 0 16px 3px;
+  width: min(640px, calc(100vw - 260px));
   display: flex;
-  align-items: center;
-  white-space: nowrap;
-  font-size: var(--fs-body);
-  pointer-events: none;
+  flex-direction: column;
+  gap: 18px;
 }
-.timeline-empty span { color: var(--text); }
+.starter-group { display: flex; flex-direction: column; gap: 8px; }
+.starter .palette-group-label { color: var(--muted); }
+.starter-chords { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.starter .progression { padding: 7px 12px; border-radius: 8px; }
+.starter-copies { display: flex; flex-wrap: wrap; gap: 8px; }
+.starter-copy { height: 34px; display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; }
+.starter-copy-bars { font-size: var(--fs-small); color: var(--muted); }
 /* Buttons to add a vocal or drum track: each a row the size of a track's header, outlined as a slot to fill. */
 .track-add {
   position: absolute;
@@ -610,18 +618,6 @@ main > .panel {
 .track-header.is-chords { top: calc(var(--head) - var(--gap) / 2); height: calc(var(--chord-h) + var(--gap)); }
 .track-header.is-chords { --track: var(--track-chords); }
 .track-header.is-drums { --track: var(--track-drums); }
-/* Each track's colour as a strip down its header's edge, as in Logic. */
-.track-header::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  /* As tall as the track's blocks beside it. */
-  top: calc(var(--gap) / 2);
-  bottom: calc(var(--gap) / 2);
-  width: 3px;
-  border-radius: 2px;
-  background: var(--track, var(--line-strong));
-}
 .track-header.is-drums { top: calc(var(--drum-top) - var(--gap) / 2); height: calc(var(--drum-h) + var(--gap)); }
 .track-header.is-vocal {
   top: calc(var(--vocal-top) - var(--gap) / 2 + var(--row, 0) * var(--vocal-step));
@@ -630,18 +626,70 @@ main > .panel {
 .track-header.is-selectable { cursor: pointer; }
 .track-header.is-selectable:hover { background: rgb(255 255 255 / 0.03); }
 .track-header.is-selectable .track-name { cursor: pointer; }
-/* The corner above the track names, level with the ruler: adding tracks, and zoom. */
+/* The top of the column, over the track names: the switch between them and the section's settings, and unmute all. */
 .timeline-corner {
   position: absolute;
-  /* The ruler's row; the buttons are centred on it, overhanging it equally above and below. */
-  top: var(--ruler-top);
-  height: var(--ruler-h);
+  top: 6px;
+  height: 30px;
   left: 0;
   right: 0;
   z-index: 5;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 0 4px 0 8px;
 }
+/* Two quiet tabs: plain grey labels, the one showing in white. */
+.pane-switch { display: inline-flex; gap: 2px; height: 26px; }
+.pane-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.pane-switch button svg { width: 13px; height: 13px; flex: none; }
+.pane-switch button:hover { color: var(--muted); }
+.pane-switch button[aria-selected='true'] { color: var(--text); }
+.pane-switch button:focus-visible { outline-offset: -2px; }
+/* Beside the switch there's only room for the icon. */
+.timeline-corner .pane-switch ~ .unmute-all { flex: none; width: 26px; padding: 0; justify-content: center; }
+.timeline-corner .pane-switch ~ .unmute-all .unmute-all-label { display: none; }
+
+/* The section's settings, in the column in place of the track names, from the top of the first track down. */
+.section-panel {
+  position: absolute;
+  top: calc(var(--head) - var(--gap) / 2);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 14px 4px 16px 0;
+  overflow-y: auto;
+}
+.section-panel .menu-item { width: 100%; padding: 8px 10px; }
+.section-panel .menu-item-title { font-size: var(--fs-body); font-weight: 600; }
+.section-panel .menu-item.menu-item-row { padding-block: 6px; }
+.section-panel-name { display: flex; flex-direction: column; gap: 4px; padding: 0 10px 8px; }
+.section-panel-name .menu-label { margin: 0; }
+.section-panel-name input {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: var(--fs-title);
+  font-weight: 700;
+}
+.section-panel-name input:focus { outline: none; border-color: var(--accent); }
 /* Only there while a track is muted or soloed. */
 .unmute-all {
   height: 26px;
@@ -1139,7 +1187,28 @@ main > .panel {
 .song-drum.is-snare { height: 60%; top: 20%; bottom: auto; opacity: 0.35; }
 .song-take { position: absolute; border-radius: 2px; background: var(--muted); opacity: 0.45; }
 /* An empty section: just its name, with a dashed stub to show there's nothing to play yet. */
-.song-row.is-empty .song-row-bar { top: calc(50% - 7px); width: 40px; height: 14px; background: none; box-shadow: none; border: 1.5px dashed var(--line-strong); }
+/* An empty section: a dashed slot as tall as a row's chords, asking for some; it opens the section like the name does. */
+.song-row.is-empty .song-row-track { display: flex; align-items: center; }
+.song-row.is-empty .song-row-bar {
+  position: static;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 0 10px;
+  background: none;
+  box-shadow: none;
+  border: 1.5px dashed var(--line-strong);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: border-color 0.1s, color 0.1s;
+}
+.song-row.is-empty .song-row-bar svg { width: 14px; height: 14px; }
+@media (hover: hover) {
+  .song-row.is-empty:hover .song-row-bar { border-color: var(--muted); color: var(--text); }
+}
 /* The key picker, a row of the section menu. */
 .menu-key { cursor: default; }
 .menu-key select {
@@ -1665,13 +1734,15 @@ main > .panel {
   .track-header.is-chords { top: calc(var(--chord-top) - var(--label-h) - 1px); height: var(--label-h); }
   .track-header.is-drums { top: calc(var(--drum-top) - var(--label-h) - 1px); height: var(--label-h); }
   .track-header.is-vocal { top: calc(var(--vocal-top) - var(--label-h) - 1px + var(--row, 0) * var(--vocal-step)); height: var(--label-h); }
-  .track-header::before { top: 5px; bottom: 5px; }
   .track-title { flex: none; gap: 4px; }
   .track-title .track-color { width: 22px; height: 22px; margin: -2px 0 -2px -2px; }
   .track-name-input { height: 22px; }
   .track-btn.is-mute { margin-left: 6px; }
   .track-volume { display: none; }
-  .timeline-corner { left: auto; }
+  /* The chord pad along the bottom has the key's chords; the starter keeps the rest, the screen's width. */
+  .starter { width: calc(100vw - 2 * var(--gutter) - 6px); }
+  .starter-group.is-chords { display: none; }
+  .timeline-corner { top: var(--ruler-top); height: var(--ruler-h); left: auto; padding: 0; }
   /* Just the gear, to leave the tabs room. */
   .section-settings-label { display: none; }
   .section-settings { padding: 0 7px; margin-right: 0; }

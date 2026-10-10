@@ -226,6 +226,8 @@ interface State extends SectionParts {
   pasteChords: () => void
   /** Replaces the progression with these scale degrees, a bar each. */
   loadProgression: (degrees: number[], seventh: boolean) => void
+  /** Starts the open section with a copy of another section's chords. */
+  copyChordsFrom: (sectionId: string) => void
   select: (id: string | null) => void
   /** Selects a lane's vocal take (and records into that lane next), instead of a chord. */
   selectVocal: (lane: number | null) => void
@@ -633,6 +635,11 @@ export const useStore = create<State>()(
           loop: null,
           playhead: 0,
         }),
+      copyChordsFrom: (sectionId) => {
+        const from = get().sections.find((sec) => sec.id === sectionId && sec.id !== get().activeSection)
+        if (!from?.chords.length) return
+        set({ chords: from.chords.map((c) => ({ ...c, id: newId() })), selectedId: null, selectedVocal: null, loop: null, playhead: 0 })
+      },
       reorderChord: (id, toIndex) => {
         const chords = get().chords
         const chord = chords.find((c) => c.id === id)

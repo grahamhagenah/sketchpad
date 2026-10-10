@@ -6,7 +6,12 @@ import { engine, seek } from '../audio/engine'
 import { songBeatOf, songSpans } from '../song'
 import { grooveHits } from '../audio/drums'
 import { Icon, ZoomButtons } from './Toolbar'
+import { useNarrow } from '../hooks/useNarrow'
 
+
+/** A gear, for a section's settings. */
+export const GEAR =
+  'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'
 
 /** The menu of section kinds to start a new section from. */
 function NewSectionItems({ onPick }: { onPick: (name: string) => void }) {
@@ -131,6 +136,9 @@ export function SectionBar() {
   const ordered = [...sections].sort((x, y) => (firstPlays.get(x.id) ?? Infinity) - (firstPlays.get(y.id) ?? Infinity))
   const [renaming, setRenaming] = useState<string | null>(null)
   const open = view === 'section' ? sections.find((sec) => sec.id === activeSection) : undefined
+  // On a wider screen the section's settings are in the column beside the tracks instead, once there are tracks.
+  const narrow = useNarrow()
+  const empty = useStore((s) => s.chords.length === 0)
 
   return (
     <nav className="section-bar" aria-label="Song sections">
@@ -197,7 +205,7 @@ export function SectionBar() {
       </div>
       <div className="section-bar-end">
         {/* The open section's settings: its key, copies, renaming and deleting. */}
-        {open && <SectionMenu section={open} onRename={() => setRenaming(open.id)} />}
+        {open && (narrow || empty) && <SectionMenu section={open} onRename={() => setRenaming(open.id)} />}
         {/* Zoom works on whichever view is showing, so it sits with the views. */}
         <ZoomButtons />
       </div>
@@ -236,8 +244,12 @@ function RenameField({ section, onDone }: { section: Section; onDone: () => void
   )
 }
 
-/** The open section's settings, from a button at the end of the tab strip: its key, copies, renaming and deleting. */
-function SectionMenu({ section, onRename }: { section: Section; onRename: () => void }) {
+/**
+ * The open section's settings and actions: its key, adding it to the song,
+ * copies, renaming and deleting. In the menu from the gear on a phone, and
+ * in the column beside the tracks on a wider screen.
+ */
+function SectionItems({ section, close, onRename }: { section: Pick<Section, 'id' | 'name'>; close: () => void; onRename?: () => void }) {
   const { duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useStore()
   const songKey = useStore((s) => s.key)
   const songMode = useStore((s) => s.mode)
@@ -248,102 +260,148 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
   const recording = useStore((s) => s.recording !== 'off')
   const [confirming, setConfirming] = useState(false)
   return (
-    <MenuButton label={`${section.name} settings`} title={`${section.name} settings: key, copies, rename, delete`} className="section-settings" align="right" menu={(close) => (
-      <>
+    <>
+      {onRename && (
         <button type="button" className="menu-item" onClick={() => { onRename(); close() }}>
           <span className="menu-item-title">Rename</span>
         </button>
-        <button
-          type="button"
-          className="menu-item"
-          onClick={() => {
-            addToSong(section.id)
-            close()
+      )}
+      <button
+        type="button"
+        className="menu-item"
+        onClick={() => {
+          addToSong(section.id)
+          close()
+        }}
+      >
+        <span className="menu-item-title">Add to the end of the song</span>
+        <span className="menu-item-about">{places ? `It plays ${places === 1 ? 'once' : `${places} times`} so far` : 'It isn’t in the song yet'}</span>
+      </button>
+      <button
+        type="button"
+        className="menu-item"
+        disabled={recording}
+        onClick={() => {
+          const copy = duplicateSection(section.id)
+          if (copy) openSection(copy)
+          close()
+        }}
+      >
+        <span className="menu-item-title">Duplicate</span>
+        <span className="menu-item-about">A copy of the chords to change on their own, with no vocals yet</span>
+      </button>
+      <div className="menu-divider" role="separator" />
+      {/* A key change: the section's chords keep their numerals and play in its own key. */}
+      <label className="menu-item menu-item-row menu-key">
+        <span className="menu-item-title">Key</span>
+        <select
+          value={sectionKey ? `${sectionKey.key}-${sectionKey.mode}` : 'song'}
+          disabled={recording}
+          onChange={(e) => {
+            if (e.target.value === 'song') return setSectionKey(section.id, null)
+            const [pc, m] = e.target.value.split('-')
+            setSectionKey(section.id, { key: Number(pc), mode: m as Mode })
           }}
         >
-          <span className="menu-item-title">Add to the end of the song</span>
-          <span className="menu-item-about">{places ? `It plays ${places === 1 ? 'once' : `${places} times`} so far` : 'It isn’t in the song yet'}</span>
-        </button>
+          <option value="song">
+            Song’s ({keyLabel(songKey, songMode)} {songMode === 'major' ? 'maj' : 'min'})
+          </option>
+          {(['major', 'minor'] as const).map((m) => (
+            <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
+              {Array.from({ length: 12 }, (_, pc) => (
+                <option key={pc} value={`${pc}-${m}`}>
+                  {keyLabel(pc, m)} {m === 'major' ? 'maj' : 'min'}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+      {[1, 2].map((step) => (
         <button
+          key={step}
           type="button"
           className="menu-item"
           disabled={recording}
           onClick={() => {
-            const copy = duplicateSection(section.id)
+            const copy = liftSection(section.id, step)
             if (copy) openSection(copy)
             close()
           }}
         >
-          <span className="menu-item-title">Duplicate</span>
-          <span className="menu-item-about">A copy of the chords to change on their own, with no vocals yet</span>
-        </button>
-        <div className="menu-divider" role="separator" />
-        {/* A key change: the section's chords keep their numerals and play in its own key. */}
-        <label className="menu-item menu-item-row menu-key">
-          <span className="menu-item-title">Key</span>
-          <select
-            value={sectionKey ? `${sectionKey.key}-${sectionKey.mode}` : 'song'}
-            disabled={recording}
-            onChange={(e) => {
-              if (e.target.value === 'song') return setSectionKey(section.id, null)
-              const [pc, m] = e.target.value.split('-')
-              setSectionKey(section.id, { key: Number(pc), mode: m as Mode })
-            }}
-          >
-            <option value="song">
-              Song’s ({keyLabel(songKey, songMode)} {songMode === 'major' ? 'maj' : 'min'})
-            </option>
-            {(['major', 'minor'] as const).map((m) => (
-              <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
-                {Array.from({ length: 12 }, (_, pc) => (
-                  <option key={pc} value={`${pc}-${m}`}>
-                    {keyLabel(pc, m)} {m === 'major' ? 'maj' : 'min'}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-        {[1, 2].map((step) => (
-          <button
-            key={step}
-            type="button"
-            className="menu-item"
-            disabled={recording}
-            onClick={() => {
-              const copy = liftSection(section.id, step)
-              if (copy) openSection(copy)
-              close()
-            }}
-          >
-            <span className="menu-item-title">Copy, up a {step === 1 ? 'half' : 'whole'} step</span>
-            <span className="menu-item-about">
-              The same chords in {keyLabel(((sectionKey?.key ?? songKey) + step) % 12, sectionKey?.mode ?? songMode)} {sectionKey?.mode ?? songMode}, for a lift
-            </span>
-          </button>
-        ))}
-        <div className="menu-divider" role="separator" />
-        <button
-          type="button"
-          className={`menu-item ${confirming ? 'is-danger' : ''}`}
-          disabled={count < 2 || recording}
-          onBlur={() => setConfirming(false)}
-          onClick={() => {
-            if (!confirming) return setConfirming(true)
-            deleteSection(section.id)
-            close()
-          }}
-        >
-          <span className="menu-item-title">{confirming ? `Delete ${section.name} and its vocals` : 'Delete section'}</span>
+          <span className="menu-item-title">Copy, up a {step === 1 ? 'half' : 'whole'} step</span>
           <span className="menu-item-about">
-            {count < 2 ? 'A song keeps at least one section' : confirming ? 'Click again to delete; undo brings the chords back, not the vocals' : 'Also takes it out of the song'}
+            The same chords in {keyLabel(((sectionKey?.key ?? songKey) + step) % 12, sectionKey?.mode ?? songMode)} {sectionKey?.mode ?? songMode}, for a lift
           </span>
         </button>
-      </>
+      ))}
+      <div className="menu-divider" role="separator" />
+      <button
+        type="button"
+        className={`menu-item ${confirming ? 'is-danger' : ''}`}
+        disabled={count < 2 || recording}
+        onBlur={() => setConfirming(false)}
+        onClick={() => {
+          if (!confirming) return setConfirming(true)
+          deleteSection(section.id)
+          close()
+        }}
+      >
+        <span className="menu-item-title">{confirming ? `Delete ${section.name} and its vocals` : 'Delete section'}</span>
+        <span className="menu-item-about">
+          {count < 2 ? 'A song keeps at least one section' : confirming ? 'Click again to delete; undo brings the chords back, not the vocals' : 'Also takes it out of the song'}
+        </span>
+      </button>
+    </>
+  )
+}
+
+/** The open section's settings, from a gear at the end of the tab strip (on a phone, where the column beside the tracks isn't). */
+function SectionMenu({ section, onRename }: { section: Section; onRename: () => void }) {
+  return (
+    <MenuButton label={`${section.name} settings`} title={`${section.name} settings: key, copies, rename, delete`} className="section-settings" align="right" menu={(close) => (
+      <SectionItems section={section} close={close} onRename={onRename} />
     )}>
-      <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <Icon d={GEAR} />
       <span className="section-settings-label">Section</span>
     </MenuButton>
+  )
+}
+
+/**
+ * The open section's settings laid out in the column beside the tracks, in
+ * place of the track names: its name to edit, then the same settings and
+ * actions as the gear's menu.
+ */
+export function SectionPanel() {
+  const id = useStore((s) => s.activeSection)
+  const saved = useStore((s) => s.sections.find((sec) => sec.id === s.activeSection)?.name)
+  const renameSection = useStore((s) => s.renameSection)
+  const [name, setName] = useState(saved ?? '')
+  useEffect(() => setName(saved ?? ''), [id, saved])
+  if (saved === undefined) return null
+  const section = { id, name: saved }
+  const save = () => (name.trim() && name.trim() !== section.name ? renameSection(section.id, name) : setName(section.name))
+  return (
+    <div className="section-panel" role="group" aria-label={`${section.name} settings`}>
+      <label className="section-panel-name">
+        <span className="menu-label">Name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') {
+              e.stopPropagation()
+              setName(section.name)
+              e.currentTarget.blur()
+            }
+          }}
+        />
+      </label>
+      <SectionItems section={section} close={() => {}} />
+    </div>
   )
 }
 
@@ -579,6 +637,13 @@ export function SongView() {
                   {/* The section's tracks in miniature, to scale with the other sections. */}
                   <span className="song-row-track" style={{ width: beats ? beats * beatPx : undefined }}>
                     <span className="song-row-bar">
+                      {/* No chords yet: an invitation, opening the section to start it. */}
+                      {!beats && (
+                        <>
+                          <Icon d="M12 5v14M5 12h14" />
+                          Add chords
+                        </>
+                      )}
                       {section.chords.map((c, i) => {
                         const at = section.chords.slice(0, i).reduce((n, prev) => n + prev.beats, 0)
                         return (

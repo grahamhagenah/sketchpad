@@ -113,6 +113,16 @@ describe('sections', () => {
     expect(get().chords.map((c) => c.degree)).toEqual([3, 4, 0])
   })
 
+  it('starts an empty section with a copy of another’s chords, apart from them', () => {
+    get().addSection('Chorus')
+    get().copyChordsFrom(sectionNamed('Verse').id)
+    expect(get().chords.map((c) => c.degree)).toEqual([0, 4, 5, 3])
+    const verseIds = sectionNamed('Verse').chords.map((c) => c.id)
+    expect(get().chords.some((c) => verseIds.includes(c.id))).toBe(false)
+    get().removeChord(get().chords[0].id)
+    expect(chordsOf('Verse')).toEqual([0, 4, 5, 3])
+  })
+
   it('keeps each section’s vocal tracks apart', () => {
     get().setTake(0, { id: 'verse-take', startBeat: 0, bpm: 96, seconds: 2, peaks: [] })
     get().addSection('Chorus')

@@ -135,7 +135,7 @@ function Status() {
   if (!s.chords.length) {
     return (
       <>
-        Click + or press 1–7 to add a chord, or pick a progression from +.<Keys>{paste}</Keys>
+        Pick a chord or a progression to start, or press 1–7.<Keys>{paste}</Keys>
       </>
     )
   }

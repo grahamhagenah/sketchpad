@@ -6,9 +6,12 @@ import { sectionBeatOf } from '../song'
 import { LANES } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
+import { SectionStarter } from './SectionStarter'
 import type { TakeInfo } from '../audio/take'
 import { GROOVES, grooveHits, grooveLabel } from '../audio/drums'
-import { MenuButton } from './Sections'
+import { GEAR, MenuButton, SectionPanel } from './Sections'
+import { Icon } from './Toolbar'
+import { useNarrow } from '../hooks/useNarrow'
 import { PALETTE, vocalColor, vocalColorId, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR, type ColorId } from '../colors'
 
 interface Drag {
@@ -250,7 +253,8 @@ export function Timeline() {
         ['--adds-shift' as string]: laneCount ? 'calc(var(--gap) / 2)' : '2px',
       }}
     >
-      <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumTrack={drumTrack} drumHint={drumHint} />
+      {/* An empty section has no tracks yet, nor the switch over them; its settings are in the gear on the tabs. */}
+      {!empty && <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumTrack={drumTrack} drumHint={drumHint} />}
       <div className="timeline-scroll" ref={scrollRef}>
         <div
           ref={timelineRef}
@@ -271,13 +275,15 @@ export function Timeline() {
             bar line itself, which marks the bar already; where the bar divides
             (halfway, or between its groups of three) the notch is longer.
           */}
-          <div className="ruler-notches" aria-hidden="true">
-            {Array.from({ length: Math.floor(width / beatPx) }, (_, b) => b)
-              .filter((b) => b % num)
-              .map((b) => (
-                <i key={b} className={divides(b % num) ? 'is-mid' : undefined} style={{ left: b * beatPx }} />
-              ))}
-          </div>
+          {!empty && (
+            <div className="ruler-notches" aria-hidden="true">
+              {Array.from({ length: Math.floor(width / beatPx) }, (_, b) => b)
+                .filter((b) => b % num)
+                .map((b) => (
+                  <i key={b} className={divides(b % num) ? 'is-mid' : undefined} style={{ left: b * beatPx }} />
+                ))}
+            </div>
+          )}
           {chords.length > 0 && (
             <div
               className="ruler"
@@ -298,11 +304,8 @@ export function Timeline() {
 
           {loopOn && totalBeats > 0 && <LoopLane beatPx={beatPx} total={totalBeats} perBar={num} />}
 
-          {chords.length === 0 && (
-            <p className="timeline-empty" style={{ left: barPx + 16 }}>
-              <span>Click + to add chords or start from a ready-made progression.</span>
-            </p>
-          )}
+          {/* An empty section is only its ways to start: no ruler, track or + until it has a chord. */}
+          {empty && recording === 'off' && <SectionStarter />}
 
           {chords.map((c) => {
             const isDragged = c.id === drag?.id
@@ -331,27 +334,29 @@ export function Timeline() {
             )
           })}
 
-          <button
-            type="button"
-            ref={slotRef}
-            className={`add-slot ${slotMoved ? 'is-moved' : ''} ${adding ? 'is-open' : ''}`}
-            style={{ left: totalBeats * beatPx, width: barPx - 6 }}
-            onPointerMove={() => slotMoved && setSlotMoved(false)}
-            onPointerDown={(e) => {
-              // A click shouldn't leave focus here, or the keys that follow
-              // (⌫ especially) draw a focus ring that looks like a selected chord.
-              e.preventDefault()
-              // Keep the menu's outside-click from closing it before this toggles it.
-              e.stopPropagation()
-            }}
-            onClick={() => setAdding(!adding)}
-            aria-label="Add a chord"
-            aria-expanded={adding}
-            title="Add a chord"
-          >
-            +
-          </button>
-          {adding && <AddChordMenu anchor={slotRef} onClose={closeAdding} />}
+          {!empty && (
+            <button
+              type="button"
+              ref={slotRef}
+              className={`add-slot ${slotMoved ? 'is-moved' : ''} ${adding ? 'is-open' : ''}`}
+              style={{ left: totalBeats * beatPx, width: barPx - 6 }}
+              onPointerMove={() => slotMoved && setSlotMoved(false)}
+              onPointerDown={(e) => {
+                // A click shouldn't leave focus here, or the keys that follow
+                // (⌫ especially) draw a focus ring that looks like a selected chord.
+                e.preventDefault()
+                // Keep the menu's outside-click from closing it before this toggles it.
+                e.stopPropagation()
+              }}
+              onClick={() => setAdding(!adding)}
+              aria-label="Add a chord"
+              aria-expanded={adding}
+              title="Add a chord"
+            >
+              +
+            </button>
+          )}
+          {adding && !empty && <AddChordMenu anchor={slotRef} onClose={closeAdding} />}
 
           {drumTrack && <DrumLane beatPx={beatPx} beats={totalBeats} muted={!audible.drums} />}
 
@@ -593,95 +598,121 @@ function UnmuteAllButton() {
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
       </svg>
-      Unmute all
+      <span className="unmute-all-label">Unmute all</span>
     </button>
   )
 }
 
-/** Track names with mute and solo, beside each track's row. */
+/**
+ * Track names with mute and solo, beside each track's row. A switch at the
+ * top swaps them for the open section's settings, and back. (On a phone the
+ * names sit above the tracks, and the settings are in the gear's menu.)
+ */
 function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount: number; vocalHint: boolean; drumTrack: boolean; drumHint: boolean }) {
   const s = useStore()
+  const narrow = useNarrow()
+  const [pane, setPane] = useState<'tracks' | 'section'>('tracks')
+  const showing = narrow ? 'tracks' : pane
   return (
-    <div className="track-headers">
+    <div className={`track-headers is-${showing}`}>
       <div className="timeline-corner">
-        <UnmuteAllButton />
+        {!narrow && (
+          <div className="pane-switch" role="tablist" aria-label="Beside the tracks">
+            {(['tracks', 'section'] as const).map((p) => (
+              <button key={p} type="button" role="tab" aria-selected={pane === p} onClick={() => setPane(p)} title={p === 'tracks' ? 'Track names, mute, solo and volume' : 'This section’s key, copies, name and more'}>
+                <Icon d={p === 'tracks' ? 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01' : GEAR} />
+                {p === 'tracks' ? 'Tracks' : 'Section'}
+              </button>
+            ))}
+          </div>
+        )}
+        {showing === 'tracks' && <UnmuteAllButton />}
       </div>
-      <TrackHeader
-        className={`is-chords ${s.chordsTrackSelected ? 'is-selected' : ''}`}
-        icon={<KeysIcon />}
-        color={s.chordsColor ?? DEFAULT_CHORDS_COLOR}
-        onColor={s.setChordsColor}
-        name={chordsTrackName(s)}
-        muted={s.chordsMuted}
-        solo={s.chordsSolo}
-        onMute={s.toggleChordsMute}
-        onSolo={s.toggleChordsSolo}
-        onRename={s.renameChords}
-        volume={s.chordsVolume}
-        onVolume={s.setChordsVolume}
-        onSelect={s.recording === 'off' && s.chords.length > 0 ? s.selectChordsTrack : undefined}
-      />
-      {drumTrack && (
-        <TrackHeader
-          className={`is-drums ${s.drumsTrackSelected ? 'is-selected' : ''}`}
-          icon={<DrumIcon />}
-          color={s.drumsColor ?? DEFAULT_DRUMS_COLOR}
-          onColor={s.setDrumsColor}
-          name={drumsTrackName(s)}
-          muted={s.drumsMuted}
-          solo={s.drumsSolo}
-          onMute={s.toggleDrumsMute}
-          onSolo={s.toggleDrumsSolo}
-          onRename={s.renameDrums}
-          volume={s.drumsVolume}
-          onVolume={s.setDrumsVolume}
-          onSelect={s.recording === 'off' ? s.selectDrumsTrack : undefined}
-        />
-      )}
-      {Array.from({ length: laneCount }, (_, lane) => (
-        <TrackHeader
-          key={lane}
-          className={`is-vocal ${s.selectedVocal === lane ? 'is-selected' : ''}`}
-          icon={<MicIcon />}
-          color={vocalColorId(s.vocalColors, lane)}
-          onColor={(c) => s.setVocalColor(lane, c)}
-          style={{ ['--row' as string]: lane, ['--track' as string]: vocalColor(s.vocalColors, lane) }}
-          name={vocalTrackName(s, lane)}
-          muted={s.vocalMuted[lane]}
-          solo={s.vocalSolo[lane]}
-          onMute={() => s.toggleVocalMute(lane)}
-          onSolo={() => s.toggleVocalSolo(lane)}
-          onRename={(name) => s.renameVocal(lane, name)}
-          volume={s.vocalVolume[lane] ?? 0}
-          onVolume={(db) => s.setVocalVolume(lane, db)}
-          onSelect={s.recording === 'off' ? () => s.selectVocal(lane) : undefined}
-        />
-      ))}
-      {vocalHint && (
-        <button
-          type="button"
-          className="track-add"
-          style={{ ['--row' as string]: laneCount }}
-          onClick={s.addVocalTrack}
-          aria-label="Add a vocal track"
-          title="Add a vocal track to record into"
-        >
-          <PlusIcon />
-          <span className="track-add-label">Vocal track</span>
-        </button>
-      )}
-      {drumHint && (
-        <button
-          type="button"
-          className="track-add"
-          style={{ ['--row' as string]: laneCount + (vocalHint ? 1 : 0) }}
-          onClick={s.addDrumTrack}
-          aria-label="Add a drum track"
-          title="Add a drum track, with a groove for each section"
-        >
-          <PlusIcon />
-          <span className="track-add-label">Drum track</span>
-        </button>
+      {showing === 'section' ? (
+        <SectionPanel />
+      ) : (
+        <>
+          {/* An empty section has no chords track to show yet. */}
+          {s.chords.length > 0 && (
+            <TrackHeader
+              className={`is-chords ${s.chordsTrackSelected ? 'is-selected' : ''}`}
+              icon={<KeysIcon />}
+              color={s.chordsColor ?? DEFAULT_CHORDS_COLOR}
+              onColor={s.setChordsColor}
+              name={chordsTrackName(s)}
+              muted={s.chordsMuted}
+              solo={s.chordsSolo}
+              onMute={s.toggleChordsMute}
+              onSolo={s.toggleChordsSolo}
+              onRename={s.renameChords}
+              volume={s.chordsVolume}
+              onVolume={s.setChordsVolume}
+              onSelect={s.recording === 'off' ? s.selectChordsTrack : undefined}
+            />
+          )}
+          {drumTrack && (
+            <TrackHeader
+              className={`is-drums ${s.drumsTrackSelected ? 'is-selected' : ''}`}
+              icon={<DrumIcon />}
+              color={s.drumsColor ?? DEFAULT_DRUMS_COLOR}
+              onColor={s.setDrumsColor}
+              name={drumsTrackName(s)}
+              muted={s.drumsMuted}
+              solo={s.drumsSolo}
+              onMute={s.toggleDrumsMute}
+              onSolo={s.toggleDrumsSolo}
+              onRename={s.renameDrums}
+              volume={s.drumsVolume}
+              onVolume={s.setDrumsVolume}
+              onSelect={s.recording === 'off' ? s.selectDrumsTrack : undefined}
+            />
+          )}
+          {Array.from({ length: laneCount }, (_, lane) => (
+            <TrackHeader
+              key={lane}
+              className={`is-vocal ${s.selectedVocal === lane ? 'is-selected' : ''}`}
+              icon={<MicIcon />}
+              color={vocalColorId(s.vocalColors, lane)}
+              onColor={(c) => s.setVocalColor(lane, c)}
+              style={{ ['--row' as string]: lane, ['--track' as string]: vocalColor(s.vocalColors, lane) }}
+              name={vocalTrackName(s, lane)}
+              muted={s.vocalMuted[lane]}
+              solo={s.vocalSolo[lane]}
+              onMute={() => s.toggleVocalMute(lane)}
+              onSolo={() => s.toggleVocalSolo(lane)}
+              onRename={(name) => s.renameVocal(lane, name)}
+              volume={s.vocalVolume[lane] ?? 0}
+              onVolume={(db) => s.setVocalVolume(lane, db)}
+              onSelect={s.recording === 'off' ? () => s.selectVocal(lane) : undefined}
+            />
+          ))}
+          {vocalHint && (
+            <button
+              type="button"
+              className="track-add"
+              style={{ ['--row' as string]: laneCount }}
+              onClick={s.addVocalTrack}
+              aria-label="Add a vocal track"
+              title="Add a vocal track to record into"
+            >
+              <PlusIcon />
+              <span className="track-add-label">Vocal track</span>
+            </button>
+          )}
+          {drumHint && (
+            <button
+              type="button"
+              className="track-add"
+              style={{ ['--row' as string]: laneCount + (vocalHint ? 1 : 0) }}
+              onClick={s.addDrumTrack}
+              aria-label="Add a drum track"
+              title="Add a drum track, with a groove for each section"
+            >
+              <PlusIcon />
+              <span className="track-add-label">Drum track</span>
+            </button>
+          )}
+        </>
       )}
     </div>
   )
