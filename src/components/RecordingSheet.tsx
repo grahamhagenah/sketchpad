@@ -39,7 +39,8 @@ export function RecordingSheet() {
             <span className="record-sheet-dot" aria-hidden="true" />
             Recording into {name}
           </p>
-          <div className="lcd" role="group" aria-label="Position">
+          {/* Where the take has got to, as plain large numbers on the sheet rather than in the display's box. */}
+          <div className="record-sheet-position" role="group" aria-label="Position">
             <Position />
           </div>
           {/* The words being sung, to read from. */}

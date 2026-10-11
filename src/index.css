@@ -812,6 +812,16 @@ main > .panel {
 }
 .unmute-all svg { width: 16px; height: 16px; }
 .unmute-all:hover { color: var(--text); background: var(--raised); }
+/*
+ * Beside the tracks the corner has no room for its words: there it's an icon
+ * the size of the add button beside it, in the accent so a muted or soloed
+ * track isn't missed, its name in the tooltip.
+ */
+@media (min-width: 641px) {
+  .unmute-all { flex: none; width: 30px; height: 30px; justify-content: center; padding: 0; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .unmute-all:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 24%, transparent); }
+  .unmute-all-label { display: none; }
+}
 
 /* The sketch's title, leading the toolbar, with the library and save beside it. */
 .song-bar { display: flex; align-items: center; gap: 2px; }
@@ -1469,8 +1479,13 @@ main > .panel {
 .song-view.is-narrow .song-add-btn { width: 100%; height: 56px; padding: 0 16px; font-size: var(--fs-title); }
 /* On a phone each row is stacked: its name and menu on a line, its chords the full width under them. */
 .song-view.is-narrow .song-row-body { flex-direction: column; align-items: stretch; }
-.song-view.is-narrow .song-row-head { width: auto; height: 44px; gap: 10px; padding: 4px 186px 0 8px; }
+.song-view.is-narrow .song-row-head { width: auto; height: 34px; gap: 10px; padding: 0 186px 0 8px; }
 .song-view.is-narrow .song-row-track { flex: 1; align-self: flex-start; margin-left: var(--song-head); }
+/* Its chords right under the name, the drums and any vocals in strips below them, so the name reads as theirs. */
+.song-view.is-narrow .song-row-bar { top: 2px; }
+.song-view.is-narrow .song-row-drums { top: 41px; }
+.song-view.is-narrow .song-row-vocals { top: 54px; bottom: auto; height: 6px; }
+.song-view.is-narrow .song-row.is-empty .song-row-track { align-items: flex-start; }
 .song-view.is-narrow .song-row-actions { top: 24px; gap: 4px; }
 /*
  * Wider than the screen, the song scrolls sideways under each row's name and
@@ -1480,7 +1495,7 @@ main > .panel {
 .song-view.is-narrow .song-row { display: grid; touch-action: pan-x pan-y; }
 .song-view.is-narrow .song-row > * { grid-area: 1 / 1; }
 .song-view.is-narrow .song-row-head { position: sticky; left: 0; width: var(--song-view-w); }
-.song-view.is-narrow .song-row-actions { position: sticky; left: calc(var(--song-view-w) - 176px); justify-self: start; align-self: start; top: auto; margin-top: 7px; transform: none; }
+.song-view.is-narrow .song-row-actions { position: sticky; left: calc(var(--song-view-w) - 176px); justify-self: start; align-self: start; top: auto; margin-top: 2px; transform: none; }
 .song-view.is-narrow .song-sheet { display: flow-root; }
 .song-view.is-narrow .song-add { position: sticky; left: 4px; width: calc(var(--song-view-w) - 8px); }
 .song-view.is-narrow .song-chord { text-overflow: ellipsis; }
@@ -1858,8 +1873,8 @@ main > .panel {
 .record-sheet-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--record); animation: record-pulse 1.2s ease-in-out infinite; }
 @keyframes record-pulse { 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .record-sheet-dot { animation: none; } }
-.record-sheet .lcd { order: 0; width: auto; }
-.record-sheet .lcd-cell { padding: 0 22px; }
+.record-sheet-position .lcd-cell { padding: 0; background: none; cursor: default; }
+.record-sheet-position .lcd-value { font-size: var(--fs-display); }
 .record-sheet-stop {
   width: 100%;
   height: 56px;
