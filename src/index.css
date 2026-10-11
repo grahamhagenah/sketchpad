@@ -2493,3 +2493,8 @@ main > .panel {
   .section-bar-end .lyrics-btn { display: inline-grid; }
 }
 
+
+/* A take's timing: earlier and later either side of how far it's moved, the panel's width. */
+.vocal-timing .chord-pad-length { width: 100%; }
+.vocal-timing .chord-pad-length button { flex: none; padding: 0 14px; font-size: var(--fs-body); }
+.vocal-timing .chord-pad-length span { flex: 1; justify-content: center; color: var(--muted); }

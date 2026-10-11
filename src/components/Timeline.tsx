@@ -3,7 +3,7 @@ import { AUDIBLE_FIELDS, audibleTracks, chordsTrackName, drumsTrackName, keyOf, 
 import { chordOf } from '../music/theory'
 import { audition, engine, seek, trimTake } from '../audio/engine'
 import { sectionBeatOf } from '../song'
-import { LANES, MIN_TRIM, trimOf, type Trim } from '../audio/take'
+import { cuts, LANES, MIN_TRIM, trimOf, type Trim } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
 import { SectionStarter } from './SectionStarter'
@@ -506,8 +506,9 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
   let content = null
   if (take) {
     const kept = dragging ?? trimOf(take, trim)
-    const cut = kept.start > 0.001 || kept.end < take.seconds - 0.001
-    const fullLeft = take.startBeat * beatPx
+    const cut = dragging ? kept.start > 0.001 || kept.end < take.seconds - 0.001 : cuts(take, trim)
+    // Moved by its nudge, if it has one, as it plays.
+    const fullLeft = take.startBeat * beatPx + (trim?.nudge ?? 0) * pxPerSecond
     const left = fullLeft + kept.start * pxPerSecond
     const width = (kept.end - kept.start) * pxPerSecond - 6
     // A trimmed take shows the part of it that plays, shifted by what's cut, so its bars stay put while an end is dragged.

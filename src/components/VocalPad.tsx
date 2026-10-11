@@ -1,6 +1,6 @@
 import { useFields, useStore, vocalTrackName } from '../store'
-import { checkLatency, deleteOneTake, deleteTake, toggleRecord, trimTake } from '../audio/engine'
-import { trimOf, type TakeInfo, type Trim } from '../audio/take'
+import { checkLatency, deleteOneTake, deleteTake, learnFromNudge, nudgeTake, toggleRecord, trimTake } from '../audio/engine'
+import { cuts, trimOf, type TakeInfo, type Trim } from '../audio/take'
 import { vocalColorId } from '../colors'
 import { LevelSlider, MuteSoloRow, SheetSlider, TrackSheet } from './TrackSheet'
 import { MicIcon } from './Timeline'
@@ -45,6 +45,7 @@ export function VocalPad({ lane, docked }: { lane: number; docked?: boolean }) {
       <LevelSlider value={s.vocalVolume[lane] ?? 0} onChange={(db) => s.setVocalVolume(lane, db)} />
       <SheetSlider label="Reverb" min={0} max={1} step={0.01} value={reverb} text={`${Math.round(reverb * 100)}%`} onChange={(v) => s.setVocalReverb(lane, v)} />
       {take && <Takes lane={lane} take={take} all={all.length ? all : [take]} trims={s.trims} locked={s.recording !== 'off'} />}
+      {take && <Timing id={take.id} nudge={s.trims[take.id]?.nudge ?? 0} locked={s.recording !== 'off'} />}
       {/* How late this device's recordings arrive, measured so takes line up with the beat. */}
       <button
         type="button"
@@ -75,7 +76,7 @@ export function VocalPad({ lane, docked }: { lane: number; docked?: boolean }) {
  */
 function Takes({ lane, take, all, trims, locked }: { lane: number; take: TakeInfo; all: TakeInfo[]; trims: Record<string, Trim>; locked: boolean }) {
   const chooseTake = useStore((s) => s.chooseTake)
-  const trimmed = !!trims[take.id]
+  const trimmed = cuts(take, trims[take.id])
   return (
     <div className="sound-section vocal-takes">
       <span className="sound-heading">Takes</span>
@@ -109,6 +110,44 @@ function Takes({ lane, take, all, trims, locked }: { lane: number; take: TakeInf
           </>
         )}
       </p>
+    </div>
+  )
+}
+
+/** How far a nudge moves a take with each press, in seconds. */
+const NUDGE_STEP = 0.01
+
+/**
+ * Moves the playing take earlier or later, to line it up by ear when it
+ * came in late (or early); and, moved, a way to line new takes up on this
+ * device the same way.
+ */
+function Timing({ id, nudge, locked }: { id: string; nudge: number; locked: boolean }) {
+  const ms = Math.round(nudge * 1000)
+  const set = (n: number) => nudgeTake(id, Math.round(n * 1000) / 1000)
+  return (
+    <div className="sound-section vocal-timing">
+      <span className="sound-heading">Timing</span>
+      <div className="chord-pad-length" role="group" aria-label="Move the take earlier or later">
+        <button type="button" disabled={locked} onClick={() => set(nudge - NUDGE_STEP)} title="Move it 10 ms earlier, if it comes in late">
+          Earlier
+        </button>
+        <span aria-live="polite">{ms === 0 ? 'As recorded' : `${Math.abs(ms)} ms ${ms < 0 ? 'earlier' : 'later'}`}</span>
+        <button type="button" disabled={locked} onClick={() => set(nudge + NUDGE_STEP)} title="Move it 10 ms later, if it comes in early">
+          Later
+        </button>
+      </div>
+      {ms !== 0 && (
+        <p className="rhythm-about">
+          <button type="button" className="track-sheet-link" disabled={locked} onClick={() => set(0)}>
+            Put it back
+          </button>
+          {' · '}
+          <button type="button" className="track-sheet-link" disabled={locked} onClick={() => learnFromNudge(nudge)} title="Record new takes on this device moved the same way">
+            Line up new takes the same way
+          </button>
+        </p>
+      )}
     </div>
   )
 }
