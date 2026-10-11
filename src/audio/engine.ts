@@ -2,7 +2,7 @@ import * as Tone from 'tone'
 import { keyOf, useStore, loopRange, vocalTrackName, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
 import { arrange, playedSound, type Hit } from './arrange'
-import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Instruments, type Pad } from './instruments'
+import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Bass, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
 import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
@@ -47,7 +47,7 @@ class Engine {
   private ready = false
   private instruments!: Instruments
   private pad!: Pad
-  private bass!: Tone.MonoSynth
+  private bass!: Bass
   private click!: Tone.Synth
   private kit!: Kit
   private drumPart: Tone.Part<DrumEvent> | null = null
@@ -206,7 +206,7 @@ class Engine {
   private playHit(ev: Hit, quarters: number, time: number) {
     const length = quarters * this.secondsPerQuarter
     if (ev.pad.length) this.pad.triggerAttackRelease(ev.pad.map(midiToHz), ev.held ? length * 0.97 : length, time, ev.velocity)
-    if (ev.bass !== null) this.bass.triggerAttackRelease(midiToHz(ev.bass), length * 0.97, monoStart(this.bass, time), 0.9)
+    if (ev.bass !== null) this.bass.play(ev.bass, length * 0.97, time, 0.9)
   }
 
   /** Plays from `fromBeat`, or from the start of the loop when that's outside it. */
@@ -257,7 +257,7 @@ class Engine {
     if (!this.ready) return
     Tone.getTransport().stop()
     this.pad.releaseAll()
-    this.bass.triggerRelease()
+    this.bass.release()
     this.players.forEach((player) => player.stop())
   }
 
@@ -376,7 +376,7 @@ class Engine {
     if (!song.arp.on) {
       const info = chordOf(song.key, song.mode, chord)
       this.pad.triggerAttackRelease(voiceChord(info.pcs, null).map(midiToHz), 0.9, now, 0.8)
-      this.bass.triggerAttackRelease(midiToHz(bassNote(info.bassPc)), 0.9, monoStart(this.bass, now), 0.9)
+      this.bass.play(bassNote(info.bassPc), 0.9, now, 0.9)
       return
     }
     const quarter = 60 / song.bpm
@@ -386,7 +386,7 @@ class Engine {
       const at = start + h.start * quarter
       const play = () => {
         if (h.pad.length) this.pad.triggerAttackRelease(h.pad.map(midiToHz), h.dur * quarter, at, h.velocity)
-        if (h.bass !== null) this.bass.triggerAttackRelease(midiToHz(h.bass), h.dur * quarter * 0.97, monoStart(this.bass, at), 0.9)
+        if (h.bass !== null) this.bass.play(h.bass, h.dur * quarter * 0.97, at, 0.9)
       }
       // Handed to the synths a moment ahead, on the audio clock; until then, a newer preview can call it off.
       const lead = (at - Tone.now() - 0.1) * 1000
@@ -423,13 +423,13 @@ class Engine {
         const info = chordOf(song.key, song.mode, chord)
         const freqs = voiceChord(info.pcs, null).map(midiToHz)
         this.pad.triggerAttack(freqs, now, 0.8)
-        this.bass.triggerAttack(midiToHz(bassNote(info.bassPc)), monoStart(this.bass, now), 0.9)
+        this.bass.attack(bassNote(info.bassPc), now, 0.9)
         this.bassHolder = id
         stop = () => {
           clearTimeout(limit)
           const at = Tone.now()
           this.pad.triggerRelease(freqs, at)
-          if (this.bassHolder === id) this.bass.triggerRelease(at)
+          if (this.bassHolder === id) this.bass.release(at)
         }
       } else {
         // A newer held key takes over the arpeggio.
@@ -447,7 +447,7 @@ class Engine {
             const play = () => {
               if (h.pad.length) this.pad.triggerAttackRelease(h.pad.map(midiToHz), h.dur * quarter, at, h.velocity)
               if (h.bass !== null) {
-                this.bass.triggerAttack(midiToHz(h.bass), monoStart(this.bass, at), 0.9)
+                this.bass.attack(h.bass, at, 0.9)
                 this.bassHolder = id
               }
             }
@@ -461,7 +461,7 @@ class Engine {
         const stopThis = () => {
           clearTimeout(limit)
           timers.forEach(clearTimeout)
-          if (this.bassHolder === id) this.bass.triggerRelease(Tone.now())
+          if (this.bassHolder === id) this.bass.release(Tone.now())
           if (this.stopArp === stopThis) this.stopArp = null
         }
         this.stopArp = stopThis

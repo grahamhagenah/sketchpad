@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { useDismiss } from '../hooks/useDismiss'
 import { useNarrow } from '../hooks/useNarrow'
 import { useStore } from '../store'
-import { CONTROLS, PRESETS, WAVES, changedFrom, extrasOf, instrumentOf, presetFor, type Sound } from '../audio/sound'
+import { BASS_KINDS, CONTROLS, PRESETS, WAVES, bassVoiceOf, changedFrom, extrasOf, hasTone, instrumentOf, presetFor, type BassVoice, type Sound } from '../audio/sound'
 import { CHORD_RHYTHMS } from '../audio/arrange'
 import { audition } from '../audio/engine'
 import { loadPiano } from '../audio/instruments'
@@ -169,6 +169,12 @@ function SoundSettings() {
   )
 
   const bass = sound.bass ? rhythm.bass : 'off'
+  const voice = bassVoiceOf(sound)
+  // A change to the bass's sound plays a chord to hear it, a slider's once it's let go.
+  const setVoice = (patch: Partial<BassVoice>, hear = true) => {
+    setSound({ bassVoice: { ...voice, ...patch } })
+    if (hear) preview()
+  }
   const setBass = (next: 'off' | 'held' | 'kick') => {
     if (next === 'off') setSound({ bass: false })
     else {
@@ -241,6 +247,35 @@ function SoundSettings() {
                   ? 'Plays with the kick drum, and walks up into each new chord'
                   : 'Plays with the kick drum once there’s a drum track; held until then'}
           </p>
+          {/* How the bass sounds, while there is one: which bass, its octave, and how bright, slurred and loud it is. */}
+          {bass !== 'off' && (
+            <>
+              <div className="sound-grid is-five" role="radiogroup" aria-label="Bass sound">
+                {BASS_KINDS.map((k) => (
+                  <button key={k.id} type="button" role="radio" aria-checked={voice.kind === k.id} title={k.about} onClick={() => setVoice({ kind: k.id })}>
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+              <p className="rhythm-about">{BASS_KINDS.find((k) => k.id === voice.kind)?.about}</p>
+              <div className="sound-grid is-three" role="radiogroup" aria-label="Bass octave">
+                {(
+                  [
+                    [-1, 'Low'],
+                    [0, 'Mid'],
+                    [1, 'High'],
+                  ] as const
+                ).map(([octave, label]) => (
+                  <button key={octave} type="button" role="radio" aria-checked={voice.octave === octave} onClick={() => setVoice({ octave })}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <SoundSlider label="Tone" min={0} max={1} step={0.01} value={voice.tone} format={percent} disabled={!hasTone(voice.kind)} onChange={(tone) => setVoice({ tone }, false)} />
+              <SoundSlider label="Glide" min={0} max={1} step={0.01} value={voice.glide} format={(v) => (v < 0.02 ? 'Off' : percent(v))} onChange={(glide) => setVoice({ glide }, false)} />
+              <SoundSlider label="Level" min={-12} max={6} step={1} value={voice.level} format={(v) => (v === 0 ? '0 dB' : `${v > 0 ? '+' : '−'}${Math.abs(v)} dB`)} onChange={(level) => setVoice({ level }, false)} />
+            </>
+          )}
         </div>
       </div>
 
