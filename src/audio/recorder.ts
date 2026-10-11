@@ -28,14 +28,33 @@ class SketchpadCapture extends AudioWorkletProcessor {
     this.block = new Float32Array(BLOCK)
     this.filled = 0
   }
+  // Silence where the microphone gave nothing (its input can drop out for a
+  // moment), so everything after stays in time with the song.
+  write(samples, count) {
+    let done = 0
+    while (done < count) {
+      const n = Math.min(count - done, BLOCK - this.filled)
+      if (samples) this.block.set(samples.subarray(done, done + n), this.filled)
+      else this.block.fill(0, this.filled, this.filled + n)
+      this.filled += n
+      done += n
+      if (this.filled === BLOCK) this.send()
+    }
+  }
   process(inputs) {
     if (!this.on) return false
     const channel = inputs[0] && inputs[0][0]
-    if (!channel) return true
-    if (!this.filled) this.frame = currentFrame
-    this.block.set(channel, this.filled)
-    this.filled += channel.length
-    if (this.filled + 128 > BLOCK) this.send()
+    if (this.started === undefined) {
+      if (!channel) return true
+      this.started = currentFrame
+      this.next = currentFrame
+    }
+    if (!this.filled) this.frame = this.next
+    // A gap since the last quantum (the audio thread fell behind) is filled too, up to a second.
+    const gap = currentFrame - this.next
+    if (gap > 0 && gap < sampleRate) this.write(null, gap)
+    this.write(channel || null, 128)
+    this.next = currentFrame + 128
     return true
   }
 }

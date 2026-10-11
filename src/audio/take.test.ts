@@ -182,3 +182,25 @@ describe('songs saved before sections', () => {
     expect((await contents('audio')).keys).toEqual(['a', 'b'])
   })
 })
+
+describe('passesOf', () => {
+  it('cuts a recording round the loop into a take each time round', async () => {
+    const { passesOf } = await import('./take')
+    // Two-second passes at 10 samples a second: two whole, then 1.5 seconds of a third, kept as it's over a second.
+    expect(passesOf(55, 10, 2, 1)).toEqual([
+      [0, 20],
+      [20, 40],
+      [40, 55],
+    ])
+  })
+
+  it('drops a last pass stopped too soon into it', async () => {
+    const { passesOf } = await import('./take')
+    expect(passesOf(45, 10, 2, 1)).toEqual([
+      [0, 20],
+      [20, 40],
+    ])
+    // Stopped within the first pass, however soon: still a take.
+    expect(passesOf(5, 10, 2, 1)).toEqual([[0, 5]])
+  })
+})

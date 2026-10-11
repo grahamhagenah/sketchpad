@@ -7,7 +7,7 @@ import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } f
 import type { Sound } from './sound'
 import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
-import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
+import { keepStorage, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 import { keepVocals } from '../history'
 import { quietly, showUndoNote } from '../undoNote'
@@ -32,6 +32,8 @@ interface Recording {
   startBeat: number
   bpm: number
   lane: number
+  /** Recording round the loop: how long each pass is, and the least of the last that's kept; null when it plays once. */
+  cycle: { passSeconds: number; minSeconds: number } | null
 }
 
 interface DrumEvent extends DrumHit {
@@ -301,7 +303,7 @@ class Engine {
    * plays from the loop's start while the mic records. Resolves once the
    * count-in has started.
    */
-  async record(song: Playback, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void }) {
+  async record(song: Playback, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void; pass: (pass: number) => void }) {
     await Tone.start()
     this.setup()
     const t = Tone.getTransport()
@@ -316,19 +318,29 @@ class Engine {
     const region = song.loopOn ? loopRange(song.loop, total) : { start: 0, end: total }
     const beatSeconds = (60 / song.bpm) * (4 / den)
 
-    const rec: Recording = { capture, alignTime: 0, startBeat: region.start, bpm: song.bpm, lane }
+    // With the loop on, it goes round and round, a take each time, until stopped; the last is kept if at least a bar of it was sung.
+    const cycle = song.loopOn ? { passSeconds: (region.end - region.start) * beatSeconds, minSeconds: num * beatSeconds } : null
+    const rec: Recording = { capture, alignTime: 0, startBeat: region.start, bpm: song.bpm, lane, cycle }
     this.recording = rec
     // Run fn when the audio clock reaches time, if this recording is still going.
     // A plain timer, unlike Tone's Draw, never skips a callback that runs late.
     const at = (time: number, fn: () => void) =>
       setTimeout(() => this.recording === rec && fn(), Math.max(0, (time - Tone.immediate()) * 1000))
-    // Play the region once, with the other lanes and not this lane's old take.
+    // Play the region, with the other lanes and not this lane's old take: round and round with the loop on, else once.
     this.sync({ ...song, loopOn: true, loop: region })
-    t.loop = false
     if (this.endEvent !== null) t.clear(this.endEvent)
-    this.endEvent = t.scheduleOnce((time) => {
-      setTimeout(() => this.recording === rec && this.onEnd?.(), Math.max(0, (time - Tone.immediate()) * 1000))
-    }, `${Math.round(region.end * this.ticksPerBeat)}i`)
+    this.endEvent = null
+    if (cycle) {
+      // Each time round, the next take.
+      let pass = 1
+      this.onLoop = (time: number) => at(time, () => on.pass(++pass))
+      t.on('loop', this.onLoop)
+    } else {
+      t.loop = false
+      this.endEvent = t.scheduleOnce((time) => {
+        setTimeout(() => this.recording === rec && this.onEnd?.(), Math.max(0, (time - Tone.immediate()) * 1000))
+      }, `${Math.round(region.end * this.ticksPerBeat)}i`)
+    }
 
     const countIn = Tone.now() + 0.1
     for (let b = 0; b < num; b++) {
@@ -351,22 +363,32 @@ class Engine {
     return this.recording ? this.recording.capture.level() : null
   }
 
-  /** Stops a recording and returns the take, lined up with the song, and its lane. */
-  async finishRecording(): Promise<{ lane: number; take: Take | null } | null> {
+  /** What counts the passes of a recording round the loop, while one goes on. */
+  private onLoop: ((time: number) => void) | null = null
+
+  /**
+   * Stops a recording and returns its takes, lined up with the song, and
+   * their lane: one, or recorded round the loop, one for each time round.
+   */
+  async finishRecording(): Promise<{ lane: number; takes: Take[] } | null> {
     const rec = this.recording
     if (!rec) return null
     this.recording = null
     setLookAhead(LOOK_AHEAD)
+    if (this.onLoop) Tone.getTransport().off('loop', this.onLoop)
+    this.onLoop = null
     // Stopping now also cancels a transport start still waiting on the count-in.
     this.stop()
     const { startTime, samples } = await rec.capture.stop()
     const sampleRate = Tone.getContext().sampleRate
     const skip = Math.round((rec.alignTime - startTime) * sampleRate)
     // Nothing sung yet means stopped during the count-in.
-    if (samples.length - skip < sampleRate * 0.25) return { lane: rec.lane, take: null }
+    if (samples.length - skip < sampleRate * 0.25) return { lane: rec.lane, takes: [] }
     const aligned =
       skip >= 0 ? samples.slice(skip) : Float32Array.from({ length: samples.length - skip }, (_, i) => (i < -skip ? 0 : samples[i + skip]))
-    return { lane: rec.lane, take: { id: newId(), startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: quantize(aligned) } }
+    const passes = rec.cycle ? passesOf(aligned.length, sampleRate, rec.cycle.passSeconds, rec.cycle.minSeconds) : [[0, aligned.length] as [number, number]]
+    const takes = passes.map(([from, to]) => ({ id: newId(), startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: quantize(aligned.slice(from, to)) }))
+    return { lane: rec.lane, takes }
   }
 
   /**
@@ -630,9 +652,10 @@ export async function toggleRecord() {
   s.setRecording('count-in')
   await engine.record(playbackOf(useStore.getState()), stream, lane, {
     count: (n) => useStore.getState().setCountIn(n),
+    pass: (n) => useStore.getState().setRecordPass(n),
     rolling: () => {
       // A recording plays the open section.
-      useStore.setState({ playingView: 'section' })
+      useStore.setState({ playingView: 'section', recordPass: s.loopOn ? 1 : null })
       useStore.getState().setRecording('on')
       useStore.getState().setPlaying(true)
     },
@@ -679,14 +702,17 @@ async function stopRecording() {
   const s = useStore.getState()
   s.setRecording('off')
   s.setPlaying(false)
-  if (result?.take) {
-    const { lane, take } = result
+  if (result?.takes.length) {
+    const { lane, takes } = result
     keepStorage()
-    // Recording over a take can be undone, as deleting one can.
+    // Recording over a take can be undone, as deleting one can; takes recorded round the loop go together.
     if (s.takes[lane]) keepVocals()
-    // The audio first, so it's there to store when the lane changes. Any take already there is kept, to go back to.
-    engine.addTake(take)
-    s.addTake(lane, takeInfo(take))
+    // The audio first, so it's there to store when the lane changes. Any take already there is kept, to go back to;
+    // of several, the last one recorded plays.
+    for (const take of takes) {
+      engine.addTake(take)
+      useStore.getState().addTake(lane, takeInfo(take))
+    }
     s.showVocalTracks(lane + 1)
     tally('record')
   }
