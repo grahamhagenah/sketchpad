@@ -131,11 +131,11 @@ export function MenuButton({
 
 /** Whether tabs run on past the right edge of the strip, under the +, as it's scrolled or resized. */
 function useTabsBeyond(ref: RefObject<HTMLDivElement | null>, tabs: number) {
-  const [more, setMore] = useState(false)
+  const [more, setMore] = useState({ before: false, after: false })
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const check = () => setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+    const check = () => setMore({ before: el.scrollLeft > 1, after: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 })
     check()
     const observer = new ResizeObserver(check)
     observer.observe(el)
@@ -174,10 +174,14 @@ export function SectionBar() {
   const sheetOpen = useSectionSheet((s) => s.open)
   const tabsRef = useRef<HTMLDivElement>(null)
   const more = useTabsBeyond(tabsRef, sections.length)
+  // The open tab scrolled into view, when the tabs run longer than the strip.
+  useEffect(() => {
+    tabsRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+  }, [view, activeSection])
 
   return (
     <nav className="section-bar" aria-label="Song sections">
-      <div className={`section-tabs ${more ? 'has-more' : ''}`} role="tablist" ref={tabsRef}>
+      <div className={`section-tabs ${more.before ? 'has-before' : ''} ${more.after ? 'has-more' : ''}`} role="tablist" ref={tabsRef}>
         <button
           type="button"
           role="tab"
@@ -227,17 +231,18 @@ export function SectionBar() {
             </div>
           )
         })}
-        <MenuButton label="Add a section" title="Add a section to the end of the song" className="section-add" menu={(close) => (
-          <NewSectionItems
-            onPick={(name) => {
-              addSection(name)
-              close()
-            }}
-          />
-        )}>
-          <Icon d="M12 5v14M5 12h14" />
-        </MenuButton>
       </div>
+      {/* Outside the tabs, so it stays put when they scroll. */}
+      <MenuButton label="Add a section" title="Add a section to the end of the song" className="section-add" menu={(close) => (
+        <NewSectionItems
+          onPick={(name) => {
+            addSection(name)
+            close()
+          }}
+        />
+      )}>
+        <Icon d="M12 5v14M5 12h14" />
+      </MenuButton>
       <div className="section-bar-end">
         {/* The open section's settings: its key, copies, renaming and deleting. */}
         {/* On a phone the gear brings up the section's settings as a sheet along the bottom; on a wider screen they're in the inspector, or with an empty section (which has none), in the gear's menu. */}
@@ -870,7 +875,7 @@ export function SongView() {
                     )}
                   </span>
                 </button>
-                {/* Play from it, move it up or down the song, or take it out; the rest is in its menu. */}
+                {/* Play from it, move it up or down the song, or take it out; the rest is in its menu (on a phone, all but playing, where a row is moved by holding it). */}
                 <div className="song-row-actions">
                   <button
                     type="button"
@@ -884,13 +889,13 @@ export function SongView() {
                       <path d="M8 5.5v13l11-6.5z" fill="currentColor" />
                     </svg>
                   </button>
-                  <button type="button" className="icon-btn song-row-act" disabled={index === 0} onClick={() => moveInSong(entry.id, index - 1)} aria-label={`Move ${section.name} earlier`} title="Move earlier (⌥↑)">
+                  <button type="button" className="icon-btn song-row-act is-extra" disabled={index === 0} onClick={() => moveInSong(entry.id, index - 1)} aria-label={`Move ${section.name} earlier`} title="Move earlier (⌥↑)">
                     <Icon d="M6 15l6-6 6 6" />
                   </button>
-                  <button type="button" className="icon-btn song-row-act" disabled={index === spans.length - 1} onClick={() => moveInSong(entry.id, index + 1)} aria-label={`Move ${section.name} later`} title="Move later (⌥↓)">
+                  <button type="button" className="icon-btn song-row-act is-extra" disabled={index === spans.length - 1} onClick={() => moveInSong(entry.id, index + 1)} aria-label={`Move ${section.name} later`} title="Move later (⌥↓)">
                     <Icon d="M6 9l6 6 6-6" />
                   </button>
-                  <button type="button" className="icon-btn song-row-act" onClick={() => removeFromSong(entry.id)} aria-label={`Remove ${section.name} from the song`} title="Remove from the song; the section stays in its tab, and undo brings it back">
+                  <button type="button" className="icon-btn song-row-act is-extra" onClick={() => removeFromSong(entry.id)} aria-label={`Remove ${section.name} from the song`} title="Remove from the song; the section stays in its tab, and undo brings it back">
                     <Icon d="M6 6l12 12M18 6L6 18" />
                   </button>
                   <BlockMenu entryId={entry.id} section={section} index={index} count={spans.length} shared={(uses.get(section.id) ?? 0) > 1} />
