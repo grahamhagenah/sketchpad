@@ -18,6 +18,10 @@ export function LyricsButton() {
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d={LYRICS_ICON} />
       </svg>
+      {/* Named beside its icon on a wider screen, as the section's menu is; a phone shows the icon alone. */}
+      <span className="lyrics-btn-label" aria-hidden="true">
+        Lyrics
+      </span>
     </button>
   )
 }

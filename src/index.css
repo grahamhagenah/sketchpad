@@ -442,6 +442,8 @@ main > .panel {
 .inspector-btn { color: var(--muted); }
 .inspector-btn.is-on,
 .lyrics-btn.is-on { color: var(--text); }
+/* With its name beside the icon, like the section's menu next to it. */
+.section-bar-end .icon-btn.lyrics-btn { width: auto; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 8px; font-size: var(--fs-body); font-weight: 500; }
 .inspector {
   flex: none;
   width: 260px;
@@ -2488,7 +2490,8 @@ main > .panel {
 .lyrics-panel.is-sheet { position: fixed; inset: 0; z-index: 60; align-self: stretch; width: auto; max-height: none; margin: 0; padding: 0 var(--gutter) 24px; border: 0; background: var(--panel); }
 @media (max-width: 640px) {
   /* The tab strip's other buttons give way on a phone; the lyrics stay. */
-  .section-bar-end .lyrics-btn { display: inline-grid; }
+  .section-bar-end .icon-btn.lyrics-btn { display: inline-grid; width: 30px; padding: 0; }
+  .lyrics-btn-label { display: none; }
 }
 
 
