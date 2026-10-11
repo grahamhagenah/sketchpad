@@ -16,6 +16,7 @@ export function RecordingSheet() {
   const countIn = useStore((s) => s.countIn)
   const name = useStore((s) => vocalTrackName(s, s.armedLane))
   const counting = recording === 'count-in'
+  const lyrics = useStore((s) => s.lyrics)
 
   return (
     <div className={`record-sheet ${counting ? 'is-counting' : 'is-recording'}`} role="status" aria-live="polite">
@@ -41,6 +42,8 @@ export function RecordingSheet() {
           <div className="lcd" role="group" aria-label="Position">
             <Position />
           </div>
+          {/* The words being sung, to read from. */}
+          {lyrics.trim() && <p className="record-sheet-lyrics">{lyrics}</p>}
         </>
       )}
       <InputMeter className="is-large" />

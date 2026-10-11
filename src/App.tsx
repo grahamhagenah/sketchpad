@@ -18,6 +18,8 @@ import { toggleInspector, useInspector } from './components/InspectorToggle'
 import { RecordingSheet } from './components/RecordingSheet'
 import { useNarrow } from './hooks/useNarrow'
 import { ChordKeys, toggleChordKeys, useChordKeys } from './components/ChordKeys'
+import { LyricsPanel } from './components/Lyrics'
+import { useLyricsPanel } from './lyricsPanel'
 
 function useShortcuts() {
   useEffect(() => {
@@ -173,6 +175,8 @@ export default function App() {
   const inspector = !narrow && view === 'section' && hasChords && inspectorShown
   // On a wider screen, the chord keys float over everything, in either view.
   const chordKeys = useChordKeys((s) => s.open) && !narrow
+  // The lyrics beside whichever view is open; on a phone, over it.
+  const lyrics = useLyricsPanel((s) => s.open)
 
   return (
     <div className={`app ${chordPad || toolSheet ? 'has-chord-pad' : ''} ${narrow && recording ? 'has-record-sheet' : ''}`} style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
@@ -180,14 +184,17 @@ export default function App() {
         <section className="panel editor" aria-label={view === 'song' ? 'Song' : 'Section'}>
           <Toolbar />
           <SectionBar />
-          {view === 'song' ? (
-            <SongView />
-          ) : (
-            <div className="editor-body">
-              {inspector && <Inspector />}
-              <Timeline />
-            </div>
-          )}
+          <div className="editor-main">
+            {view === 'song' ? (
+              <SongView />
+            ) : (
+              <div className="editor-body">
+                {inspector && <Inspector />}
+                <Timeline />
+              </div>
+            )}
+            {lyrics && !narrow && <LyricsPanel />}
+          </div>
         </section>
       </main>
       <StatusBar />
@@ -208,6 +215,7 @@ export default function App() {
         ))
       )}
       {chordKeys && <ChordKeys />}
+      {lyrics && narrow && !recording && <LyricsPanel sheet />}
       <UndoNote />
       {/* On a phone, recording takes over the bottom of the screen. */}
       {narrow && recording && <RecordingSheet />}

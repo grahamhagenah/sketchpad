@@ -9,5 +9,7 @@ export default defineConfig({
   base: '/',
   test: {
     setupFiles: ['src/test/setup.ts'],
+    // The stylesheet as written, for colors.test.ts to check the track colours' contrast.
+    css: { include: [/index\.css/] },
   },
 })

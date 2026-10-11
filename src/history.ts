@@ -85,21 +85,24 @@ useStore.subscribe((s, prev) => {
 })
 
 /**
- * Puts the song back as it was. Each section keeps its vocal tracks as they
- * are now; a section that comes back after being deleted comes back without them.
+ * Puts the song back as it was. Each section keeps its vocal tracks and its
+ * words as they are now (words have their own undo, as they're typed); a
+ * section that comes back after being deleted comes back as it was.
  */
 function restore(snapshot: Snapshot) {
   applying = true
   const s = useStore.getState()
   const now = new Map(sectionsNow(s).map((sec) => [sec.id, sec]))
   const vocalsNow = (id: string) => vocalsOf(now.get(id) ?? emptyParts())
-  const sections = snapshot.sections.map((sec) => ({ ...sec, ...vocalsNow(sec.id) }))
+  const sections = snapshot.sections.map((sec) => ({ ...sec, ...vocalsNow(sec.id), lyrics: now.get(sec.id)?.lyrics ?? sec.lyrics }))
+  const opened = sections.find((sec) => sec.id === snapshot.activeSection)
   const switched = snapshot.activeSection !== s.activeSection
   useStore.setState({
     ...snapshot,
     sections,
-    // The open section's vocal tracks live at the top, with its chords.
+    // The open section's vocal tracks and words live at the top, with its chords.
     ...vocalsNow(snapshot.activeSection),
+    lyrics: opened?.lyrics ?? '',
     // Keep the selection only if that chord is still there.
     selectedId: snapshot.chords.some((c) => c.id === s.selectedId) ? s.selectedId : null,
     ...(switched && { selectedVocal: null, chordsTrackSelected: false, drumsTrackSelected: false, armedLane: 0 }),

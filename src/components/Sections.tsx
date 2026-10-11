@@ -10,6 +10,7 @@ import { useNarrow } from '../hooks/useNarrow'
 import { create } from 'zustand'
 import { TrackSheet } from './TrackSheet'
 import { SongCards } from './SongCards'
+import { LyricsButton } from './Lyrics'
 import { vocalColor } from '../colors'
 
 /** A gear, for a section's settings. */
@@ -254,7 +255,8 @@ export function SectionBar() {
           </button>
         )}
         {open && !narrow && empty && <SectionMenu section={open} onRename={() => setRenaming(open.id)} />}
-        {/* Zoom works on whichever view is showing, so it sits with the views. */}
+        {/* The lyrics, and zoom: they work on whichever view is showing, so they sit with the views. */}
+        <LyricsButton />
         <ZoomButtons />
       </div>
     </nav>

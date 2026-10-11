@@ -12,6 +12,7 @@ import { grooveHits, grooveLabel } from '../audio/drums'
 import { MenuButton } from './Sections'
 import { useNarrow } from '../hooks/useNarrow'
 import { InspectorButton, showInspector, useInspector } from './InspectorToggle'
+import { setLyricsOpen, useLyricsPanel } from '../lyricsPanel'
 import { PALETTE, vocalColor, vocalColorId, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR, type ColorId } from '../colors'
 
 interface Drag {
@@ -774,10 +775,12 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
  * Beside a column of names, the + at its top: a menu to add a vocal track
  * (selected, ready to record into) or the drum track. It says what's allowed:
  * as many vocal tracks as there's room for, but one drum track and one chords
- * track, the chords one always there.
+ * track, the chords one always there. Under them, the lyrics, so they're
+ * found where the song's other parts are added.
  */
 function AddTrackButton({ canVocal, canDrums }: { canVocal: boolean; canDrums: boolean }) {
-  const { addVocalTrack, addDrumTrack, drumTrack, recording } = useFields('addVocalTrack', 'addDrumTrack', 'drumTrack', 'recording')
+  const { addVocalTrack, addDrumTrack, drumTrack, recording, activeSection } = useFields('addVocalTrack', 'addDrumTrack', 'drumTrack', 'recording', 'activeSection')
+  const lyricsOpen = useLyricsPanel((l) => l.open)
   const item = (icon: ReactNode, title: string, about: string, disabled: boolean, act: () => void, close: () => void) => (
     <button
       type="button"
@@ -806,6 +809,19 @@ function AddTrackButton({ canVocal, canDrums }: { canVocal: boolean; canDrums: b
         )}
         {item(<DrumIcon />, 'Drum track', drumTrack ? 'Already added: there’s one per song' : 'One per song, with a groove for each section', !canDrums, addDrumTrack, close)}
         {item(<KeysIcon />, 'Chords track', 'Already added: there’s one per song', true, () => undefined, close)}
+        <div className="menu-divider" role="separator" />
+        {item(
+          <LyricsIcon />,
+          'Lyrics',
+          lyricsOpen ? 'Showing beside the tracks: write this section’s words' : 'Write the words, section by section, beside the tracks',
+          false,
+          () => {
+            setLyricsOpen(true)
+            // Once it's there, straight into this section's words.
+            requestAnimationFrame(() => document.getElementById(`lyrics-${activeSection}`)?.focus())
+          },
+          close,
+        )}
       </>
     )}>
       <PlusIcon />
@@ -950,8 +966,8 @@ function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo
 }
 
 const trackIcon = {
-  width: 14,
-  height: 14,
+  width: 18,
+  height: 18,
   viewBox: '0 0 24 24',
   'aria-hidden': true,
   className: 'track-icon',
@@ -976,6 +992,13 @@ export const DrumIcon = () => (
 const PlusIcon = () => (
   <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
     <path d="M12 5v14M5 12h14" />
+  </svg>
+)
+
+/** A sheet of lines, for the lyrics. */
+const LyricsIcon = () => (
+  <svg {...trackIcon} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 3h9l4 4v14H6zM9 10h7M9 14h7M9 18h4" />
   </svg>
 )
 

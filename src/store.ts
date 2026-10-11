@@ -88,6 +88,8 @@ export interface SectionParts {
   drumIntensity: DrumIntensity
   /** The section's own key, for a key change; null plays it in the song's key. */
   sectionKey: SectionKey | null
+  /** The section's words, a line to each line; every place it plays sings them. */
+  lyrics: string
 }
 
 /** A part of the song, such as a verse or chorus, that can play in it any number of times. */
@@ -202,6 +204,8 @@ interface State extends SectionParts {
   setDrums: (groove: GrooveId | null) => void
   setDrumFill: (fill: FillId) => void
   setDrumIntensity: (intensity: DrumIntensity) => void
+  /** A section's words, open or not. */
+  setLyrics: (sectionId: string, lyrics: string) => void
   /** Gives a section its own key, or (with null, or the song's own key) puts it back in the song's. */
   setSectionKey: (sectionId: string, sectionKey: SectionKey | null) => void
   /**
@@ -303,6 +307,7 @@ const PART_FIELDS: Record<keyof SectionParts, true> = {
   drumFill: true,
   drumIntensity: true,
   sectionKey: true,
+  lyrics: true,
 }
 export const PART_KEYS = Object.keys(PART_FIELDS) as (keyof SectionParts)[]
 
@@ -325,6 +330,7 @@ export const emptyParts = (): SectionParts => ({
   drumFill: 'none',
   drumIntensity: 'normal',
   sectionKey: null,
+  lyrics: '',
 })
 
 /** Every section as it is now, the open one's parts taken from the editor. */
@@ -666,6 +672,11 @@ export const useStore = create<State>()(
       setDrums: (drums) => set({ drums }),
       setDrumFill: (drumFill) => set({ drumFill }),
       setDrumIntensity: (drumIntensity) => set({ drumIntensity }),
+      setLyrics: (sectionId, lyrics) => {
+        const s = get()
+        if (sectionId === s.activeSection) return set({ lyrics })
+        set({ sections: s.sections.map((sec) => (sec.id === sectionId ? { ...sec, lyrics } : sec)) })
+      },
       setSectionKey: (sectionId, k) => {
         const s = get()
         const sectionKey = k && (k.key !== s.key || k.mode !== s.mode) ? k : null
@@ -824,8 +835,8 @@ export const useStore = create<State>()(
         const all = sectionsNow(get())
         const i = all.findIndex((sec) => sec.id === id)
         if (i === -1) return null
-        const { name, chords, loop, drums, drumFill, drumIntensity, sectionKey } = all[i]
-        // The copy plays the same chords; its vocal tracks start empty, ready for different words.
+        const { name, chords, loop, drums, drumFill, drumIntensity, sectionKey, lyrics } = all[i]
+        // The copy plays the same chords, and starts from the same words; its vocal tracks start empty.
         const copy: Section = {
           ...emptyParts(),
           id: newId(),
@@ -836,6 +847,7 @@ export const useStore = create<State>()(
           drumFill,
           drumIntensity,
           sectionKey,
+          lyrics,
         }
         set({ sections: [...all.slice(0, i + 1), copy, ...all.slice(i + 1)] })
         return copy.id
