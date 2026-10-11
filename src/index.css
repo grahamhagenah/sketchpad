@@ -1858,8 +1858,8 @@ main > .panel {
 .record-sheet-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--record); animation: record-pulse 1.2s ease-in-out infinite; }
 @keyframes record-pulse { 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .record-sheet-dot { animation: none; } }
-.record-sheet .lcd { order: 0; width: auto; }
-.record-sheet .lcd-cell { padding: 0 22px; }
+.record-sheet-position .lcd-cell { padding: 0; background: none; cursor: default; }
+.record-sheet-position .lcd-value { font-size: var(--fs-display); }
 .record-sheet-stop {
   width: 100%;
   height: 56px;
