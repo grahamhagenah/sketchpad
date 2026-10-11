@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bounce: sketch a song in your browser</title>
+    <meta name="description" content="Bounce is a free sketchpad for songwriters. Try chords, add a beat, sing over it and write the words, right in your browser. No account needed." />
+    <meta name="theme-color" content="#07080a" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="canonical" href="https://music.grahamhagenah.com/about/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bounce" />
+    <meta property="og:title" content="Bounce: sketch a song in your browser" />
+    <meta property="og:description" content="Try chords, add a beat, sing over it and write the words. Free, no account needed." />
+    <meta property="og:url" content="https://music.grahamhagenah.com/about/" />
+    <meta property="og:image" content="https://music.grahamhagenah.com/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+
+    <style>
+      :root {
+        --bg: #07080a;
+        --panel: #0e1013;
+        --raised: #1a1d22;
+        --line: #262a30;
+        --text: #f8f9fa;
+        --muted: #c3c8cf;
+        --accent: #5ad8c8;
+        --on-accent: #052421;
+        --gutter: 24px;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'DM Sans', system-ui, sans-serif;
+        font-size: 17px;
+        line-height: 1.6;
+      }
+      img { display: block; max-width: 100%; height: auto; }
+      a { color: inherit; }
+      .wrap { width: min(1120px, 100%); margin: 0 auto; padding: 0 var(--gutter); }
+
+      /* The bar along the top: the name, and the way into the app. */
+      .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; text-decoration: none; }
+      .brand img { width: 28px; height: 28px; }
+      .top-link { font-weight: 500; color: var(--muted); text-decoration: none; }
+      .top-link:hover { color: var(--text); }
+
+      /* The opening: what it is, in a sentence, and the button. */
+      .hero { padding: 56px 0 40px; text-align: center; }
+      .hero h1 { margin: 0 auto 18px; max-width: 14ch; font-size: clamp(40px, 7vw, 72px); line-height: 1.05; letter-spacing: -0.03em; }
+      .hero p { margin: 0 auto 32px; max-width: 34em; font-size: clamp(18px, 2.2vw, 21px); color: var(--muted); }
+      .cta { display: inline-flex; align-items: center; gap: 10px; padding: 16px 28px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-size: 18px; font-weight: 700; text-decoration: none; box-shadow: 0 0 32px rgb(90 216 200 / 0.3); transition: transform 0.12s ease, box-shadow 0.12s ease; }
+      .cta:hover { transform: translateY(-1px); box-shadow: 0 0 44px rgb(90 216 200 / 0.45); }
+      .cta:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+      .free { margin: 16px 0 0; font-family: 'DM Mono', monospace; font-size: 14px; color: var(--muted); }
+      .free span + span::before { content: '·'; margin: 0 10px; color: var(--line); }
+
+      /* Screenshots: on a dark card with a faint edge, like the app's own panels. */
+      .shot { margin: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); box-shadow: 0 24px 80px rgb(0 0 0 / 0.55); }
+      .hero-shot { margin-top: 56px; }
+
+      /* What it does: a picture and a few words each, side by side on a wide screen. */
+      .features { display: flex; flex-direction: column; gap: 96px; padding: 96px 0; }
+      .feature { display: grid; gap: 28px; align-items: center; }
+      .feature h2 { margin: 0 0 12px; font-size: clamp(26px, 3.4vw, 34px); line-height: 1.15; letter-spacing: -0.02em; }
+      .feature p { margin: 0; color: var(--muted); }
+      .step { display: block; margin-bottom: 10px; font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+      .feature .shot.is-tall { max-width: 320px; justify-self: center; }
+      /* Wide screenshots take the wider column, on whichever side they fall; tall ones share it evenly. */
+      @media (min-width: 860px) {
+        .feature { grid-template-columns: 1fr 1.5fr; gap: 56px; }
+        .feature:nth-child(even) { grid-template-columns: 1.5fr 1fr; }
+        .feature:nth-child(even) .text { order: 2; }
+        .feature.is-tall-shot { grid-template-columns: 1fr 1fr; }
+      }
+
+      /* Finishing it elsewhere, and how it's free: two plain cards. */
+      .facts { display: grid; gap: 16px; padding-bottom: 96px; }
+      @media (min-width: 760px) { .facts { grid-template-columns: 1fr 1fr; } }
+      .fact { padding: 28px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+      .fact h2 { margin: 0 0 10px; font-size: 22px; }
+      .fact p { margin: 0; color: var(--muted); }
+
+      /* The closing button. */
+      .end { padding: 0 0 96px; text-align: center; }
+      .end h2 { margin: 0 0 24px; font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.02em; }
+
+      footer { padding: 28px 0 40px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+      footer a { color: var(--text); }
+
+      @media (max-width: 640px) {
+        :root { --gutter: 16px; }
+        .hero { padding-top: 32px; }
+        .hero-shot { margin-top: 40px; }
+        .features { gap: 72px; padding: 72px 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cta { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <a class="brand" href="/"><img src="/favicon.svg" alt="" />Bounce</a>
+        <a class="top-link" href="/">Open the app →</a>
+      </header>
+
+      <section class="hero">
+        <h1>Get the song out of your head</h1>
+        <p>Bounce is a simple sketchpad for songwriters. Try out chords, add a beat, sing over it and write down the words, right in your browser. When it’s ready, take it to your recording app to finish it.</p>
+        <a class="cta" href="/">Start a song</a>
+        <p class="free"><span>Free</span><span>No account</span><span>Nothing to install</span></p>
+        <figure class="shot hero-shot">
+          <img src="editor.jpg" width="1600" height="1000" alt="Bounce with a song open: a row of chords, a drum beat, two recorded vocal parts, and the lyrics beside them" />
+        </figure>
+      </section>
+    </div>
+
+    <main class="wrap features">
+      <section class="feature">
+        <div class="text">
+          <span class="step">Build it up</span>
+          <h2>Chords, a beat and your voice</h2>
+          <p>Tap in chords that fit your key and hear them straight away. Pick a drum beat to go with them, from rock to disco to reggaeton. Then press record and sing over it. Every take is kept, so you can choose your favourite.</p>
+        </div>
+        <figure class="shot"><img src="tracks.jpg" width="1400" height="456" alt="Chords, a drum beat and two vocal recordings, stacked as tracks" loading="lazy" /></figure>
+      </section>
+
+      <section class="feature is-tall-shot">
+        <div class="text">
+          <span class="step">Write it down</span>
+          <h2>The words, right beside the music</h2>
+          <p>Lyrics sit next to the song, part by part, with the chords above them. A count of syllables beside each line helps your lines fit the tune, and the words follow along as the song plays.</p>
+        </div>
+        <figure class="shot is-tall"><img src="lyrics.jpg" width="715" height="1110" alt="The lyrics panel: a verse and chorus, each with its chords and a syllable count for every line" loading="lazy" /></figure>
+      </section>
+
+      <section class="feature">
+        <div class="text">
+          <span class="step">Shape it</span>
+          <h2>See the whole song at once</h2>
+          <p>Put your verses and choruses in order, repeat them, and lift the last chorus into a new key for a big finish. You can see how long the song is and how it flows at a glance.</p>
+        </div>
+        <figure class="shot"><img src="song.jpg" width="1600" height="722" alt="The whole song laid out: verse, chorus, verse, chorus and a last chorus, with their chords" loading="lazy" /></figure>
+      </section>
+
+      <section class="feature">
+        <div class="text">
+          <span class="step">Get going</span>
+          <h2>Start from a song you know</h2>
+          <p>Stuck on a blank page? Open one of the ready-made songs, inspired by songs everyone knows, listen, and make it your own. Or start from nothing and pick your first chord.</p>
+        </div>
+        <figure class="shot"><img src="start.jpg" width="1600" height="589" alt="A choice of ready-made songs to start from, alongside a button to start your own" loading="lazy" /></figure>
+      </section>
+
+      <section class="feature is-tall-shot">
+        <div class="text">
+          <span class="step">Anywhere</span>
+          <h2>On your phone, too</h2>
+          <p>Everything works on a phone, with a pad for tapping in chords and a big record button. Catch the idea wherever it turns up.</p>
+        </div>
+        <figure class="shot is-tall"><img src="phone.jpg" width="640" height="1385" alt="Bounce on a phone: the song’s tracks above a pad of chords to tap" loading="lazy" /></figure>
+      </section>
+    </main>
+
+    <div class="wrap">
+      <section class="facts">
+        <div class="fact">
+          <h2>Finish it anywhere</h2>
+          <p>Download your sketch as audio to share it, or with each part as its own file, ready to finish in GarageBand, Logic or any music app.</p>
+        </div>
+        <div class="fact">
+          <h2>Free, with no account</h2>
+          <p>There’s nothing to sign up for. Your songs save in your browser on this device, and you can back them up to a file whenever you like.</p>
+        </div>
+      </section>
+
+      <section class="end">
+        <h2>Your next song starts here</h2>
+        <a class="cta" href="/">Start a song</a>
+        <p class="free"><span>Free</span><span>No account</span><span>Nothing to install</span></p>
+      </section>
+
+      <footer>Made by <a href="https://grahamhagenah.com">Graham Hagenah</a></footer>
+    </div>
+  </body>
+</html>

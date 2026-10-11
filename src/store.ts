@@ -467,7 +467,7 @@ export function songStart(settings: SongSettings, sections: SectionStart[], orde
  * The demo song, and what a first visit opens on: a quick minor song in G,
  * a verse into a chorus and back, then the chorus again lifted a half step.
  * A down-arpeggiated saw over half-time drums, so what Bounce does is heard
- * straight away. "New sketch" starts from nothing; the sketches menu brings
+ * straight away. "New sketch" starts from nothing; the File menu brings
  * the demo back.
  */
 export function demoSong() {

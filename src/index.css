@@ -162,6 +162,13 @@ main > .panel {
 .transport,
 .toolbar-modes,
 .selection { border: 1px solid var(--tile-edge); border-radius: 8px; background: var(--tile); }
+/*
+ * Each unit's fill stops inside its edge, so the faint edge is drawn over the
+ * bar behind it and comes out the same on all of them, the black display included.
+ */
+.transport,
+.toolbar-modes,
+.selection { background-clip: padding-box; }
 .toolbar .transport > * + *,
 .toolbar .toolbar-modes > * + *,
 .toolbar .selection > * + * { border-left: 1px solid var(--tile-edge); }
@@ -243,31 +250,6 @@ main > .panel {
 .toolbar-modes .icon-btn:focus-visible,
 .chord-pad-length button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-/*
- * On a wider screen the sketches, undo, redo and export buttons have their
- * names under their icons, in the small capitals the display's readouts are
- * labelled in. A phone's bar has no room, and shows icons alone.
- */
-.btn-label { display: none; }
-.toolbar:not(.toolbar-compact) .btn-label {
-  display: block;
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  line-height: 1;
-  text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.toolbar:not(.toolbar-compact) button:has(> .btn-label) {
-  width: auto;
-  min-width: 44px;
-  height: var(--control-h);
-  padding: 0 8px;
-  align-content: center;
-  row-gap: 5px;
-}
-.toolbar .icon-btn:disabled .btn-label { opacity: 0.6; }
 
 /* Transport: start, play and record joined in one group. */
 .transport { display: inline-flex; height: var(--control-h); overflow: hidden; }
@@ -314,7 +296,7 @@ main > .panel {
 
 /* The display: where you are, and the song's tempo, meter and key, read like a DAW's LCD. */
 /* One black screen with its readouts split by hairlines, not gaps, and the same faint edge as the buttons. */
-.lcd { display: inline-flex; height: var(--control-h); border: 1px solid var(--tile-edge); border-radius: 8px; overflow: hidden; background: #000; }
+.lcd { display: inline-flex; height: var(--control-h); border: 1px solid var(--tile-edge); border-radius: 8px; overflow: hidden; background: #000 padding-box; }
 .lcd-cell + .lcd-cell { border-left: 1px solid var(--line); }
 .lcd-cell {
   display: flex;
