@@ -394,6 +394,89 @@ class Engine {
       else this.auditionTimers.push(setTimeout(play, lead))
     }
   }
+
+  /** Counts holds, so the bass (which plays one note) is let go only by the hold that last took it. */
+  private holds = 0
+  private bassHolder = 0
+  /** The arpeggio a held key is playing; one at a time, as an arpeggiator plays. */
+  private stopArp: (() => void) | null = null
+
+  /**
+   * Sounds a chord for as long as a key is held: struck when it goes down,
+   * let go with `release` (what this returns) when it comes up. A sound that
+   * fades by itself (a piano, a pluck, a bell) still fades while held; one
+   * that sustains rings on until let go, then rings out as it does. With the
+   * arpeggiator on, its pattern goes round and round for as long as the key
+   * is down, each note as long as its length says. A minute at most, so a key
+   * whose release goes missing can't ring forever.
+   */
+  hold(song: Pick<Playback, 'key' | 'mode' | 'timeSig' | 'bpm' | 'arp'>, chord: Chord): () => void {
+    const id = ++this.holds
+    let released = false
+    let stop = () => {}
+    void (async () => {
+      await Tone.start()
+      this.setup()
+      const now = Tone.now()
+      const limit = setTimeout(() => release(), 60_000)
+      if (!song.arp.on) {
+        const info = chordOf(song.key, song.mode, chord)
+        const freqs = voiceChord(info.pcs, null).map(midiToHz)
+        this.pad.triggerAttack(freqs, now, 0.8)
+        this.bass.triggerAttack(midiToHz(bassNote(info.bassPc)), monoStart(this.bass, now), 0.9)
+        this.bassHolder = id
+        stop = () => {
+          clearTimeout(limit)
+          const at = Tone.now()
+          this.pad.triggerRelease(freqs, at)
+          if (this.bassHolder === id) this.bass.triggerRelease(at)
+        }
+      } else {
+        // A newer held key takes over the arpeggio.
+        this.stopArp?.()
+        const quarter = 60 / song.bpm
+        const barQuarters = song.timeSig[0] * (4 / song.timeSig[1])
+        const bar = arrange({ key: song.key, mode: song.mode, timeSig: song.timeSig, chords: [{ ...chord, beats: song.timeSig[0] }], arp: song.arp, rhythm: { chords: 'held', bass: 'held' } })
+        const timers: ReturnType<typeof setTimeout>[] = []
+        const start = now + 0.02
+        // A bar at a time, each handed to the synths a moment ahead of its notes, so letting go stops it at the next note.
+        const queue = (n: number) => {
+          const barStart = start + n * barQuarters * quarter
+          for (const h of bar) {
+            const at = barStart + h.start * quarter
+            const play = () => {
+              if (h.pad.length) this.pad.triggerAttackRelease(h.pad.map(midiToHz), h.dur * quarter, at, h.velocity)
+              if (h.bass !== null) {
+                this.bass.triggerAttack(midiToHz(h.bass), monoStart(this.bass, at), 0.9)
+                this.bassHolder = id
+              }
+            }
+            const lead = (at - Tone.now() - 0.1) * 1000
+            if (lead <= 0) play()
+            else timers.push(setTimeout(play, lead))
+          }
+          timers.push(setTimeout(() => queue(n + 1), (barStart + barQuarters * quarter - Tone.now() - 0.3) * 1000))
+        }
+        queue(0)
+        const stopThis = () => {
+          clearTimeout(limit)
+          timers.forEach(clearTimeout)
+          if (this.bassHolder === id) this.bass.triggerRelease(Tone.now())
+          if (this.stopArp === stopThis) this.stopArp = null
+        }
+        this.stopArp = stopThis
+        stop = stopThis
+      }
+      // Let go before the audio was ready (a quick tap, the first time): struck, then let go at once, as a tapped key is.
+      if (released) stop()
+    })()
+    const release = () => {
+      if (released) return
+      released = true
+      stop()
+    }
+    return release
+  }
 }
 
 export const engine = new Engine()
@@ -673,6 +756,12 @@ void loadLanes(useStore.getState().activeSection)
 export function audition(chord: Chord, always = false) {
   const s = useStore.getState()
   if (always || !s.playing) void engine.audition({ ...keyOf(s), timeSig: s.timeSig, bpm: s.bpm, arp: s.arp }, chord)
+}
+
+/** Sounds a chord while a key is held, even with the song playing; call what it returns to let go. */
+export function holdChord(chord: Chord) {
+  const s = useStore.getState()
+  return engine.hold({ ...keyOf(s), timeSig: s.timeSig, bpm: s.bpm, arp: s.arp }, chord)
 }
 
 // In development, a code change reloads this module while Tone's transport

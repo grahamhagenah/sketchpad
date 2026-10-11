@@ -33,6 +33,9 @@ export function loadPiano() {
 /** One way of playing the chords; the pad swaps between them as the instrument changes. */
 interface Voice {
   play(freqs: number[], duration: number, time: number, velocity: number): void
+  /** Starts notes that sound until `release`, as for a key held down. */
+  attack(freqs: number[], time: number, velocity: number): void
+  release(freqs: number[], time: number): void
   apply(sound: Sound): void
   releaseAll(): void
   dispose(): void
@@ -42,6 +45,8 @@ function synthVoice(out: Tone.ToneAudioNode, kind: 'synth' | 'strings'): Voice {
   const synth = new Tone.PolySynth(Tone.Synth).connect(out)
   return {
     play: (freqs, duration, time, velocity) => synth.triggerAttackRelease(freqs, duration, time, velocity),
+    attack: (freqs, time, velocity) => synth.triggerAttack(freqs, time, velocity),
+    release: (freqs, time) => synth.triggerRelease(freqs, time),
     apply(sound) {
       // How far apart the stacked oscillators are tuned, in cents: as wide as the width says.
       const { width } = extrasOf(sound)
@@ -72,6 +77,8 @@ function fmVoice(out: Tone.ToneAudioNode, kind: 'epiano' | 'bell'): Voice {
   )
   return {
     play: (freqs, duration, time, velocity) => synth.triggerAttackRelease(freqs, duration, time, velocity),
+    attack: (freqs, time, velocity) => synth.triggerAttack(freqs, time, velocity),
+    release: (freqs, time) => synth.triggerRelease(freqs, time),
     apply(sound) {
       synth.set({ oscillator: { type: 'sine' }, envelope: { attack: sound.attack, decay: sound.decay, sustain: sound.sustain, release: sound.release } })
       synth.volume.value = INSTRUMENT_VOLUME[kind]
@@ -102,6 +109,8 @@ function pianoVoice(out: Tone.ToneAudioNode): Voice {
   else void loadPiano().then(make, () => undefined)
   return {
     play: (freqs, duration, time, velocity) => sampler?.triggerAttackRelease(freqs, duration, time, velocity),
+    attack: (freqs, time, velocity) => sampler?.triggerAttack(freqs, time, velocity),
+    release: (freqs, time) => sampler?.triggerRelease(freqs, time),
     apply,
     releaseAll: () => sampler?.releaseAll(),
     dispose() {
@@ -140,6 +149,14 @@ export class Pad {
 
   triggerAttackRelease(freqs: number[], duration: number, time: number, velocity: number) {
     this.voice?.play(freqs, duration, time, velocity)
+  }
+
+  triggerAttack(freqs: number[], time: number, velocity: number) {
+    this.voice?.attack(freqs, time, velocity)
+  }
+
+  triggerRelease(freqs: number[], time: number) {
+    this.voice?.release(freqs, time)
   }
 
   releaseAll() {
