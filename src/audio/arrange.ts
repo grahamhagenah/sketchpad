@@ -1,6 +1,7 @@
 import { voiceProgression, type Mode } from '../music/theory'
 import type { Chord, LoopRegion, TimeSig } from '../store'
 import { eighth, pulses } from './drums'
+import type { Sound } from './sound'
 
 export type ArpPattern = 'up' | 'down' | 'updown' | 'random' | 'pulse'
 export type ArpRate = '1/4' | '1/8' | '1/8T' | '1/16'
@@ -23,6 +24,20 @@ export const DEFAULT_ARP: Arp = { on: false, pattern: 'up', rate: '1/8', octaves
 
 /** Whether a speed has notes between the beats to swing: eighths and sixteenths, not quarters or triplets. */
 export const swings = (rate: ArpRate) => rate === '1/8' || rate === '1/16'
+
+/**
+ * The sound the chords play on, with the arpeggiator's length heard. A
+ * sound's release can ring on for a second or more after a note ends, longer
+ * than a whole step, so shortening the notes would change nothing you could
+ * hear. While the arpeggiator is on, short of legato, each note fades out in
+ * a fraction of its step instead, so a shorter length leaves a real gap.
+ */
+export function playedSound(sound: Sound, arp: Arp, bpm: number): Sound {
+  if (!arp.on || arp.gate >= 0.95) return sound
+  const stepSeconds = ARP_RATES.find((r) => r.id === arp.rate)!.quarters * (60 / bpm)
+  const release = 0.03 + 0.35 * stepSeconds * arp.gate
+  return release < sound.release ? { ...sound, release } : sound
+}
 
 export const ARP_PATTERNS: { id: ArpPattern; label: string }[] = [
   { id: 'up', label: 'Up' },

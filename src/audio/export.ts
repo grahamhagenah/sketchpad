@@ -1,6 +1,6 @@
 import * as Tone from 'tone'
 import { keyLabel, keySignature } from '../music/theory'
-import { arrange } from './arrange'
+import { arrange, playedSound } from './arrange'
 import { createInstruments, createVocalRoom, loadPiano, midiToHz, routeVocal } from './instruments'
 import { instrumentOf, type Instrument } from './sound'
 import { createKit, DRUM_NOTES, KIT_VOLUME, playDrum } from './drums'
@@ -179,7 +179,7 @@ async function render(song: ExportSong, parts: Parts, duration: number) {
   // The piano's notes, loaded before the render, so it's made with them in hand.
   if (parts.pad && instrumentOf(song.sound) === 'piano') await loadPiano()
   const rendered = await Tone.Offline(async () => {
-    const { pad, bass, reverb, bus } = createInstruments(song.sound)
+    const { pad, bass, reverb, bus } = createInstruments(playedSound(song.sound, song.arp, song.bpm))
     bus.volume.value = song.chordsDb ?? 0
     await reverb.ready
     for (const h of hits) {

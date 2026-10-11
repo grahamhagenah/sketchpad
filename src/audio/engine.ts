@@ -1,7 +1,7 @@
 import * as Tone from 'tone'
 import { keyOf, useStore, loopRange, vocalTrackName, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
-import { arrange, type Hit } from './arrange'
+import { arrange, playedSound, type Hit } from './arrange'
 import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
@@ -76,7 +76,8 @@ class Engine {
   private setup() {
     if (this.ready) return
     setAudioSession('playback')
-    this.instruments = createInstruments(useStore.getState().sound)
+    const s = useStore.getState()
+    this.instruments = createInstruments(playedSound(s.sound, s.arp, s.bpm))
     this.pad = this.instruments.pad
     this.bass = this.instruments.bass
     this.click = new Tone.Synth({
@@ -401,7 +402,8 @@ useStore.setState({ latency: measuredLatency() })
 
 // Keep the loop in step with edits made while it plays.
 const unsubscribe = useStore.subscribe((s, prev) => {
-  if (s.sound !== prev.sound) engine.setSound(s.sound)
+  // The arpeggiator's length and speed, and the tempo, set how quickly its notes fade.
+  if (s.sound !== prev.sound || s.arp !== prev.arp || s.bpm !== prev.bpm) engine.setSound(playedSound(s.sound, s.arp, s.bpm))
   // Levels change straight away, playing or not, so a chord auditioned after turning the chords down is quieter too.
   if (s.chordsVolume !== prev.chordsVolume || s.drumsVolume !== prev.drumsVolume || s.vocalVolume !== prev.vocalVolume || s.vocalReverb !== prev.vocalReverb || s.sections !== prev.sections) {
     engine.setLevels(playbackOf(s))
