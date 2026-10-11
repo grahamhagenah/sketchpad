@@ -3,8 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bounce: a song sketchpad for musicians</title>
-    <meta name="description" content="Bounce is a free song sketchpad in your browser. Write chord progressions, add drums, track vocals and lyrics, then export stems and MIDI to your DAW. No account needed." />
+    <title>Bounce: Free Online Song Sketchpad &amp; Chord Progression Maker</title>
+    <meta name="description" content="Sketch song demos online: build chord progressions, add drums, record vocals and write lyrics, then export stems and MIDI to your DAW. Free, no account." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="Graham Hagenah" />
     <meta name="theme-color" content="#07080a" />
     <meta name="color-scheme" content="dark" />
     <link rel="canonical" href="https://music.grahamhagenah.com/about/" />
@@ -13,11 +15,142 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Bounce" />
-    <meta property="og:title" content="Bounce: a song sketchpad for musicians" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="Bounce: free online song sketchpad" />
     <meta property="og:description" content="Chord progressions, drums, vocal takes and lyrics, exported as stems and MIDI to your DAW. Free, no account needed." />
     <meta property="og:url" content="https://music.grahamhagenah.com/about/" />
     <meta property="og:image" content="https://music.grahamhagenah.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Bounce, with a row of chords: Am, F, C, G" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Bounce: free online song sketchpad" />
+    <meta name="twitter:description" content="Chord progressions, drums, vocal takes and lyrics, exported as stems and MIDI to your DAW. Free, no account needed." />
+    <meta name="twitter:image" content="https://music.grahamhagenah.com/og-image.png" />
+
+    <link rel="preload" as="image" href="editor.jpg" fetchpriority="high" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://music.grahamhagenah.com/#app",
+      "name": "Bounce",
+      "url": "https://music.grahamhagenah.com/",
+      "description": "A free song sketchpad in the browser: chord progressions, drum grooves, vocal takes and lyrics, exported as MIDI, WAV or stems to any DAW.",
+      "applicationCategory": "MultimediaApplication",
+      "applicationSubCategory": "Songwriting",
+      "operatingSystem": "Any (web browser)",
+      "browserRequirements": "Requires a modern browser with Web Audio",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "isAccessibleForFree": true,
+      "featureList": [
+        "Chord progressions in any major or minor key",
+        "Drum grooves from four-on-the-floor to drum & bass",
+        "Multitrack vocal recording with every take kept",
+        "Lyrics with syllable counts, synced to song sections",
+        "Song arrangement with per-section key changes",
+        "Export MIDI, WAV mix and stems",
+        "Works on phones, tablets and computers",
+        "No account needed"
+      ],
+      "screenshot": [
+        "https://music.grahamhagenah.com/about/editor.jpg",
+        "https://music.grahamhagenah.com/about/vocals.jpg",
+        "https://music.grahamhagenah.com/about/song.jpg",
+        "https://music.grahamhagenah.com/about/lyrics.jpg"
+      ],
+      "author": {
+        "@type": "Person",
+        "name": "Graham Hagenah",
+        "url": "https://grahamhagenah.com"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://music.grahamhagenah.com/about/",
+      "url": "https://music.grahamhagenah.com/about/",
+      "name": "Bounce: free online song sketchpad and chord progression maker",
+      "isPartOf": {
+        "@type": "WebSite",
+        "name": "Bounce",
+        "url": "https://music.grahamhagenah.com/"
+      },
+      "about": {
+        "@id": "https://music.grahamhagenah.com/#app"
+      },
+      "primaryImageOfPage": "https://music.grahamhagenah.com/about/editor.jpg",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is Bounce really free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. There's no price, no trial, no ads and no account. Open it and start a song."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I export my song to Logic, Ableton or FL Studio?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Export MIDI of the chords and drums with the tempo, time signature and key; a WAV mix of the whole song; stems, one WAV per track in a single zip; or any vocal take on its own. They drop straight into Logic Pro, Ableton Live, FL Studio, GarageBand, Reaper or any other DAW."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work on iPhone and Android?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Bounce runs in the browser on phones, tablets and computers, with a chord pad sized for your thumb on a phone. Recording needs microphone access, and headphones keep the chords out of your vocal take."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Where are my songs saved?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In your browser, on your device. Save sketches to your library to come back to, and back any of them up, recordings included, to a single .bounce file you can open on another device."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which keys, tempos and time signatures can I use?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Any major or minor key, from 30 to 300 BPM, in 4/4, 3/4 and 6/8 through to 5/4, 7/8 and 15/16. Any section can move to its own key, for a key change into the last chorus."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can it help me find a chord progression?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. The chords that fit your key are laid out to pick from, with 7ths, sus and borrowed chords a click away, and you can start a section from a common progression or open one of 12 song templates built on progressions everyone knows."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Bounce track me?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Only anonymously. It counts visits and a few actions, like exports, with GoatCounter, which uses no cookies and keeps nothing personal. Your songs and recordings never leave your device unless you export them."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -58,6 +191,7 @@
 
       /* The opening: what it is, in a sentence, and the button. */
       .hero { padding: 56px 0 40px; text-align: center; }
+      .hero .kicker { display: block; margin-bottom: 16px; font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
       .hero h1 { margin: 0 auto 18px; max-width: 18ch; font-size: clamp(40px, 7vw, 72px); line-height: 1.05; letter-spacing: -0.03em; }
       .hero p { margin: 0 auto 32px; max-width: 34em; font-size: clamp(18px, 2.2vw, 21px); color: var(--muted); }
       .cta { display: inline-flex; align-items: center; gap: 10px; padding: 16px 28px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-size: 18px; font-weight: 700; text-decoration: none; box-shadow: 0 0 32px rgb(90 216 200 / 0.3); transition: transform 0.12s ease, box-shadow 0.12s ease; }
@@ -96,6 +230,13 @@
       .fact h3 { margin: 0 0 10px; font-size: 20px; line-height: 1.25; }
       .fact p { margin: 0; color: var(--muted); }
 
+      /* Questions people ask, answered plainly. */
+      .faq { max-width: 760px; margin: 0 auto; padding-bottom: 144px; }
+      .faq > h2 { margin: 0 0 32px; font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.02em; }
+      .faq-item { padding: 24px 0; border-top: 1px solid var(--line); }
+      .faq-item h3 { margin: 0 0 8px; font-size: 19px; line-height: 1.3; }
+      .faq-item p { margin: 0; color: var(--muted); }
+
       /* The closing button. */
       .end { padding: 0 0 128px; text-align: center; }
       .end h2 { margin: 0 0 24px; font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.02em; }
@@ -109,6 +250,7 @@
         .hero-shot { margin-top: 40px; }
         .features { gap: 96px; padding-top: 88px; padding-bottom: 96px; }
         .facts { padding-bottom: 96px; }
+        .faq { padding-bottom: 96px; }
         .end { padding-bottom: 96px; }
         .free { font-size: 13px; }
         .free { gap: 2px 16px; }
@@ -132,12 +274,12 @@
       </header>
 
       <section class="hero">
-        <h1>Demo now.<br />Produce later.</h1>
+        <h1><span class="kicker">Free online song sketchpad</span> Demo now.<br />Produce later.</h1>
         <p>Bounce is a song sketchpad in your browser. Write a progression, put drums under it, track a scratch vocal and get the lyrics down. When the idea’s there, export stems and MIDI and finish it in your DAW.</p>
         <a class="cta" href="/">Start a song</a>
         <p class="free"><span>Free</span><span>No account</span><span>Nothing to install</span></p>
         <figure class="shot hero-shot">
-          <img src="editor.jpg" width="1600" height="1000" alt="Bounce with a song open: a chord track, a drum track, two vocal takes, and the lyrics beside them" />
+          <img src="editor.jpg" width="1600" height="1000" fetchpriority="high" alt="The Bounce song sketchpad with a song open: a chord progression, a drum groove, two vocal takes, and the lyrics beside them" />
         </figure>
       </section>
     </div>
@@ -149,7 +291,7 @@
           <h2>Scratch vocals, as many takes as you need</h2>
           <p>Hit record and sing over the loop, with a count-in to get you in. Every take is kept, so you can pick the best one, trim its ends on the timeline, and stack harmonies on tracks of their own. A quick timing check keeps your takes in time with the track.</p>
         </div>
-        <figure class="shot"><img src="vocals.jpg" width="1420" height="1080" alt="A lead vocal track selected, with three takes to choose from, take 2 playing, and a harmony track below" loading="lazy" /></figure>
+        <figure class="shot"><img src="vocals.jpg" width="1420" height="1080" alt="A lead vocal track selected, with three takes to choose from, take 2 playing, and a harmony track below" loading="lazy" decoding="async" /></figure>
       </section>
 
       <section class="feature is-tall-shot">
@@ -158,7 +300,7 @@
           <h2>Lyrics, synced to the sections</h2>
           <p>Each section gets its own lyrics, with its chords above them and a syllable count on every line to help with phrasing. The lyric sheet follows the playhead, so you always see the section you’re in.</p>
         </div>
-        <figure class="shot is-tall"><img src="lyrics.jpg" width="715" height="1110" alt="The lyrics panel: verse and chorus, each with its chords and syllable counts" loading="lazy" /></figure>
+        <figure class="shot is-tall"><img src="lyrics.jpg" width="715" height="1110" alt="The lyrics panel: verse and chorus, each with its chords and syllable counts" loading="lazy" decoding="async" /></figure>
       </section>
 
       <section class="feature">
@@ -167,7 +309,7 @@
           <h2>Arrange the whole song</h2>
           <p>Lay out verses, choruses and a bridge, reorder them by dragging, and reuse a section wherever it repeats. Modulate any section, like a key change into the last chorus, and see the form and length at a glance.</p>
         </div>
-        <figure class="shot"><picture><source media="(max-width: 640px)" srcset="song-narrow.jpg" width="1000" height="914" /><img src="song.jpg" width="1600" height="916" alt="The arrangement: verse, chorus, verse, chorus and a last chorus, with their chords" loading="lazy" /></picture></figure>
+        <figure class="shot"><picture><source media="(max-width: 640px)" srcset="song-narrow.jpg" width="1000" height="914" /><img src="song.jpg" width="1600" height="916" alt="The arrangement: verse, chorus, verse, chorus and a last chorus, with their chords" loading="lazy" decoding="async" /></picture></figure>
       </section>
     </main>
 
@@ -196,6 +338,38 @@
         <div class="fact">
           <h3>Free, with no account</h3>
           <p>Nothing to sign up for or install. Sessions save in your browser, and you can back one up, recordings included, to a single file.</p>
+        </div>
+      </section>
+
+      <section class="faq" aria-labelledby="faq-title">
+        <h2 id="faq-title">Questions</h2>
+        <div class="faq-item">
+          <h3>Is Bounce really free?</h3>
+          <p>Yes. There’s no price, no trial, no ads and no account. Open it and start a song.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Can I export my song to Logic, Ableton or FL Studio?</h3>
+          <p>Yes. Export MIDI of the chords and drums with the tempo, time signature and key; a WAV mix of the whole song; stems, one WAV per track in a single zip; or any vocal take on its own. They drop straight into Logic Pro, Ableton Live, FL Studio, GarageBand, Reaper or any other DAW.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Does it work on iPhone and Android?</h3>
+          <p>Yes. Bounce runs in the browser on phones, tablets and computers, with a chord pad sized for your thumb on a phone. Recording needs microphone access, and headphones keep the chords out of your vocal take.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Where are my songs saved?</h3>
+          <p>In your browser, on your device. Save sketches to your library to come back to, and back any of them up, recordings included, to a single .bounce file you can open on another device.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Which keys, tempos and time signatures can I use?</h3>
+          <p>Any major or minor key, from 30 to 300 BPM, in 4/4, 3/4 and 6/8 through to 5/4, 7/8 and 15/16. Any section can move to its own key, for a key change into the last chorus.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Can it help me find a chord progression?</h3>
+          <p>Yes. The chords that fit your key are laid out to pick from, with 7ths, sus and borrowed chords a click away, and you can start a section from a common progression or open one of 12 song templates built on progressions everyone knows.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Does Bounce track me?</h3>
+          <p>Only anonymously. It counts visits and a few actions, like exports, with GoatCounter, which uses no cookies and keeps nothing personal. Your songs and recordings never leave your device unless you export them.</p>
         </div>
       </section>
 
