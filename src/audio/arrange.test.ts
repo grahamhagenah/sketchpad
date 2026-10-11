@@ -46,6 +46,11 @@ describe('arrange', () => {
     expect(steps.map((h) => +h.start.toFixed(3))).toEqual([0, 0.667, 1, 1.667])
     // The note before a late one rings on up to it.
     expect(steps.map((h) => +h.dur.toFixed(3))).toEqual([0.667, 0.333, 0.667, 0.333])
+    // Counted from the bar, so a chord or loop starting on an off eighth swings the same notes.
+    const compound = arrange(song([3, 3], [6, 8], { on: true, rate: '1/8', gate: 1, swing: 1 })).filter((h) => !h.held)
+    expect(compound.map((h) => +h.start.toFixed(3))).toEqual([0, 0.667, 1, 1.667, 2, 2.667])
+    const looped = arrange(song([6], [6, 8], { on: true, rate: '1/8', gate: 1, swing: 1 }), { start: 1, end: 4 }).filter((h) => !h.held)
+    expect(looped.map((h) => +h.start.toFixed(3))).toEqual([0.667, 1, 1.667])
     // Triplets have nothing between to swing.
     const triplets = arrange(song([1], [4, 4], { on: true, rate: '1/8T', swing: 1 })).filter((h) => !h.held)
     expect(triplets.map((h) => +h.start.toFixed(3))).toEqual([0, 0.333, 0.667])

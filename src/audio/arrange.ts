@@ -140,7 +140,13 @@ function seeded(seed: number) {
   }
 }
 
-function arpeggiate(notes: number[], start: number, end: number, arp: Arp, seed: number): Hit[] {
+/**
+ * The arpeggio over one chord, from `start` to `end` in quarter notes from the
+ * top. `bar` is a bar's length in quarters, so the notes that swing are the
+ * ones between the beats wherever the chord (or the loop) starts, even a
+ * chord starting on an off eighth in 6/8 or 7/8.
+ */
+function arpeggiate(notes: number[], start: number, end: number, arp: Arp, seed: number, bar: number): Hit[] {
   const step = ARP_RATES.find((r) => r.id === arp.rate)!.quarters
   const climb = Array.from({ length: arp.octaves }, (_, o) => notes.map((n) => n + 12 * o)).flat()
   const order =
@@ -160,7 +166,9 @@ function arpeggiate(notes: number[], start: number, end: number, arp: Arp, seed:
       arp.pattern === 'pulse'
         ? notes
         : [arp.pattern === 'random' ? climb[Math.floor(random() * climb.length)] : order[i % order.length]]
-    const offbeat = i % 2 === 1
+    // Counted from the bar's start, not the chord's: the second of each pair of steps is the one that swings.
+    const inBar = t - Math.floor((t + 1e-6) / bar) * bar
+    const offbeat = Math.round(inBar / step) % 2 === 1
     const at = offbeat ? t + late : t
     const span = offbeat ? step - late : step + late
     // On a quarter note, louder with accent; between them, softer.
@@ -224,7 +232,7 @@ export function arrange(song: ArrangeSong, region?: LoopRegion): Hit[] {
     if (padHeld || !bassOnKicks) {
       hits.push({ start: s, dur: e - s, pad: padHeld ? notes : [], bass: bassOnKicks ? null : bass, velocity: 0.8, held: true })
     }
-    if (song.arp.on) hits.push(...arpeggiate(notes, s, e, song.arp, i + 1))
+    if (song.arp.on) hits.push(...arpeggiate(notes, s, e, song.arp, i + 1, perBar * quartersPerBeat))
     else if (!padHeld) {
       const at = strikes(rhythmBar(rhythm.chords, song.timeSig), perBar, start, end)
       // A chord that changes between strikes still sounds as it changes, except in the patterns that leave the beat open.
