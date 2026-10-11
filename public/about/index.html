@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bounce: sketch a song in your browser</title>
-    <meta name="description" content="Bounce is a free sketchpad for songwriters. Try chords, add a beat, sing over it and write the words, right in your browser. No account needed." />
+    <title>Bounce: a song sketchpad for musicians</title>
+    <meta name="description" content="Bounce is a free song sketchpad in your browser. Write chord progressions, add drums, track vocals and lyrics, then export stems and MIDI to your DAW. No account needed." />
     <meta name="theme-color" content="#07080a" />
     <meta name="color-scheme" content="dark" />
     <link rel="canonical" href="https://music.grahamhagenah.com/about/" />
@@ -13,8 +13,8 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Bounce" />
-    <meta property="og:title" content="Bounce: sketch a song in your browser" />
-    <meta property="og:description" content="Try chords, add a beat, sing over it and write the words. Free, no account needed." />
+    <meta property="og:title" content="Bounce: a song sketchpad for musicians" />
+    <meta property="og:description" content="Chord progressions, drums, vocal takes and lyrics, exported as stems and MIDI to your DAW. Free, no account needed." />
     <meta property="og:url" content="https://music.grahamhagenah.com/about/" />
     <meta property="og:image" content="https://music.grahamhagenah.com/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -58,12 +58,15 @@
 
       /* The opening: what it is, in a sentence, and the button. */
       .hero { padding: 56px 0 40px; text-align: center; }
-      .hero h1 { margin: 0 auto 18px; max-width: 14ch; font-size: clamp(40px, 7vw, 72px); line-height: 1.05; letter-spacing: -0.03em; }
+      .hero h1 { margin: 0 auto 18px; max-width: 18ch; font-size: clamp(40px, 7vw, 72px); line-height: 1.05; letter-spacing: -0.03em; }
       .hero p { margin: 0 auto 32px; max-width: 34em; font-size: clamp(18px, 2.2vw, 21px); color: var(--muted); }
       .cta { display: inline-flex; align-items: center; gap: 10px; padding: 16px 28px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-size: 18px; font-weight: 700; text-decoration: none; box-shadow: 0 0 32px rgb(90 216 200 / 0.3); transition: transform 0.12s ease, box-shadow 0.12s ease; }
       .cta:hover { transform: translateY(-1px); box-shadow: 0 0 44px rgb(90 216 200 / 0.45); }
       .cta:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
-      .free { margin: 16px 0 0; font-family: 'DM Mono', monospace; font-size: 14px; color: var(--muted); }
+      .free { margin: 24px 0 0; font-family: 'DM Mono', monospace; font-size: 14px; color: var(--muted); }
+      .hero .free { margin-top: 24px; }
+      .free { display: flex; flex-wrap: wrap; justify-content: center; }
+      .free span { white-space: nowrap; }
       .free span + span::before { content: '·'; margin: 0 10px; color: var(--line); }
 
       /* Screenshots: on a dark card with a faint edge, like the app's own panels. */
@@ -71,7 +74,7 @@
       .hero-shot { margin-top: 56px; }
 
       /* What it does: a picture and a few words each, side by side on a wide screen. */
-      .features { display: flex; flex-direction: column; gap: 96px; padding: 96px 0; }
+      .features { display: flex; flex-direction: column; gap: 144px; padding-top: 128px; padding-bottom: 144px; }
       .feature { display: grid; gap: 28px; align-items: center; }
       .feature h2 { margin: 0 0 12px; font-size: clamp(26px, 3.4vw, 34px); line-height: 1.15; letter-spacing: -0.02em; }
       .feature p { margin: 0; color: var(--muted); }
@@ -85,15 +88,16 @@
         .feature.is-tall-shot { grid-template-columns: 1fr 1fr; }
       }
 
-      /* Finishing it elsewhere, and how it's free: two plain cards. */
-      .facts { display: grid; gap: 16px; padding-bottom: 96px; }
-      @media (min-width: 760px) { .facts { grid-template-columns: 1fr 1fr; } }
+      /* Everything else it does, in a few words each, without pictures. */
+      .facts { display: grid; gap: 16px; padding-bottom: 144px; }
+      @media (min-width: 640px) { .facts { grid-template-columns: 1fr 1fr; } }
+      @media (min-width: 960px) { .facts { grid-template-columns: 1fr 1fr 1fr; } }
       .fact { padding: 28px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
-      .fact h2 { margin: 0 0 10px; font-size: 22px; }
+      .fact h3 { margin: 0 0 10px; font-size: 20px; line-height: 1.25; }
       .fact p { margin: 0; color: var(--muted); }
 
       /* The closing button. */
-      .end { padding: 0 0 96px; text-align: center; }
+      .end { padding: 0 0 128px; text-align: center; }
       .end h2 { margin: 0 0 24px; font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.02em; }
 
       footer { padding: 28px 0 40px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
@@ -103,7 +107,12 @@
         :root { --gutter: 16px; }
         .hero { padding-top: 32px; }
         .hero-shot { margin-top: 40px; }
-        .features { gap: 72px; padding: 72px 0; }
+        .features { gap: 96px; padding-top: 88px; padding-bottom: 96px; }
+        .facts { padding-bottom: 96px; }
+        .end { padding-bottom: 96px; }
+        .free { font-size: 13px; }
+        .free { gap: 2px 16px; }
+        .free span + span::before { content: none; }
       }
       @media (prefers-reduced-motion: reduce) {
         .cta { transition: none; }
@@ -118,72 +127,70 @@
       </header>
 
       <section class="hero">
-        <h1>Get the song out of your head</h1>
-        <p>Bounce is a simple sketchpad for songwriters. Try out chords, add a beat, sing over it and write down the words, right in your browser. When it’s ready, take it to your recording app to finish it.</p>
+        <h1>Demo now.<br />Produce later.</h1>
+        <p>Bounce is a song sketchpad in your browser. Write a progression, put drums under it, track a scratch vocal and get the lyrics down. When the idea’s there, export stems and MIDI and finish it in your DAW.</p>
         <a class="cta" href="/">Start a song</a>
         <p class="free"><span>Free</span><span>No account</span><span>Nothing to install</span></p>
         <figure class="shot hero-shot">
-          <img src="editor.jpg" width="1600" height="1000" alt="Bounce with a song open: a row of chords, a drum beat, two recorded vocal parts, and the lyrics beside them" />
+          <img src="editor.jpg" width="1600" height="1000" alt="Bounce with a song open: a chord track, a drum track, two vocal takes, and the lyrics beside them" />
         </figure>
       </section>
     </div>
 
     <main class="wrap features">
-      <section class="feature">
+      <section class="feature is-tall-shot">
         <div class="text">
-          <span class="step">Build it up</span>
-          <h2>Chords, a beat and your voice</h2>
-          <p>Tap in chords that fit your key and hear them straight away. Pick a drum beat to go with them, from rock to disco to reggaeton. Then press record and sing over it. Every take is kept, so you can choose your favourite.</p>
+          <span class="step">Track it</span>
+          <h2>Scratch vocals, as many takes as you need</h2>
+          <p>Hit record and sing over the loop, with a count-in to get you in. Every take is kept, so you can pick the best one, trim its ends on the timeline, and stack harmonies on tracks of their own. A quick timing check keeps your takes in time with the track.</p>
         </div>
-        <figure class="shot"><img src="tracks.jpg" width="1400" height="456" alt="Chords, a drum beat and two vocal recordings, stacked as tracks" loading="lazy" /></figure>
+        <figure class="shot"><img src="vocals.jpg" width="1420" height="1080" alt="A lead vocal track selected, with three takes to choose from, take 2 playing, and a harmony track below" loading="lazy" /></figure>
       </section>
 
       <section class="feature is-tall-shot">
         <div class="text">
           <span class="step">Write it down</span>
-          <h2>The words, right beside the music</h2>
-          <p>Lyrics sit next to the song, part by part, with the chords above them. A count of syllables beside each line helps your lines fit the tune, and the words follow along as the song plays.</p>
+          <h2>Lyrics, synced to the sections</h2>
+          <p>Each section gets its own lyrics, with its chords above them and a syllable count on every line to help with phrasing. The lyric sheet follows the playhead, so you always see the section you’re in.</p>
         </div>
-        <figure class="shot is-tall"><img src="lyrics.jpg" width="715" height="1110" alt="The lyrics panel: a verse and chorus, each with its chords and a syllable count for every line" loading="lazy" /></figure>
+        <figure class="shot is-tall"><img src="lyrics.jpg" width="715" height="1110" alt="The lyrics panel: verse and chorus, each with its chords and syllable counts" loading="lazy" /></figure>
       </section>
 
       <section class="feature">
         <div class="text">
           <span class="step">Shape it</span>
-          <h2>See the whole song at once</h2>
-          <p>Put your verses and choruses in order, repeat them, and lift the last chorus into a new key for a big finish. You can see how long the song is and how it flows at a glance.</p>
+          <h2>Arrange the whole song</h2>
+          <p>Lay out verses, choruses and a bridge, reorder them by dragging, and reuse a section wherever it repeats. Modulate any section, like a key change into the last chorus, and see the form and length at a glance.</p>
         </div>
-        <figure class="shot"><img src="song.jpg" width="1600" height="722" alt="The whole song laid out: verse, chorus, verse, chorus and a last chorus, with their chords" loading="lazy" /></figure>
-      </section>
-
-      <section class="feature">
-        <div class="text">
-          <span class="step">Get going</span>
-          <h2>Start from a song you know</h2>
-          <p>Stuck on a blank page? Open one of the ready-made songs, inspired by songs everyone knows, listen, and make it your own. Or start from nothing and pick your first chord.</p>
-        </div>
-        <figure class="shot"><img src="start.jpg" width="1600" height="589" alt="A choice of ready-made songs to start from, alongside a button to start your own" loading="lazy" /></figure>
-      </section>
-
-      <section class="feature is-tall-shot">
-        <div class="text">
-          <span class="step">Anywhere</span>
-          <h2>On your phone, too</h2>
-          <p>Everything works on a phone, with a pad for tapping in chords and a big record button. Catch the idea wherever it turns up.</p>
-        </div>
-        <figure class="shot is-tall"><img src="phone.jpg" width="640" height="1385" alt="Bounce on a phone: the song’s tracks above a pad of chords to tap" loading="lazy" /></figure>
+        <figure class="shot"><picture><source media="(max-width: 640px)" srcset="song-narrow.jpg" width="1000" height="914" /><img src="song.jpg" width="1600" height="916" alt="The arrangement: verse, chorus, verse, chorus and a last chorus, with their chords" loading="lazy" /></picture></figure>
       </section>
     </main>
 
     <div class="wrap">
       <section class="facts">
         <div class="fact">
-          <h2>Finish it anywhere</h2>
-          <p>Download your sketch as audio to share it, or with each part as its own file, ready to finish in GarageBand, Logic or any music app.</p>
+          <h3>Chords that fit your key</h3>
+          <p>Build progressions from the diatonic chords, with 7ths, sus and borrowed chords a click away. Pick a sound, voicing and arpeggiator pattern.</p>
         </div>
         <div class="fact">
-          <h2>Free, with no account</h2>
-          <p>There’s nothing to sign up for. Your songs save in your browser on this device, and you can back them up to a file whenever you like.</p>
+          <h3>Grooves to write over</h3>
+          <p>Drum patterns from four-on-the-floor to half-time to drum &amp; bass, with fills and a sparse, normal or busy feel for each section.</p>
+        </div>
+        <div class="fact">
+          <h3>Start from a known progression</h3>
+          <p>Open a template built on a progression everyone knows, from “Creep” to “I Feel Love”, and change it until it’s yours. Or start blank.</p>
+        </div>
+        <div class="fact">
+          <h3>On your phone, too</h3>
+          <p>The full app works on a phone, with a chord pad and one-tap recording. Catch the idea when it turns up, then pick it up at your desk.</p>
+        </div>
+        <div class="fact">
+          <h3>Export to your DAW</h3>
+          <p>Bounce a WAV mix to share, or export stems and MIDI for Logic, Ableton, FL Studio or any DAW. Tempo and key come along, so everything lines up.</p>
+        </div>
+        <div class="fact">
+          <h3>Free, with no account</h3>
+          <p>Nothing to sign up for or install. Sessions save in your browser, and you can back one up, recordings included, to a single file.</p>
         </div>
       </section>
 

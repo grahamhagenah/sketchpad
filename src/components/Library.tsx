@@ -193,6 +193,10 @@ export function SketchesButton() {
               {showDeleted && deleted.map((sketch) => <DeletedRow key={sketch.id} sketch={sketch} />)}
             </>
           )}
+          <div className="menu-divider" role="separator" />
+          <a className="menu-footnote" href="/about/" target="_blank" rel="noopener">
+            About Bounce
+          </a>
         </div>
       )}
     </div>

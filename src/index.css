@@ -1945,6 +1945,9 @@ main > .panel {
 /* Over a list in a menu, such as the saved sketches. */
 .menu-heading { margin: 8px 12px 2px; font-family: 'DM Mono', monospace; font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .menu-empty { margin: 6px 12px 8px; font-size: var(--fs-body); color: var(--muted); }
+/* A quiet link at the foot of the File menu, out to the page about the app. */
+.menu-footnote { display: block; margin: 2px 0; padding: 6px 12px; border-radius: 6px; font-size: var(--fs-label); color: var(--muted); text-decoration: none; }
+.menu-footnote:hover, .menu-footnote:focus-visible { color: var(--text); background: var(--raised); }
 
 /* Saving and the sketch library */
 .save-btn { position: relative; }
