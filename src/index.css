@@ -2494,6 +2494,3 @@ main > .panel {
 .vocal-timing .chord-pad-length { width: 100%; }
 .vocal-timing .chord-pad-length button { flex: none; padding: 0 14px; font-size: var(--fs-body); }
 .vocal-timing .chord-pad-length span { flex: 1; justify-content: center; color: var(--muted); }
-
-/* With nothing selected, what the settings column is for. */
-.inspector-empty { margin: 4px 0 0; font-size: var(--fs-body); line-height: 1.5; color: var(--muted); }
