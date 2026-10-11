@@ -23,8 +23,8 @@ const BASSES: { id: ChordBass | undefined; label: string }[] = [
 /**
  * On a wider screen, a column beside the track names with the settings of
  * whatever's selected, the same ones a phone shows in the sheet along the
- * bottom: a chord, the chords track, a vocal track or the drum track. With
- * nothing selected it isn't there, and the tracks have the room.
+ * bottom: a chord, the chords track, a vocal track or the drum track; with
+ * nothing selected, the section's own.
  */
 export function Inspector() {
   const s = useFields('chords', 'chordsTrackSelected', 'drumTrack', 'drumsTrackSelected', 'selectedId', 'selectedVocal')
@@ -35,7 +35,13 @@ export function Inspector() {
   else if (s.selectedVocal !== null) [body, title] = [<VocalPad lane={s.selectedVocal} docked />, 'Track settings']
   else if (s.drumsTrackSelected && s.drumTrack) [body, title] = [<DrumPad docked />, 'Track settings']
   else if (s.chordsTrackSelected && s.chords.length) [body, title] = [<ChordsTrackPad docked />, 'Track settings']
-  else return null
+  else
+    [body, title] = [
+      <p className="inspector-empty" key="empty">
+        Select a chord or a track to change it here.
+      </p>,
+      'Settings',
+    ]
   return (
     <aside className="inspector" aria-label={title}>
       <div className="inspector-body">

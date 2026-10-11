@@ -170,9 +170,7 @@ export default function App() {
   // On a wider screen, what's selected has its settings in a column beside the tracks; an empty section has only its ways to start.
   const hasChords = useStore((s) => s.chords.length > 0)
   const inspectorShown = useInspector((s) => s.shown)
-  // Only while something's selected: a chord, or a track; moving from one to another keeps it open.
-  const selected = useStore((s) => s.chords.some((c) => c.id === s.selectedId) || s.selectedVocal !== null || (s.drumsTrackSelected && s.drumTrack) || (s.chordsTrackSelected && s.chords.length > 0))
-  const inspector = !narrow && view === 'section' && hasChords && inspectorShown && selected
+  const inspector = !narrow && view === 'section' && hasChords && inspectorShown
   // On a wider screen, the chord keys float over everything, in either view.
   const chordKeys = useChordKeys((s) => s.open) && !narrow
   // The lyrics beside whichever view is open; on a phone, over it.
