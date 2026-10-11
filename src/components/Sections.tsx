@@ -522,14 +522,16 @@ export function SectionPanel({ docked = true, onDone }: { docked?: boolean; onDo
 /** Each place in the song is a row this tall, with this gap under it: room for its chords, and a strip each for its drums and vocals. */
 const ROW_H = 82
 /** On a phone a row is stacked: its name on a line of its own, its chords the full width under it. */
-const NARROW_ROW_H = 112
-const NARROW_HEAD_H = 44
+const NARROW_ROW_H = 94
+const NARROW_HEAD_H = 34
 /** On a phone, the narrowest a chord gets: room for a name like B♭m. */
 const NARROW_CHORD_PX = 48
 const ROW_GAP = 6
+/** On a phone, a wider gap between rows, with the line in it, so each place reads as its own: its name close over its chords, well apart from the next. */
+const NARROW_ROW_GAP = 24
 /** Room at the end of each row for its buttons: play from here, up, down, remove, and the menu. */
 const END_PX = 184
-const rowTop = (i: number, rowH = ROW_H) => i * (rowH + ROW_GAP)
+const rowTop = (i: number, rowH = ROW_H, gap = ROW_GAP) => i * (rowH + gap)
 
 /** An element's width, kept up to date as it changes. */
 function useWidth(ref: RefObject<HTMLElement | null>) {
@@ -593,6 +595,7 @@ export function SongView() {
   // On a phone the name sits above the chords, so they get the full width.
   const narrow = sheetWidth > 0 && sheetWidth < 640
   const rowH = narrow ? NARROW_ROW_H : ROW_H
+  const rowGap = narrow ? NARROW_ROW_GAP : ROW_GAP
   const headPx = narrow ? 8 : 176
   // Room is left at the end of each row for its buttons (see END_PX).
   // A phone has no zoom buttons, so there the song always fits the screen.
@@ -613,7 +616,7 @@ export function SongView() {
   const placePlayhead = (el: HTMLElement | null, beat: number) => {
     if (!el) return
     const { i, along } = rowAt(spansRef.current, beat)
-    el.style.transform = `translate(${along * beatPx}px, ${rowTop(i, rowH)}px)`
+    el.style.transform = `translate(${along * beatPx}px, ${rowTop(i, rowH, rowGap)}px)`
   }
   useEffect(() => {
     if (!playing) {
@@ -647,7 +650,7 @@ export function SongView() {
   const suppressClick = useRef(false)
   const dropIndex = (id: string, dy: number) => {
     const from = spans.findIndex((span) => span.entry.id === id)
-    return Math.min(spans.length - 1, Math.max(0, from + Math.round(dy / (rowH + ROW_GAP))))
+    return Math.min(spans.length - 1, Math.max(0, from + Math.round(dy / (rowH + rowGap))))
   }
   const order = (() => {
     if (!drag) return spans
@@ -659,7 +662,7 @@ export function SongView() {
   const tops = new Map(
     order.map((span, i) => {
       const id = span.entry.id
-      return [id, id === drag?.id ? rowTop(spans.findIndex((s) => s.entry.id === id), rowH) + drag.dy : rowTop(i, rowH)]
+      return [id, id === drag?.id ? rowTop(spans.findIndex((s) => s.entry.id === id), rowH, rowGap) + drag.dy : rowTop(i, rowH, rowGap)]
     }),
   )
 
@@ -750,10 +753,10 @@ export function SongView() {
         {blank ? (
           <SongCards />
         ) : (
-        <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + (narrow ? 16 : END_PX)}px)`, height: rowTop(spans.length, rowH) + (narrow ? 80 : 60) }}>
+        <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + (narrow ? 16 : END_PX)}px)`, height: rowTop(spans.length, rowH, rowGap) + (narrow ? 80 : 60) }}>
           {/* Faint lines between the rows, staying put while a row is dragged past them. */}
           {spans.slice(1).map((_, i) => (
-            <div key={i} className="song-divider" style={{ top: rowTop(i + 1, rowH) - ROW_GAP / 2 }} />
+            <div key={i} className="song-divider" style={{ top: rowTop(i + 1, rowH, rowGap) - rowGap / 2 }} />
           ))}
           {order.map((span) => {
             const { entry, start, beats } = span
@@ -897,7 +900,7 @@ export function SongView() {
           })}
 
           {/* On a phone it's in the flow, pinned to the screen as the song scrolls sideways. */}
-          <div className="song-add" style={narrow ? { marginTop: rowTop(spans.length, rowH) } : { top: rowTop(spans.length, rowH) }}>
+          <div className="song-add" style={narrow ? { marginTop: rowTop(spans.length, rowH, rowGap) } : { top: rowTop(spans.length, rowH, rowGap) }}>
             <MenuButton label="Add to the song" title="Add a section to the end of the song" className="song-add-btn" menu={(close) => (
               <>
                 {sections.map((sec) => (

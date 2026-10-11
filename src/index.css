@@ -1469,8 +1469,13 @@ main > .panel {
 .song-view.is-narrow .song-add-btn { width: 100%; height: 56px; padding: 0 16px; font-size: var(--fs-title); }
 /* On a phone each row is stacked: its name and menu on a line, its chords the full width under them. */
 .song-view.is-narrow .song-row-body { flex-direction: column; align-items: stretch; }
-.song-view.is-narrow .song-row-head { width: auto; height: 44px; gap: 10px; padding: 4px 186px 0 8px; }
+.song-view.is-narrow .song-row-head { width: auto; height: 34px; gap: 10px; padding: 0 186px 0 8px; }
 .song-view.is-narrow .song-row-track { flex: 1; align-self: flex-start; margin-left: var(--song-head); }
+/* Its chords right under the name, the drums and any vocals in strips below them, so the name reads as theirs. */
+.song-view.is-narrow .song-row-bar { top: 2px; }
+.song-view.is-narrow .song-row-drums { top: 41px; }
+.song-view.is-narrow .song-row-vocals { top: 54px; bottom: auto; height: 6px; }
+.song-view.is-narrow .song-row.is-empty .song-row-track { align-items: flex-start; }
 .song-view.is-narrow .song-row-actions { top: 24px; gap: 4px; }
 /*
  * Wider than the screen, the song scrolls sideways under each row's name and
@@ -1480,7 +1485,7 @@ main > .panel {
 .song-view.is-narrow .song-row { display: grid; touch-action: pan-x pan-y; }
 .song-view.is-narrow .song-row > * { grid-area: 1 / 1; }
 .song-view.is-narrow .song-row-head { position: sticky; left: 0; width: var(--song-view-w); }
-.song-view.is-narrow .song-row-actions { position: sticky; left: calc(var(--song-view-w) - 176px); justify-self: start; align-self: start; top: auto; margin-top: 7px; transform: none; }
+.song-view.is-narrow .song-row-actions { position: sticky; left: calc(var(--song-view-w) - 176px); justify-self: start; align-self: start; top: auto; margin-top: 2px; transform: none; }
 .song-view.is-narrow .song-sheet { display: flow-root; }
 .song-view.is-narrow .song-add { position: sticky; left: 4px; width: calc(var(--song-view-w) - 8px); }
 .song-view.is-narrow .song-chord { text-overflow: ellipsis; }
