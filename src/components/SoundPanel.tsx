@@ -9,6 +9,7 @@ import { audition } from '../audio/engine'
 import { loadPiano } from '../audio/instruments'
 import { ArpSettings } from './ArpPanel'
 import { SheetSlider, TrackSheet } from './TrackSheet'
+import { setLyricsOpen } from '../lyricsPanel'
 
 // Brightness runs on a log scale, so the slider's travel matches what you hear.
 const MIN_HZ = 300
@@ -39,7 +40,12 @@ function usePanel(which: 'sound' | 'arp') {
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(floating && !narrow, close, ref)
   const open = narrow ? sheet : floating
-  const toggle = () => (narrow ? useToolSheet.setState({ open: sheet ? null : which }) : setFloating(!floating))
+  const toggle = () => {
+    if (!narrow) return setFloating(!floating)
+    // One sheet at a time along the bottom: the sound or arpeggiator takes the lyrics' place.
+    if (!sheet) setLyricsOpen(false)
+    useToolSheet.setState({ open: sheet ? null : which })
+  }
   return { ref, open, toggle, floating: open && !narrow }
 }
 

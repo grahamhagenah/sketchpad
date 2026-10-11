@@ -175,9 +175,11 @@ export default function App() {
   const chordKeys = useChordKeys((s) => s.open) && !narrow
   // The lyrics beside whichever view is open; on a phone, over it.
   const lyrics = useLyricsPanel((s) => s.open)
+  // On a phone, the lyrics are a sheet along the bottom, in the chord pad's place; recording shows the words itself.
+  const lyricsSheet = lyrics && narrow && !recording
 
   return (
-    <div className={`app ${chordPad || toolSheet ? 'has-chord-pad' : ''} ${narrow && recording ? 'has-record-sheet' : ''}`} style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
+    <div className={`app ${chordPad || toolSheet || lyricsSheet ? 'has-chord-pad' : ''} ${narrow && recording ? 'has-record-sheet' : ''}`} style={{ ['--track-chords' as string]: colorHex(chordsColor), ['--track-drums' as string]: colorHex(drumsColor) }}>
       <main>
         <section className="panel editor" aria-label={view === 'song' ? 'Song' : 'Section'}>
           <Toolbar />
@@ -198,6 +200,8 @@ export default function App() {
       <StatusBar />
       {toolSheet ? (
         <ToolSheet which={toolSheet} />
+      ) : lyricsSheet ? (
+        <LyricsPanel sheet />
       ) : (
         chordPad &&
         (selectedVocal !== null ? (
@@ -211,7 +215,6 @@ export default function App() {
         ))
       )}
       {chordKeys && <ChordKeys />}
-      {lyrics && narrow && !recording && <LyricsPanel sheet />}
       <UndoNote />
       {/* On a phone, recording takes over the bottom of the screen. */}
       {narrow && recording && <RecordingSheet />}

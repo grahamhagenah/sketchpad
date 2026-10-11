@@ -2487,7 +2487,8 @@ main > .panel {
 .lyrics-lines textarea::placeholder { color: var(--muted); opacity: 0.6; }
 .lyrics-counts { flex: none; width: 18px; padding-top: 9px; display: flex; flex-direction: column; font-family: 'DM Mono', monospace; font-size: var(--fs-small); line-height: var(--lh); text-align: right; color: var(--muted); }
 .lyrics-counts span { height: var(--lh); }
-.lyrics-panel.is-sheet { position: fixed; inset: 0; z-index: 60; align-self: stretch; width: auto; max-height: none; margin: 0; padding: 0 var(--gutter) 24px; border: 0; background: var(--panel); }
+/* On a phone, in a sheet along the bottom: each section's words one after another, as in the column. */
+.lyrics-sheet { display: flex; flex-direction: column; gap: 4px; margin: 0 -12px; }
 @media (max-width: 640px) {
   /* The tab strip's other buttons give way on a phone; the lyrics stay. */
   .section-bar-end .icon-btn.lyrics-btn { display: inline-grid; width: 30px; padding: 0; }

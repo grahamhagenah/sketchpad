@@ -5,19 +5,37 @@ import { lineSyllables } from '../music/lyrics'
 import { engine } from '../audio/engine'
 import { songSpans } from '../song'
 import { setLyricsOpen, toggleLyrics, useLyricsPanel } from '../lyricsPanel'
-import { CloseButton } from './TrackSheet'
+import { CloseButton, TrackSheet } from './TrackSheet'
+import { useToolSheet } from './SoundPanel'
 
 /** A sheet of lines, for the lyrics. */
 const LYRICS_ICON = 'M6 3h9l4 4v14H6zM9 10h7M9 14h7M9 18h4'
+
+const LyricsIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={LYRICS_ICON} />
+  </svg>
+)
 
 /** Shows or hides the lyrics, from the end of the tab strip. */
 export function LyricsButton() {
   const open = useLyricsPanel((s) => s.open)
   return (
-    <button type="button" className={`icon-btn lyrics-btn ${open ? 'is-on' : ''}`} aria-pressed={open} aria-label="Lyrics" title={open ? 'Hide the lyrics' : 'Show the lyrics'} onClick={toggleLyrics}>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d={LYRICS_ICON} />
-      </svg>
+    <button
+      type="button"
+      className={`icon-btn lyrics-btn ${open ? 'is-on' : ''}`}
+      // On a phone it opens and closes the lyrics' sheet itself, so a tap on it isn't a tap outside the sheet.
+      data-sheet-toggle
+      aria-pressed={open}
+      aria-label="Lyrics"
+      title={open ? 'Hide the lyrics' : 'Show the lyrics'}
+      onClick={() => {
+        // One sheet at a time along the bottom of a phone: the lyrics take the sound's or arpeggiator's place.
+        if (!open) useToolSheet.setState({ open: null })
+        toggleLyrics()
+      }}
+    >
+      <LyricsIcon />
       {/* Named beside its icon on a wider screen, as the section's menu is; a phone shows the icon alone. */}
       <span className="lyrics-btn-label" aria-hidden="true">
         Lyrics
@@ -76,13 +94,7 @@ export function LyricsPanel({ sheet = false }: { sheet?: boolean }) {
     if (playingId) blocks.current.get(playingId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [playingId])
 
-  return (
-    <aside className={`lyrics-panel ${sheet ? 'is-sheet' : ''}`} aria-label="Lyrics">
-      <div className="lyrics-head">
-        <span className="column-title">Lyrics</span>
-        <CloseButton onClick={() => setLyricsOpen(false)} title="Hide the lyrics" />
-      </div>
-      {ordered.map((sec) => {
+  const body = ordered.map((sec) => {
         const { key, mode } = sec.sectionKey ?? { key: s.key, mode: s.mode }
         const chords = sec.chords.map((c) => chordOf(key, mode, c).name).join('  ')
         const times = uses.get(sec.id) ?? 0
@@ -121,7 +133,23 @@ export function LyricsPanel({ sheet = false }: { sheet?: boolean }) {
             <LyricLines id={field} label={`${sec.name} lyrics`} value={sec.lyrics} onChange={(text) => s.setLyrics(sec.id, text)} />
           </section>
         )
-      })}
+      })
+
+  // On a phone, a sheet along the bottom like the sound's and the tracks' settings: dragged down or tapped outside, it's put away.
+  if (sheet) {
+    return (
+      <TrackSheet name="Lyrics" icon={<LyricsIcon />} onDone={() => setLyricsOpen(false)} dismiss>
+        <div className="lyrics-sheet">{body}</div>
+      </TrackSheet>
+    )
+  }
+  return (
+    <aside className="lyrics-panel" aria-label="Lyrics">
+      <div className="lyrics-head">
+        <span className="column-title">Lyrics</span>
+        <CloseButton onClick={() => setLyricsOpen(false)} title="Hide the lyrics" />
+      </div>
+      {body}
     </aside>
   )
 }
