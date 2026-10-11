@@ -1242,18 +1242,16 @@ main > .panel {
   color: var(--muted);
 }
 .section-add svg { width: 18px; height: 18px; }
-/* Always in reach: when the tabs run longer than the strip, they scroll under it, fading out just before it (only then, so the open tab's edge shows). */
-.section-add { position: sticky; right: 0; z-index: 2; background: var(--bg); }
-.section-tabs.has-more .section-add::before {
-  content: '';
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  right: 100%;
-  width: 20px;
-  background: linear-gradient(to right, transparent, var(--bg));
-  pointer-events: none;
-}
+/* Close after the last tab, as if one of them. */
+.section-add { margin-left: -8px; }
+/*
+ * Always in reach: the + sits after the tabs, outside them, so when they run
+ * longer than the strip they scroll on their own, fading out at whichever
+ * edge has more beyond it (only then, so the open tab's edge shows).
+ */
+.section-tabs { --fade-start: 0px; --fade-end: 0px; mask-image: linear-gradient(to right, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent); }
+.section-tabs.has-before { --fade-start: 28px; }
+.section-tabs.has-more { --fade-end: 28px; }
 .section-rename {
   width: auto;
   height: 30px;
@@ -1270,7 +1268,7 @@ main > .panel {
   .section-tab-wrap:not(.is-open):hover,
   .section-tab.is-song:not([aria-selected='true']):hover { background: rgb(255 255 255 / 0.04); }
   .section-tab:not(:disabled):not([aria-selected='true']):hover { color: var(--text); }
-  .section-add:not(:disabled):hover { color: var(--text); background: linear-gradient(rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.06)), var(--bg); border-color: transparent; }
+  .section-add:not(:disabled):hover { color: var(--text); background: var(--raised); }
 }
 .section-menu { width: 280px; z-index: 30; }
 .menu-item.menu-item-row { flex-direction: row; align-items: center; gap: 10px; padding-block: 8px; }
@@ -1479,7 +1477,7 @@ main > .panel {
 .song-view.is-narrow .song-add-btn { width: 100%; height: 56px; padding: 0 16px; font-size: var(--fs-title); }
 /* On a phone each row is stacked: its name and menu on a line, its chords the full width under them. */
 .song-view.is-narrow .song-row-body { flex-direction: column; align-items: stretch; }
-.song-view.is-narrow .song-row-head { width: auto; height: 34px; gap: 10px; padding: 0 186px 0 8px; }
+.song-view.is-narrow .song-row-head { width: auto; height: 34px; gap: 10px; padding: 0 86px 0 8px; }
 .song-view.is-narrow .song-row-track { flex: 1; align-self: flex-start; margin-left: var(--song-head); }
 /* Its chords right under the name, the drums and any vocals in strips below them, so the name reads as theirs. */
 .song-view.is-narrow .song-row-bar { top: 2px; }
@@ -1489,18 +1487,20 @@ main > .panel {
 .song-view.is-narrow .song-row-actions { top: 24px; gap: 4px; }
 /*
  * Wider than the screen, the song scrolls sideways under each row's name and
- * buttons, which stay put: the name pinned to the left, the buttons (176px of
+ * buttons, which stay put: the name pinned to the left, the buttons (76px of
  * them, the room the name leaves) to the right.
  */
 .song-view.is-narrow .song-row { display: grid; touch-action: pan-x pan-y; }
 .song-view.is-narrow .song-row > * { grid-area: 1 / 1; }
 .song-view.is-narrow .song-row-head { position: sticky; left: 0; width: var(--song-view-w); }
-.song-view.is-narrow .song-row-actions { position: sticky; left: calc(var(--song-view-w) - 176px); justify-self: start; align-self: start; top: auto; margin-top: 2px; transform: none; }
+.song-view.is-narrow .song-row-actions { position: sticky; left: calc(var(--song-view-w) - 76px); justify-self: start; align-self: start; top: auto; margin-top: 2px; transform: none; }
 .song-view.is-narrow .song-sheet { display: flow-root; }
 .song-view.is-narrow .song-add { position: sticky; left: 4px; width: calc(var(--song-view-w) - 8px); }
 .song-view.is-narrow .song-chord { text-overflow: ellipsis; }
 /* A phone drags rows by holding them, so there's no grip; the name has its length beside it. */
 .song-view.is-narrow .song-row-grip { display: none; }
+/* Moving and removing are in the row's menu on a phone, leaving the name room. */
+.song-view.is-narrow .song-row-act.is-extra { display: none; }
 .song-row-length { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-small); font-weight: 500; color: var(--muted); }
 .song-view.is-narrow .song-row-title { flex: none; }
 
