@@ -15,9 +15,9 @@
   /*
    * Track colours, as in Logic: chords blue and drums yellow to start with,
    * each vocal track its own, and any of them changeable to another from the
-   * palette in colors.ts (the app sets these two from the song). Regions are
-   * neutral; the colour marks the track in its header (its
-   * icon) and tints vocal waveforms. A selected region gets a white ring.
+   * palette in colors.ts (the app sets these two from the song). It marks
+   * the track in its header (its icon) and tints its regions (see "Track
+   * colours on the regions", at the end). A selected region gets a white ring.
    */
   --track-chords: #86a8ff;
   --track-drums: #ffd166;
@@ -2341,3 +2341,21 @@ main > .panel {
 @media (max-width: 640px) {
   .chord-keys { display: none; }
 }
+
+/*
+ * Track colours on the regions: each chord, the drums and every vocal take
+ * filled with a dark tint of its track's colour, its edge a little stronger,
+ * the way Logic colours regions. Selected, playing, muted and empty regions
+ * keep their own looks on top of it. (All of it here, to take back out in one go.)
+ */
+.drum-region { --track: var(--track-drums); }
+.chord,
+.drum-region,
+.vocal-take {
+  background: color-mix(in srgb, var(--track) 22%, var(--raised));
+  border-color: color-mix(in srgb, var(--track) 48%, var(--line-strong));
+}
+.chord.is-active { background: color-mix(in srgb, var(--track) 42%, var(--raised)); }
+.drum-region:not(.is-empty):hover { background: color-mix(in srgb, var(--track) 30%, var(--raised)); }
+.vocal-take span { background: color-mix(in srgb, var(--track) 80%, var(--text)); }
+
