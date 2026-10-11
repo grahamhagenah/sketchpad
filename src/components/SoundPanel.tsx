@@ -289,18 +289,21 @@ function SoundSettings() {
         <div className="sound-section">
           <div className="sound-shape-head">
             <span className="sound-heading">Shape</span>
-            {changed && base && (
-              <button
-                type="button"
-                className="track-sheet-link"
-                onClick={() => {
-                  setSound({ ...base.sound, ...extrasOf(base.sound), preset: base.name, bass: sound.bass })
-                  preview()
-                }}
-              >
-                Reset {base.name}
-              </button>
-            )}
+            {/* Always there, hidden until the sound's been changed, so showing it doesn't move anything. */}
+            <button
+              type="button"
+              className="track-sheet-link"
+              style={changed && base ? undefined : { visibility: 'hidden' }}
+              aria-hidden={!(changed && base)}
+              tabIndex={changed && base ? undefined : -1}
+              onClick={() => {
+                if (!base) return
+                setSound({ ...base.sound, ...extrasOf(base.sound), preset: base.name, bass: sound.bass })
+                preview()
+              }}
+            >
+              Reset {base?.name ?? 'sound'}
+            </button>
           </div>
           <div className="sound-grid" role="radiogroup" aria-label="Wave">
             {WAVES.map((w) => (
