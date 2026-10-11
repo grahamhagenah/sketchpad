@@ -9,6 +9,7 @@ import { quietly, showUndoNote } from './undoNote'
 import { readSketchFile, sketchFile } from './sketchFile'
 import { download, exportName } from './audio/export'
 import { newId } from './id'
+import { tally } from './analytics'
 
 /** A saved sketch as listed; its takes are stored apart, under the same id. */
 export interface SketchRecord {
@@ -138,6 +139,7 @@ export async function newSketch() {
   quietly(() => useStore.setState({ ...songState({}), title: '', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumTrack: false, drumsMuted: false, drumsSolo: false, chordsVolume: 0, drumsVolume: 0, chordsColor: null, drumsColor: null }))
   useStore.getState().setSaved(null, null)
   clearHistory()
+  tally('new')
   return true
 }
 
@@ -154,6 +156,8 @@ export async function openSong(start: SongStart, title: string) {
   quietly(() => useStore.setState({ title, chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumsMuted: false, drumsSolo: false, chordsColor: null, drumsColor: null, ...start }))
   useStore.getState().setSaved(null, null)
   clearHistory()
+  // Which ready-made songs get opened, by name.
+  tally(`song/${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`, title)
 }
 
 export const openDemo = () => openSong(demoSong(), 'Demo song')

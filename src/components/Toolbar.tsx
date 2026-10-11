@@ -10,6 +10,7 @@ import { ArpButton, SoundButton } from './SoundPanel'
 import { Position } from './Position'
 import { ChordKeysButton } from './ChordKeys'
 import { SongTitle } from './SongTitle'
+import { tally } from '../analytics'
 import { download, exportName, placedTakes, songToMidi, songToStems, songToWav, takeToWav } from '../audio/export'
 import { LANES } from '../audio/take'
 import { playbackOf } from '../song'
@@ -279,6 +280,7 @@ function ExportButton() {
     // Every chord and drum hit, muted or not: in a DAW each track can be muted there.
     const song = exported(unmuted(s))
     download(songToMidi({ ...song, chords: song.chords.map((c) => ({ ...c, silent: false })) }), `${exportName(s)}.mid`)
+    tally('export/midi')
     setOpen(false)
   }
   const exportWav = async () => {
@@ -288,6 +290,7 @@ function ExportButton() {
       // The mix is what you hear: muted and un-soloed tracks are left out.
       const song = exported()
       download(await songToWav(song, placedTakes(song, (id) => engine.takeAudio(id))), `${exportName(s)}.wav`)
+      tally('export/wav')
       setOpen(false)
     } finally {
       setRendering(null)
@@ -302,6 +305,7 @@ function ExportButton() {
       const takes = placedTakes(song, (id) => engine.takeAudio(id))
       const names = { chords: chordsTrackName(s), drums: drumsTrackName(s), vocal: (track: number) => vocalTrackName(s, track) }
       download(await songToStems(song, takes, names), `${exportName(s)}-stems.zip`)
+      tally('export/stems')
       setOpen(false)
     } finally {
       setRendering(null)
@@ -314,6 +318,7 @@ function ExportButton() {
     if (!take) return
     const slug = vocalTrackName(s, lane).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `vocal-${lane + 1}`
     download(takeToWav(s, take), `${exportName(s)}-${slug}.wav`)
+    tally('export/vocal')
     setOpen(false)
   }
 

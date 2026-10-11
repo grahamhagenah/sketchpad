@@ -11,6 +11,7 @@ import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, take
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 import { keepVocals } from '../history'
 import { quietly, showUndoNote } from '../undoNote'
+import { tally } from '../analytics'
 
 interface HitEvent extends Hit {
   time: string
@@ -575,6 +576,7 @@ async function stopRecording() {
     engine.addTake(take)
     s.addTake(lane, takeInfo(take))
     s.showVocalTracks(lane + 1)
+    tally('record')
   }
 }
 
