@@ -165,13 +165,16 @@ export function measuredLatency(): number | null {
   }
 }
 
-function keepLatency(seconds: number) {
+export function keepLatency(seconds: number) {
   try {
     localStorage.setItem(LATENCY_KEY, String(seconds))
   } catch {
     // Not kept; the browser's own estimate is used instead.
   }
 }
+
+/** The round trip new takes are lined up by when the input's own lag isn't known: measured, or the output's as the browser reports it. */
+export const expectedRoundTrip = () => measuredLatency() ?? outputLatency()
 
 /** How far the take must be moved to line up with the beat: the measured round trip, or the browser's estimate. */
 export function roundTrip(capture: Pick<Capture, 'inputLatency'>) {

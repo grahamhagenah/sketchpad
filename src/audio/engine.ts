@@ -5,7 +5,7 @@ import { arrange, playedSound, type Hit } from './arrange'
 import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Bass, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
-import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
+import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
 import { keepStorage, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
@@ -32,6 +32,10 @@ interface Recording {
   startBeat: number
   bpm: number
   lane: number
+  /** When the take's first beat plays, and when each count-in click did, to hear them back and measure the round trip. */
+  startAt: number
+  clicks: number[]
+  beatSeconds: number
   /** Recording round the loop: how long each pass is, and the least of the last that's kept; null when it plays once. */
   cycle: { passSeconds: number; minSeconds: number } | null
 }
@@ -320,7 +324,7 @@ class Engine {
 
     // With the loop on, it goes round and round, a take each time, until stopped; the last is kept if at least a bar of it was sung.
     const cycle = song.loopOn ? { passSeconds: (region.end - region.start) * beatSeconds, minSeconds: num * beatSeconds } : null
-    const rec: Recording = { capture, alignTime: 0, startBeat: region.start, bpm: song.bpm, lane, cycle }
+    const rec: Recording = { capture, alignTime: 0, startAt: 0, clicks: [], beatSeconds, startBeat: region.start, bpm: song.bpm, lane, cycle }
     this.recording = rec
     // Run fn when the audio clock reaches time, if this recording is still going.
     // A plain timer, unlike Tone's Draw, never skips a callback that runs late.
@@ -345,6 +349,7 @@ class Engine {
     const countIn = Tone.now() + 0.1
     for (let b = 0; b < num; b++) {
       const time = countIn + b * beatSeconds
+      rec.clicks.push(time)
       // A bar counted in out loud on the metronome's click, the first beat higher, so the tempo is in your head before the take starts;
       // each handed over a moment ahead, so cancelling the count-in stops the clicks still to come. The button counts down the beats too.
       at(time - 0.08, () => this.click.triggerAttackRelease(b === 0 ? 'C6' : 'G5', 0.03, monoStart(this.click, time), b === 0 ? 1 : 0.6))
@@ -353,6 +358,7 @@ class Engine {
     const startAt = countIn + num * beatSeconds
     // What the singer hears at startAt leaves the speakers a little later,
     // and their voice reaches us a little later again: measured, if it has been, or else the browser's estimate.
+    rec.startAt = startAt
     rec.alignTime = startAt + roundTrip(capture)
     t.start(startAt, `${this.loopStartTicks}i`)
     at(startAt, on.rolling)
@@ -381,6 +387,14 @@ class Engine {
     this.stop()
     const { startTime, samples } = await rec.capture.stop()
     const sampleRate = Tone.getContext().sampleRate
+    // Where the microphone heard the count-in's clicks (singing to speakers, it does), the round trip is measured
+    // right there: the take is lined up by that, and the next ones too. On headphones it hears nothing, and the last measure stands.
+    const heard = rec.clicks.length >= 3 ? findClicks(samples, sampleRate, startTime, rec.clicks, rec.beatSeconds - 0.05) : null
+    if (heard !== null && heard > 0.002 && heard < 0.6) {
+      rec.alignTime = rec.startAt + heard
+      keepLatency(heard)
+      useStore.getState().setLatency(heard)
+    }
     const skip = Math.round((rec.alignTime - startTime) * sampleRate)
     // Nothing sung yet means stopped during the count-in.
     if (samples.length - skip < sampleRate * 0.25) return { lane: rec.lane, takes: [] }
@@ -733,9 +747,48 @@ export async function deleteTake(lane: number) {
 }
 
 /** Trims a take, or with null plays it whole again; undo puts the trim back as it was. */
+/** A take's length in seconds, wherever it is in the open section. */
+function takeSeconds(id: string) {
+  const s = useStore.getState()
+  return [...s.takes, ...s.allTakes.flat()].find((t) => t?.id === id)?.seconds ?? null
+}
+
+/** Trims a take, or with null plays it whole again; either way it keeps its nudge. */
 export function trimTake(id: string, trim: Trim | null) {
   keepVocals()
-  useStore.getState().setTrim(id, trim)
+  const s = useStore.getState()
+  const nudge = s.trims[id]?.nudge
+  const seconds = takeSeconds(id)
+  if (trim) s.setTrim(id, nudge ? { ...trim, nudge } : trim)
+  else s.setTrim(id, nudge && seconds !== null ? { start: 0, end: seconds, nudge } : null)
+}
+
+/**
+ * Moves a take earlier (less than 0) or later by `nudge` seconds from where
+ * it was recorded, keeping its trim; a step at a time undoes as one.
+ */
+let lastNudge = 0
+export function nudgeTake(id: string, nudge: number) {
+  const s = useStore.getState()
+  const seconds = takeSeconds(id)
+  if (seconds === null) return
+  // Clicks in a row undo together.
+  if (Date.now() - lastNudge > 1500) keepVocals()
+  lastNudge = Date.now()
+  const trim = s.trims[id]
+  const kept = { start: trim?.start ?? 0, end: trim?.end ?? seconds }
+  const cut = kept.start > 0.001 || kept.end < seconds - 0.001
+  s.setTrim(id, Math.abs(nudge) < 0.0005 ? (cut ? kept : null) : { ...kept, nudge })
+}
+
+/**
+ * Lines up new takes on this device as a nudge lined up this one: a take
+ * moved earlier came in late, so the round trip is that much longer.
+ */
+export function learnFromNudge(nudge: number) {
+  const latency = Math.max(0, expectedRoundTrip() - nudge)
+  keepLatency(latency)
+  useStore.getState().setLatency(latency)
 }
 
 /** Deletes one of a track's takes, keeping the track and its others; undo brings it back. */

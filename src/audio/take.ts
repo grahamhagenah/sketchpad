@@ -28,6 +28,14 @@ export interface TakeInfo {
 export interface Trim {
   start: number
   end: number
+  /** How far the take is moved from where it was recorded, in seconds (earlier when less than 0), to line it up by ear. */
+  nudge?: number
+}
+
+/** Whether a trim cuts anything off the take, rather than only moving it. */
+export const cuts = (take: Pick<TakeInfo, 'seconds'>, trim: Trim | undefined) => {
+  const { start, end } = trimOf(take, trim)
+  return start > 0.001 || end < take.seconds - 0.001
 }
 
 /** The shortest a take can be trimmed to, in seconds. */
