@@ -82,10 +82,10 @@ export function Timeline() {
   const hasDrumTrack = useStore((s) => s.drumTrack)
   const drumTrack = hasDrumTrack && !empty
   const drumHint = !hasDrumTrack && recording === 'off' && !empty
-  // On a phone, each add button takes a row of its own, the size of a track, under the vocal tracks;
-  // beside a column of names, they're in a menu from the + at its top instead.
-  const addRow = narrow && (vocalHint || drumHint)
-  const rows = laneCount + (narrow && vocalHint ? 1 : 0) + (narrow && drumHint ? 1 : 0)
+  // On a phone, a row the size of a track under the vocal tracks opens the menu to add one (the lyrics are in it too);
+  // beside a column of names, the menu is the + at its top instead.
+  const addRow = narrow && recording === 'off' && !empty
+  const rows = laneCount + (addRow ? 1 : 0)
   const recordStart = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
@@ -261,7 +261,7 @@ export function Timeline() {
       {!empty && drumTrack && <div className="track-line is-drums" aria-hidden="true" />}
       {!empty && Array.from({ length: Math.max(0, laneCount - 1) }, (_, i) => <div key={i} className="track-line" style={{ ['--row' as string]: i + 1 }} aria-hidden="true" />)}
       {/* An empty section has no tracks yet, nor the switch over them; its settings are in the gear on the tabs. */}
-      {!empty && <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumTrack={drumTrack} drumHint={drumHint} />}
+      {!empty && <TrackHeaders laneCount={laneCount} vocalHint={vocalHint} drumTrack={drumTrack} drumHint={drumHint} addRow={addRow} />}
       <div className="timeline-scroll" ref={scrollRef}>
         <div
           ref={timelineRef}
@@ -672,7 +672,7 @@ function waveHeights(peaks: number[], count: number) {
 const NARROW_ZOOM = 0.45
 
 /** Track names with mute and solo, beside each track's row; what's selected has its settings in the inspector beside them. */
-function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount: number; vocalHint: boolean; drumTrack: boolean; drumHint: boolean }) {
+function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint, addRow }: { laneCount: number; vocalHint: boolean; drumTrack: boolean; drumHint: boolean; addRow: boolean }) {
   const s = useFields('addDrumTrack', 'addVocalTrack', 'chords', 'chordsColor', 'chordsMuted', 'chordsName', 'chordsSolo', 'chordsTrackSelected', 'chordsVolume', 'drumsColor', 'drumsMuted', 'drumsName', 'drumsSolo', 'drumsTrackSelected', 'drumsVolume', 'recording', 'renameChords', 'renameDrums', 'renameVocal', 'selectChordsTrack', 'selectDrumsTrack', 'selectVocal', 'selectedVocal', 'setChordsColor', 'setChordsVolume', 'setDrumsColor', 'setDrumsVolume', 'setVocalColor', 'setVocalVolume', 'toggleChordsMute', 'toggleChordsSolo', 'toggleDrumsMute', 'toggleDrumsSolo', 'toggleVocalMute', 'toggleVocalSolo', 'vocalColors', 'vocalMuted', 'vocalNames', 'vocalSolo', 'vocalVolume')
   // With the settings panel hidden, its button waits here, where the panel would be.
   const narrow = useNarrow()
@@ -741,44 +741,20 @@ function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint }: { laneCount
           onSelect={s.recording === 'off' ? () => s.selectVocal(lane) : undefined}
         />
       ))}
-      {narrow && vocalHint && (
-        <button
-          type="button"
-          className="track-add"
-          style={{ ['--row' as string]: laneCount }}
-          onClick={s.addVocalTrack}
-          aria-label="Add a vocal track"
-          title="Add a vocal track to record into"
-        >
-          <PlusIcon />
-          <span className="track-add-label">Vocal track</span>
-        </button>
-      )}
-      {narrow && drumHint && (
-        <button
-          type="button"
-          className="track-add"
-          style={{ ['--row' as string]: laneCount + (vocalHint ? 1 : 0) }}
-          onClick={s.addDrumTrack}
-          aria-label="Add a drum track"
-          title="Add a drum track, with a groove for each section"
-        >
-          <PlusIcon />
-          <span className="track-add-label">Drum track</span>
-        </button>
-      )}
+      {addRow && <AddTrackButton canVocal={vocalHint} canDrums={drumHint} slot={laneCount} />}
     </div>
   )
 }
 
 /**
- * Beside a column of names, the + at its top: a menu to add a vocal track
+ * Beside a column of names, the + at its top; on a phone, a row under the
+ * tracks (in `slot`, the row it takes): a menu to add a vocal track
  * (selected, ready to record into) or the drum track. It says what's allowed:
  * as many vocal tracks as there's room for, but one drum track and one chords
  * track, the chords one always there. Under them, the lyrics, so they're
  * found where the song's other parts are added.
  */
-function AddTrackButton({ canVocal, canDrums }: { canVocal: boolean; canDrums: boolean }) {
+function AddTrackButton({ canVocal, canDrums, slot }: { canVocal: boolean; canDrums: boolean; slot?: number }) {
   const { addVocalTrack, addDrumTrack, drumTrack, recording, activeSection } = useFields('addVocalTrack', 'addDrumTrack', 'drumTrack', 'recording', 'activeSection')
   const lyricsOpen = useLyricsPanel((l) => l.open)
   const item = (icon: ReactNode, title: string, about: string, disabled: boolean, act: () => void, close: () => void) => (
@@ -797,7 +773,13 @@ function AddTrackButton({ canVocal, canDrums }: { canVocal: boolean; canDrums: b
     </button>
   )
   return (
-    <MenuButton label="Add a track" title="Add a vocal track, the drum track or chords" className="icon-btn track-add-btn" align="right" menu={(close) => (
+    <MenuButton
+      label="Add a track"
+      title="Add a vocal track, the drum track or chords"
+      className={slot === undefined ? 'icon-btn track-add-btn' : 'track-add'}
+      style={slot === undefined ? undefined : { ['--row' as string]: slot }}
+      align="right"
+      menu={(close) => (
       <>
         {item(
           <MicIcon />,
@@ -825,6 +807,7 @@ function AddTrackButton({ canVocal, canDrums }: { canVocal: boolean; canDrums: b
       </>
     )}>
       <PlusIcon />
+      {slot !== undefined && <span className="track-add-label">Track</span>}
     </MenuButton>
   )
 }
