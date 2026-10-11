@@ -14,6 +14,7 @@ const pick = (s: ReturnType<typeof useStore.getState>) => ({
   loop: s.loop,
   drums: s.drums,
   drumFill: s.drumFill,
+  drumIntensity: s.drumIntensity,
   drumTrack: s.drumTrack,
   sectionKey: s.sectionKey,
   sections: s.sections,
@@ -50,7 +51,7 @@ const publish = () => useHistory.setState({ canUndo: past.length > 0, canRedo: f
 type State = ReturnType<typeof useStore.getState>
 
 /** Where the rest of a change to the song would be: the open section's parts, and the others. */
-const SECTION_FIELDS = ['chords', 'loop', 'drums', 'drumFill', 'sectionKey', 'sections', 'activeSection'] as const
+const SECTION_FIELDS = ['chords', 'loop', 'drums', 'drumFill', 'drumIntensity', 'sectionKey', 'sections', 'activeSection'] as const
 
 /**
  * Whether the song itself changed. Opening another section moves chords
@@ -65,7 +66,7 @@ function songChanged(s: State, prev: State) {
   const before = sectionsNow(prev)
   return (
     now.length !== before.length ||
-    now.some((sec, i) => sec.id !== before[i].id || sec.name !== before[i].name || sec.chords !== before[i].chords || sec.loop !== before[i].loop || sec.drums !== before[i].drums || sec.drumFill !== before[i].drumFill || sec.sectionKey !== before[i].sectionKey)
+    now.some((sec, i) => sec.id !== before[i].id || sec.name !== before[i].name || sec.chords !== before[i].chords || sec.loop !== before[i].loop || sec.drums !== before[i].drums || sec.drumFill !== before[i].drumFill || sec.drumIntensity !== before[i].drumIntensity || sec.sectionKey !== before[i].sectionKey)
   )
 }
 

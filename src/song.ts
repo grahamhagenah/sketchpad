@@ -114,13 +114,15 @@ export function playbackOf(s: State, view = s.view): Playback {
   }
   if (view === 'section') {
     const audible = audibleTracks(s)
+    // Looping, the section comes back round after its own fill, so a crash greets it.
+    const groove = grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords), s.drumFill, { intensity: s.drumIntensity, crashAtStart: s.drumFill !== 'none' })
     return {
       ...base,
       ...keyOf(s),
       chords: audible.chords ? s.chords : s.chords.map((c) => ({ ...c, silent: true })),
       loop: s.loop,
-      drums: audible.drums && s.drumTrack ? grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords), s.drumFill) : [],
-      kicks: s.drumTrack ? kicksOf(grooveHits(s.drums, s.timeSig, 0, totalBeats(s.chords), s.drumFill)) : undefined,
+      drums: audible.drums && s.drumTrack ? groove : [],
+      kicks: s.drumTrack ? kicksOf(groove) : undefined,
       vocals: s.takes.flatMap((t, lane) =>
         t && audible.vocals[lane]
           ? [{ id: t.id, ...trimmedPlacement(t, s.trims[t.id], beatSeconds), endBeat: Infinity, lane, track: lane, db: s.vocalVolume[lane] ?? 0, reverb: s.vocalReverb[lane] ?? 0 }]
@@ -133,6 +135,8 @@ export function playbackOf(s: State, view = s.view): Playback {
   const vocals: VocalPlacement[] = []
   const drums: DrumHit[] = []
   const kicks: number[] = []
+  // Whether the section before ended on a fill, for a crash where the next one comes in.
+  let afterFill = false
   for (const { entry, start, beats } of songSpans(s)) {
     const section = sections.get(entry.section)
     if (!section) continue
@@ -140,7 +144,8 @@ export function playbackOf(s: State, view = s.view): Playback {
     // Each place gets its own chord ids, so a section that repeats stays distinct.
     const own = section.sectionKey ?? {}
     chords.push(...section.chords.map((c) => ({ ...c, ...own, id: `${entry.id}:${c.id}`, silent: !audible.chords })))
-    const groove = grooveHits(section.drums, s.timeSig, start, beats, section.drumFill)
+    const groove = grooveHits(section.drums, s.timeSig, start, beats, section.drumFill, { intensity: section.drumIntensity, crashAtStart: afterFill })
+    if (beats) afterFill = !!section.drums && section.drumFill !== 'none'
     if (audible.drums && s.drumTrack) drums.push(...groove)
     kicks.push(...kicksOf(groove))
     section.takes.forEach((t, lane) => {

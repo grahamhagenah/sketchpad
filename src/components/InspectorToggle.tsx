@@ -31,6 +31,11 @@ export function toggleInspector() {
   }
 }
 
+/** Brings the inspector back if it's hidden, as a double-click on a track or chord does, to show its settings. */
+export function showInspector() {
+  if (!useInspector.getState().shown) toggleInspector()
+}
+
 /** A button to show or hide the inspector; I does it too. */
 export function InspectorButton() {
   const shown = useInspector((s) => s.shown)

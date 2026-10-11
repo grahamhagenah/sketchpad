@@ -56,8 +56,8 @@ export const SONG_TEMPLATES: SongTemplate[] = [
           drumsVolume: 2,
         },
         [
-          { name: 'Verse', chords: riff(), drums: 'light', drumFill: 'end' },
-          { name: 'Chorus', chords: riff(), drums: 'backbeat', drumFill: 'end' },
+          { name: 'Verse', chords: riff(), drums: 'rock', drumFill: 'end', drumIntensity: 'sparse' },
+          { name: 'Chorus', chords: riff(), drums: 'rock', drumFill: 'end', drumIntensity: 'busy' },
         ],
         [0, 1, 0, 1],
       )
@@ -90,7 +90,7 @@ export const SONG_TEMPLATES: SongTemplate[] = [
           {
             name: 'Chorus',
             chords: [chord(5, 4), chord(2, 4), chord(4, 4, { borrowed: true }), chord(0, 4), chord(5, 4), chord(2, 4), chord(3, 4), chord(4, 4, { borrowed: true })],
-            drums: 'backbeat',
+            drums: 'rock',
             drumFill: 'end',
           },
         ],
@@ -116,8 +116,8 @@ export const SONG_TEMPLATES: SongTemplate[] = [
           drumsVolume: 0,
         },
         [
-          { name: 'Verse', chords: loop(), drums: 'light', drumFill: 'end' },
-          { name: 'Chorus', chords: loop(), drums: 'four', drumFill: 'end' },
+          { name: 'Verse', chords: loop(), drums: 'dembow', drumFill: 'end', drumIntensity: 'sparse' },
+          { name: 'Chorus', chords: loop(), drums: 'dembow', drumFill: 'end' },
         ],
         [0, 1, 0, 1],
       )
@@ -142,8 +142,8 @@ export const SONG_TEMPLATES: SongTemplate[] = [
           drumsVolume: 0,
         },
         [
-          { name: 'Verse', chords: loop(), drums: 'light', drumFill: 'end' },
-          { name: 'Chorus', chords: loop(), drums: 'backbeat', drumFill: 'end' },
+          { name: 'Verse', chords: loop(), drums: 'ballad', drumFill: 'end' },
+          { name: 'Chorus', chords: loop(), drums: 'rock', drumFill: 'end' },
         ],
         [0, 1, 0, 1],
       )
@@ -215,7 +215,7 @@ export const SONG_TEMPLATES: SongTemplate[] = [
         },
         [
           { name: 'Intro', chords: loop(), drums: null },
-          { name: 'Verse', chords: loop(), drums: 'backbeat', drumFill: 'end' },
+          { name: 'Verse', chords: loop(), drums: 'rock', drumFill: 'end' },
         ],
         [0, 1, 1],
       )
@@ -239,10 +239,91 @@ export const SONG_TEMPLATES: SongTemplate[] = [
           drumsVolume: 0,
         },
         [
-          { name: 'Groove', chords: [chord(0, 16), chord(0, 16)], drums: 'four', drumFill: 'none' },
-          { name: 'Shift', chords: [chord(6, 16, { borrowed: true })], drums: 'four', drumFill: 'end' },
+          { name: 'Groove', chords: [chord(0, 16), chord(0, 16)], drums: 'disco', drumFill: 'none' },
+          { name: 'Shift', chords: [chord(6, 16, { borrowed: true })], drums: 'disco', drumFill: 'end' },
         ],
         [0, 1, 0],
       ),
+  },
+  {
+    name: 'Piano singalong',
+    think: 'Hey Jude',
+    // F major: F C C7 F · B♭ F C7 F, struck on every beat; then the long outro, F E♭ B♭ F, the E♭ borrowed from F minor.
+    build: () =>
+      songStart(
+        {
+          key: 5,
+          mode: 'major',
+          bpm: 74,
+          timeSig: [4, 4],
+          sound: preset('Piano', { reverb: 0.24 }),
+          arp: DEFAULT_ARP,
+          rhythm: { chords: 'beats', bass: 'held' },
+          chordsVolume: 0,
+          drumsVolume: -2,
+        },
+        [
+          {
+            name: 'Verse',
+            chords: [chord(0, 4), chord(4, 4), chord(4, 4, { seventh: true }), chord(0, 4), chord(3, 4), chord(0, 4), chord(4, 4, { seventh: true }), chord(0, 4)],
+            drums: 'ballad',
+            drumFill: 'end',
+          },
+          { name: 'Outro', chords: times(2, () => [chord(0, 4), chord(6, 4, { borrowed: true }), chord(3, 4), chord(0, 4)]), drums: 'rock', drumFill: 'four', drumIntensity: 'busy' },
+        ],
+        [0, 0, 1, 1],
+      ),
+  },
+  {
+    name: 'Swelling anthem',
+    think: 'With or Without You',
+    // D major, a bar each: D A Bm G (I V vi IV), a slow-swelling pad over a steady bass; the drums open up in the chorus.
+    build: () => {
+      const loop = () => times(2, () => [chord(0, 4), chord(4, 4), chord(5, 4), chord(3, 4)])
+      return songStart(
+        {
+          key: 2,
+          mode: 'major',
+          bpm: 110,
+          timeSig: [4, 4],
+          sound: preset('Pad', { reverb: 0.45 }),
+          arp: DEFAULT_ARP,
+          rhythm: { chords: 'held', bass: 'held' },
+          chordsVolume: 0,
+          drumsVolume: -2,
+        },
+        [
+          { name: 'Verse', chords: loop(), drums: 'light', drumFill: 'none' },
+          { name: 'Chorus', chords: loop(), drums: 'rock', drumFill: 'end' },
+        ],
+        [0, 1, 0, 1],
+      )
+    },
+  },
+  {
+    name: 'Slow power ballad',
+    think: 'Purple Rain',
+    // B♭ major, a bar each: B♭add9 Gm7 F E♭maj7 (I vi V IV), held strings, slow.
+    build: () => {
+      const loop = () => times(2, () => [chord(0, 4, { color: 'add9' }), chord(5, 4, { seventh: true }), chord(4, 4), chord(3, 4, { seventh: true })])
+      return songStart(
+        {
+          key: 10,
+          mode: 'major',
+          bpm: 57,
+          timeSig: [4, 4],
+          sound: preset('Strings', { reverb: 0.42 }),
+          arp: DEFAULT_ARP,
+          rhythm: { chords: 'held', bass: 'held' },
+          chordsVolume: 0,
+          drumsVolume: -2,
+        },
+        [
+          { name: 'Verse', chords: loop(), drums: 'ballad', drumFill: 'none' },
+          { name: 'Chorus', chords: loop(), drums: 'backbeat', drumFill: 'end' },
+        ],
+        [0, 1, 0, 1],
+      )
+    },
   },
 ]

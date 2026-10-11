@@ -423,6 +423,7 @@ const unsubscribe = useStore.subscribe((s, prev) => {
     s.chordsSolo !== prev.chordsSolo ||
     s.drums !== prev.drums ||
     s.drumFill !== prev.drumFill ||
+    s.drumIntensity !== prev.drumIntensity ||
     s.sectionKey !== prev.sectionKey ||
     s.drumTrack !== prev.drumTrack ||
     s.drumsMuted !== prev.drumsMuted ||

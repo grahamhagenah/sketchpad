@@ -830,8 +830,8 @@ export function SongView() {
                     {/* The drums' kicks and snares, so a row shows at a glance it has a beat. */}
                     {drumTrack && section.drums && beats > 0 && (
                       <span className="song-row-drums" aria-label="Drums">
-                        {grooveHits(section.drums, timeSig, 0, beats, section.drumFill)
-                          .filter((h) => h.piece !== 'hat')
+                        {grooveHits(section.drums, timeSig, 0, beats, section.drumFill, { intensity: section.drumIntensity })
+                          .filter((h) => h.piece !== 'hat' && h.piece !== 'openHat' && h.piece !== 'crash')
                           .map((h, i) => (
                             // Inset from the bar's ends, so the first and last ticks sit under it.
                             <span key={i} className={`song-drum is-${h.piece}`} style={{ left: `calc(6px + (100% - 14px) * ${h.beat / beats})` }} />

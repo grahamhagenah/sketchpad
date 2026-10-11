@@ -11,7 +11,7 @@ import type { TakeInfo } from '../audio/take'
 import { grooveHits, grooveLabel } from '../audio/drums'
 import { MenuButton } from './Sections'
 import { useNarrow } from '../hooks/useNarrow'
-import { InspectorButton, useInspector } from './InspectorToggle'
+import { InspectorButton, showInspector, useInspector } from './InspectorToggle'
 import { PALETTE, vocalColor, vocalColorId, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR, type ColorId } from '../colors'
 
 interface Drag {
@@ -335,6 +335,10 @@ export function Timeline() {
                   audition(c)
                 }}
                 onResize={(beats) => updateChord(c.id, { beats })}
+                onOpen={() => {
+                  select(c.id)
+                  showInspector()
+                }}
               />
             )
           })}
@@ -413,9 +417,11 @@ interface BlockProps {
   onPress: (e: PointerEvent<HTMLButtonElement>) => void
   onSelect: () => void
   onResize: (beats: number) => void
+  /** A double-click: its settings, bringing the settings panel back if it's hidden. */
+  onOpen: () => void
 }
 
-function ChordBlock({ chord, left, beatPx, name, roman, selected, active, dragging, onPress, onSelect, onResize }: BlockProps) {
+function ChordBlock({ chord, left, beatPx, name, roman, selected, active, dragging, onPress, onSelect, onResize, onOpen }: BlockProps) {
   const drag = useRef<{ x: number; beats: number } | null>(null)
 
   return (
@@ -423,7 +429,7 @@ function ChordBlock({ chord, left, beatPx, name, roman, selected, active, draggi
       className={`chord ${selected ? 'is-selected' : ''} ${active ? 'is-active' : ''} ${dragging ? 'is-dragging' : ''}`}
       style={{ left, width: chord.beats * beatPx - 6 }}
     >
-      <button type="button" className="chord-body" onClick={onSelect} aria-pressed={selected} title="Click to select · drag to move" onPointerDown={onPress}>
+      <button type="button" className="chord-body" onClick={onSelect} onDoubleClick={onOpen} aria-pressed={selected} title="Click to select · double-click for its settings · drag to move" onPointerDown={onPress}>
         <span className="chord-name">{name}</span>
         <span className="chord-roman">{roman}</span>
       </button>
@@ -583,6 +589,7 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
         disabled={locked}
         // A click (not a key press, which has no place) also moves the playhead to where it was.
         onClick={(e) => onSelect(e.detail ? e.clientX : null)}
+        onDoubleClick={showInspector}
       >
         {/* On a phone, an empty track says what it's for, and once selected, where to record from. */}
         {!take && (
@@ -603,11 +610,12 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
 function DrumLane({ beatPx, beats, muted }: { beatPx: number; beats: number; muted: boolean }) {
   const groove = useStore((s) => s.drums)
   const fill = useStore((s) => s.drumFill)
+  const intensity = useStore((s) => s.drumIntensity)
   const timeSig = useStore((s) => s.timeSig)
   const locked = useStore((s) => s.recording !== 'off')
   const selected = useStore((s) => s.drumsTrackSelected)
   const selectDrumsTrack = useStore((s) => s.selectDrumsTrack)
-  const hits = grooveHits(groove, timeSig, 0, beats, fill)
+  const hits = grooveHits(groove, timeSig, 0, beats, fill, { intensity, crashAtStart: fill !== 'none' })
   return (
     // Clicking the drums selects the track, as clicking a chord selects it; its groove is chosen in the track's settings.
     <button
@@ -618,6 +626,7 @@ function DrumLane({ beatPx, beats, muted }: { beatPx: number; beats: number; mut
       style={{ width: beats * beatPx - 6 }}
       disabled={locked}
       onClick={selectDrumsTrack}
+      onDoubleClick={showInspector}
     >
       {groove ? (
         <>
@@ -844,6 +853,10 @@ function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo
         // Clicks from the colour menu reach here too (it's rendered elsewhere on the page, but within this in React); they don't select.
         if (!e.currentTarget.contains(e.target as Node)) return
         if (!(e.target as HTMLElement).closest('.track-btn, .track-color, input')) onSelect?.()
+      }}
+      onDoubleClick={(e) => {
+        // A double-click on the name renames it instead.
+        if (onSelect && e.currentTarget.contains(e.target as Node) && !(e.target as HTMLElement).closest('.track-btn, .track-color, .track-name, input')) showInspector()
       }}
     >
       <span className="track-title">

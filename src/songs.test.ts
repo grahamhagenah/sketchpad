@@ -35,6 +35,18 @@ describe('songs to start from', () => {
       ['Groove', 'C C'],
       ['Shift', 'B♭'],
     ])
+    expect(names('Hey Jude')).toEqual([
+      ['Verse', 'F C C7 F B♭ F C7 F'],
+      ['Outro', 'F E♭ B♭ F F E♭ B♭ F'],
+    ])
+    expect(names('With or Without You')).toEqual([
+      ['Verse', 'D A Bm G D A Bm G'],
+      ['Chorus', 'D A Bm G D A Bm G'],
+    ])
+    expect(names('Purple Rain')).toEqual([
+      ['Verse', 'B♭add9 Gm7 F E♭maj7 B♭add9 Gm7 F E♭maj7'],
+      ['Chorus', 'B♭add9 Gm7 F E♭maj7 B♭add9 Gm7 F E♭maj7'],
+    ])
     expect(names('Creep')).toEqual([
       ['Verse', 'G B C Cm G B C Cm'],
       ['Chorus', 'G B C Cm G B C Cm'],
