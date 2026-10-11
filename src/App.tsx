@@ -14,6 +14,7 @@ import { ToolSheet, useToolSheet } from './components/SoundPanel'
 import { VocalPad } from './components/VocalPad'
 import { DrumPad } from './components/DrumPad'
 import { ChordsTrackPad, Inspector } from './components/Inspector'
+import { toggleInspector, useInspector } from './components/InspectorToggle'
 import { RecordingSheet } from './components/RecordingSheet'
 import { useNarrow } from './hooks/useNarrow'
 import { ChordKeys, toggleChordKeys, useChordKeys } from './components/ChordKeys'
@@ -109,6 +110,8 @@ function useShortcuts() {
         void toggleRecord()
       } else if (e.key === 'a') {
         s.setArp({ on: !s.arp.on })
+      } else if (e.key === 'i') {
+        toggleInspector()
       } else if (e.key === 'k') {
         if (window.matchMedia('(min-width: 641px)').matches) toggleChordKeys()
       } else if (e.key === 'Enter' || e.key === 'Home') {
@@ -166,9 +169,10 @@ export default function App() {
   const chordsSelected = useStore((s) => s.chordsTrackSelected && s.chords.length > 0)
   // On a wider screen, what's selected has its settings in a column beside the tracks; an empty section has only its ways to start.
   const hasChords = useStore((s) => s.chords.length > 0)
+  const inspectorShown = useInspector((s) => s.shown)
   // Only while something's selected: a chord, or a track; moving from one to another keeps it open.
   const selected = useStore((s) => s.chords.some((c) => c.id === s.selectedId) || s.selectedVocal !== null || (s.drumsTrackSelected && s.drumTrack) || (s.chordsTrackSelected && s.chords.length > 0))
-  const inspector = !narrow && view === 'section' && hasChords && selected
+  const inspector = !narrow && view === 'section' && hasChords && inspectorShown && selected
   // On a wider screen, the chord keys float over everything, in either view.
   const chordKeys = useChordKeys((s) => s.open) && !narrow
   // The lyrics beside whichever view is open; on a phone, over it.
