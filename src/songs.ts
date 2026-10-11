@@ -326,4 +326,35 @@ export const SONG_TEMPLATES: SongTemplate[] = [
       )
     },
   },
+  {
+    name: 'Glitch hyperpop',
+    think: 'money machine',
+    // E major falling by major thirds, Eadd9 C G♯, then a half step to Gsus2 and Bsus4; the chorus jumps a tritone
+    // to B♭ (E♭maj7 B♭/D A♭ Gm7 C G♭), a drumless E minor glitch, and the last chorus up a half step again, in B.
+    // A wide, squelchy saw scattered at random across three octaves, over trap verses and drum & bass choruses.
+    build: () => {
+      const verse = () => times(2, () => [chord(0, 4, { color: 'add9' }), chord(5, 4, { borrowed: true }), chord(2, 4, { major: true }), chord(2, 2, { borrowed: true, color: 'sus2' }), chord(4, 2, { color: 'sus4' })])
+      const chorus = () => times(2, () => [chord(3, 4, { seventh: true }), chord(0, 2, { bass: 'third' }), chord(6, 2, { borrowed: true }), chord(5, 4, { seventh: true }), chord(1, 2, { major: true }), chord(5, 2, { borrowed: true })])
+      return songStart(
+        {
+          key: 4,
+          mode: 'major',
+          bpm: 160,
+          timeSig: [4, 4],
+          sound: preset('Synth', { attack: 0.002, decay: 0.18, sustain: 0.4, release: 0.2, brightness: 5200, width: 0.9, resonance: 0.35, reverb: 0.3 }),
+          arp: { ...DEFAULT_ARP, on: true, pattern: 'random', rate: '1/16', octaves: 3, gate: 0.45, accent: 0.6 },
+          rhythm: { chords: 'held', bass: 'kick' },
+          chordsVolume: -2,
+          drumsVolume: 1,
+        },
+        [
+          { name: 'Verse', chords: verse(), drums: 'trap', drumFill: 'end' },
+          { name: 'Chorus', chords: chorus(), drums: 'dnb', drumFill: 'four', drumIntensity: 'busy', sectionKey: { key: 10, mode: 'major' } },
+          { name: 'Glitch', chords: [chord(0, 4, { color: 'add9' }), chord(5, 4, { seventh: true }), chord(3, 4, { color: 'sus4' }), chord(4, 4, { major: true })], drums: null, sectionKey: { key: 4, mode: 'minor' } },
+          { name: 'Last chorus', chords: chorus(), drums: 'dnb', drumFill: 'end', drumIntensity: 'busy', sectionKey: { key: 11, mode: 'major' } },
+        ],
+        [0, 1, 0, 1, 2, 3],
+      )
+    },
+  },
 ]

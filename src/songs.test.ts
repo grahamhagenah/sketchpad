@@ -61,3 +61,19 @@ describe('songs to start from', () => {
     }
   })
 })
+
+describe('the hyperpop song', () => {
+  it('moves key from section to section', () => {
+    const song = SONG_TEMPLATES.find((t) => t.name === 'Glitch hyperpop')!.build()
+    const chords = song.sections.map((sec) => {
+      const { key, mode } = sec.sectionKey ?? song
+      return [sec.name, sec.chords.slice(0, sec.name === 'Verse' ? 5 : sec.name === 'Glitch' ? 4 : 6).map((c) => chordOf(key, mode, c).name).join(' ')]
+    })
+    expect(chords).toEqual([
+      ['Verse', 'Eadd9 C G♯ Gsus2 Bsus4'],
+      ['Chorus', 'E♭maj7 B♭/D A♭ Gm7 C G♭'],
+      ['Glitch', 'Emadd9 Cmaj7 Asus4 B'],
+      ['Last chorus', 'Emaj7 B/D♯ A G♯m7 C♯ G'],
+    ])
+  })
+})
