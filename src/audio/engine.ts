@@ -43,6 +43,21 @@ interface ClickEvent {
   accent: boolean
 }
 
+/** How far ahead notes are handed to the audio clock: Tone's usual, and more while recording, when steady playback matters more than a quick response. */
+const LOOK_AHEAD = 0.1
+const RECORDING_LOOK_AHEAD = 0.3
+
+/**
+ * Hands notes to the audio clock `seconds` ahead, still checking every 50ms
+ * (Tone would otherwise check only half as often as it looks ahead), so the
+ * page can be held up for nearly all of it before a note comes late.
+ */
+function setLookAhead(seconds: number) {
+  const context = Tone.getContext() as Tone.Context
+  context.lookAhead = seconds
+  context.updateInterval = 0.05
+}
+
 class Engine {
   private ready = false
   private instruments!: Instruments
@@ -293,6 +308,8 @@ class Engine {
     t.stop()
     this.players.forEach((player) => player.stop())
     const capture = await startCapture(stream)
+    // Scheduled further ahead while recording, so a moment's hold-up on the page (the browser tidying memory, say) can't make the music stutter under the singer.
+    setLookAhead(RECORDING_LOOK_AHEAD)
 
     const [num, den] = song.timeSig
     const total = Math.max(song.chords.reduce((sum, c) => sum + c.beats, 0), num)
@@ -339,6 +356,7 @@ class Engine {
     const rec = this.recording
     if (!rec) return null
     this.recording = null
+    setLookAhead(LOOK_AHEAD)
     // Stopping now also cancels a transport start still waiting on the count-in.
     this.stop()
     const { startTime, samples } = await rec.capture.stop()
@@ -351,11 +369,15 @@ class Engine {
     return { lane: rec.lane, take: { id: newId(), startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: quantize(aligned) } }
   }
 
-  /** Current loop position in beats, or null when stopped. */
+  /**
+   * Current loop position in beats, or null when stopped: where the song is a
+   * usual look-ahead from now, as the transport's own position would be, so
+   * the playhead keeps its place when recording schedules further ahead.
+   */
   position(): number | null {
     const t = Tone.getTransport()
     if (t.state !== 'started') return null
-    return t.ticks / this.ticksPerBeat
+    return t.getTicksAtTime(Tone.immediate() + LOOK_AHEAD) / this.ticksPerBeat
   }
 
   setSound(sound: Sound) {

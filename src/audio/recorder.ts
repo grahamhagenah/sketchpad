@@ -1,18 +1,42 @@
 import * as Tone from 'tone'
 
-// Hands every block of microphone input to the page along with the audio
-// clock's frame number, so the recording can be lined up with the song.
+// Gathers the microphone's input into blocks of about a sixth of a second
+// and hands each to the page, with the audio clock's frame number of its
+// first sample, so the recording can be lined up with the song. Handing over
+// every 128-sample quantum as it came (hundreds of messages a second, each a
+// fresh copy) loaded the audio thread and left the page a heap of small
+// buffers to clear away, which in Safari made playback stutter mid-take; a
+// block is handed over whole, without copying.
 const WORKLET = `
+const BLOCK = 8192
 class SketchpadCapture extends AudioWorkletProcessor {
   constructor() {
     super()
     this.on = true
-    this.port.onmessage = () => { this.on = false }
+    this.block = new Float32Array(BLOCK)
+    this.filled = 0
+    this.frame = 0
+    this.port.onmessage = () => {
+      this.send()
+      this.on = false
+    }
+  }
+  send() {
+    if (!this.filled) return
+    const data = this.block.subarray(0, this.filled)
+    this.port.postMessage({ frame: this.frame, data }, [this.block.buffer])
+    this.block = new Float32Array(BLOCK)
+    this.filled = 0
   }
   process(inputs) {
+    if (!this.on) return false
     const channel = inputs[0] && inputs[0][0]
-    if (channel && this.on) this.port.postMessage({ frame: currentFrame, data: channel.slice(0) })
-    return this.on
+    if (!channel) return true
+    if (!this.filled) this.frame = currentFrame
+    this.block.set(channel, this.filled)
+    this.filled += channel.length
+    if (this.filled + 128 > BLOCK) this.send()
+    return true
   }
 }
 registerProcessor('sketchpad-capture', SketchpadCapture)
@@ -79,8 +103,8 @@ export async function startCapture(stream: MediaStream): Promise<Capture> {
     },
     stop: async () => {
       node.port.postMessage('stop')
-      // Let the last blocks arrive.
-      await new Promise((r) => setTimeout(r, 60))
+      // Let the last block arrive.
+      await new Promise((r) => setTimeout(r, 100))
       source.disconnect()
       node.disconnect()
       analyser.disconnect()
