@@ -65,11 +65,11 @@ const ARP_ICON = (
 /** On a phone, the sound and arpeggiator settings as a sheet along the bottom, styled as the tracks' are. */
 export function ToolSheet({ which }: { which: 'sound' | 'arp' }) {
   return which === 'sound' ? (
-    <TrackSheet name="Sound" title="Chord settings" icon={SOUND_ICON} onDone={closeSheet} dismiss>
+    <TrackSheet name="Sound" icon={SOUND_ICON} onDone={closeSheet} dismiss>
       <SoundSettings />
     </TrackSheet>
   ) : (
-    <TrackSheet name="Arpeggiator" title="Chord settings" icon={ARP_ICON} onDone={closeSheet} dismiss>
+    <TrackSheet name="Arpeggiator" icon={ARP_ICON} onDone={closeSheet} dismiss>
       <ArpSettings titled={false} />
     </TrackSheet>
   )

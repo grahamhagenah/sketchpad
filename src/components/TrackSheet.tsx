@@ -17,7 +17,6 @@ export function TrackSheet({
   onColor,
   onDone,
   icon,
-  title = 'Track settings',
   docked = false,
   dismiss = false,
   children,
@@ -25,8 +24,6 @@ export function TrackSheet({
   name: string
   /** What kind of track it is, as its header shows it; a section has none. */
   icon?: ReactNode
-  /** Whose settings these are, over them in the sheet (the inspector has its own title). */
-  title?: string
   /** An empty name puts the usual one back; without, the name is fixed (the sound and arpeggiator sheets). */
   onRename?: (name: string) => void
   /** Its colour, and changing it from the palette behind its icon; a section has none. */
@@ -101,7 +98,6 @@ export function TrackSheet({
           <span className="chord-pad-grip" aria-hidden="true" />
         </button>
       )}
-      {!docked && <h2 className="column-title track-sheet-title">{title}</h2>}
       <div className="track-sheet-head" {...(docked ? {} : area)}>
         {onColor ? (
           <button

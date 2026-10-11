@@ -445,7 +445,7 @@ export function SectionPanel({ docked = true, onDone }: { docked?: boolean; onDo
   }
 
   return (
-    <TrackSheet title="Section settings" name={name} onRename={(n) => n && renameSection(id, n)} docked={docked} onDone={onDone} dismiss>
+    <TrackSheet name={name} onRename={(n) => n && renameSection(id, n)} docked={docked} onDone={onDone} dismiss>
       {/* A key change: the section's chords keep their numerals and play in its own key. */}
       <label className="inspector-field">
         <span>Key</span>

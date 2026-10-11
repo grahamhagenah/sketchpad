@@ -1674,8 +1674,6 @@ main > .panel {
 .track-sheet.is-folded { padding-top: 0; }
 .track-sheet-head { display: flex; align-items: center; gap: 8px; }
 /* The track's colour, a button: tapped, the palette opens under it. */
-/* In the sheet, whose settings these are, over the name, as the inspector's title is on a wider screen. */
-.track-sheet-title { margin: 2px 0 -6px; }
 .track-sheet-dot { flex: none; width: 32px; height: 32px; display: inline-grid; place-items: center; margin-left: -6px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--track); }
 .track-sheet-dot svg { width: 20px; height: 20px; }
 /* As a sheet on a phone, open or folded to a bar, the icon is the size of the track headers' above it and in line with them, centred on the name. */
