@@ -2458,37 +2458,35 @@ main > .panel {
   gap: 8px;
 }
 .lyrics-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; height: 42px; background: var(--panel); }
-.lyrics-section { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; border: 1px solid transparent; border-radius: 8px; transition: border-color 0.15s, background 0.15s; }
-.lyrics-section.is-open { background: rgb(255 255 255 / 0.04); border-color: var(--line); }
-.lyrics-section.is-playing { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
-.lyrics-section-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lyrics-section { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 6px 12px 12px; border-top: 1px solid var(--line); }
+.lyrics-section:first-of-type { border-top: 0; }
+/* The section that's open shows its name in the accent; the one playing has a line down its side. */
+.lyrics-section.is-open .lyrics-section-name { color: var(--accent); }
+.lyrics-section.is-playing::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 12px; width: 2px; border-radius: 1px; background: var(--accent); }
+.lyrics-section-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .lyrics-section-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: none; font-size: var(--fs-title); font-weight: 600; color: var(--text); cursor: pointer; }
 .lyrics-section-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .lyrics-section-plays { flex: none; margin-left: auto; font-size: var(--fs-small); color: var(--muted); }
 .lyrics-chords { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); }
-/* The text box exactly as tall as its lines, its syllable counts on the same rows beside it. */
-.lyrics-lines { --lh: 22px; display: flex; gap: 8px; }
-.lyrics-lines textarea {
-  flex: 1;
-  min-width: 0;
-  height: calc(var(--lines) * var(--lh) + 18px);
-  padding: 8px 10px;
+/* The words, written straight on the page: no box, just the text, growing to fit. */
+.lyrics-text {
+  width: 100%;
+  min-height: 0;
+  margin-top: 4px;
+  padding: 0;
   resize: none;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: var(--raised);
+  border: 0;
+  background: none;
   color: var(--text);
   font: inherit;
-  font-size: var(--fs-body);
-  line-height: var(--lh);
+  font-size: var(--fs-title);
+  line-height: 1.6;
 }
-.lyrics-lines textarea:focus { outline: none; border-color: var(--muted); }
-.lyrics-lines textarea::placeholder { color: var(--muted); opacity: 0.6; }
-.lyrics-counts { flex: none; width: 18px; padding-top: 9px; display: flex; flex-direction: column; font-family: 'DM Mono', monospace; font-size: var(--fs-small); line-height: var(--lh); text-align: right; color: var(--muted); }
-.lyrics-counts span { height: var(--lh); }
+.lyrics-text:focus { outline: none; }
+.lyrics-text::placeholder { color: var(--muted); opacity: 0.6; }
 /* On a phone, in a sheet along the bottom: each section's words one after another, as in the column. */
-.lyrics-sheet { display: flex; flex-direction: column; gap: 4px; margin: 0 -12px; }
+.lyrics-sheet { display: flex; flex-direction: column; margin-left: -12px; }
 @media (max-width: 640px) {
   /* The tab strip's other buttons give way on a phone; the lyrics stay. */
   .section-bar-end .icon-btn.lyrics-btn { display: inline-grid; width: 30px; padding: 0; }

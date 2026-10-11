@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PART_KEYS, sectionsNow, useFields, useStore } from '../store'
 import { chordOf } from '../music/theory'
-import { lineSyllables } from '../music/lyrics'
 import { engine } from '../audio/engine'
 import { songSpans } from '../song'
 import { setLyricsOpen, toggleLyrics, useLyricsPanel } from '../lyricsPanel'
@@ -86,8 +85,6 @@ export function LyricsPanel({ sheet = false }: { sheet?: boolean }) {
     uses.set(entry.section, (uses.get(entry.section) ?? 0) + 1)
   })
   const ordered = [...sections].sort((x, y) => (firstPlays.get(x.id) ?? Infinity) - (firstPlays.get(y.id) ?? Infinity))
-  // The letters the song view gives each section, as A B A B C B.
-  const letters = new Map([...firstPlays.keys()].map((id, i) => [id, String.fromCharCode(65 + (i % 26))]))
   const playingId = usePlayingSection()
   const blocks = useRef(new Map<string, HTMLElement>())
   useEffect(() => {
@@ -110,11 +107,6 @@ export function LyricsPanel({ sheet = false }: { sheet?: boolean }) {
             className={`lyrics-section ${open ? 'is-open' : ''} ${sec.id === playingId ? 'is-playing' : ''}`}
           >
             <div className="lyrics-section-head">
-              {letters.has(sec.id) && (
-                <span className="song-row-letter" aria-hidden="true">
-                  {letters.get(sec.id)}
-                </span>
-              )}
               <button
                 type="button"
                 className="lyrics-section-name"
@@ -154,20 +146,14 @@ export function LyricsPanel({ sheet = false }: { sheet?: boolean }) {
   )
 }
 
-/**
- * A section's words, a line to each line (long lines scroll rather than wrap,
- * so each keeps its own row), with each line's syllables counted beside it.
- */
+/** A section's words, written straight on the page: long lines wrap, and it grows to fit what's written. */
 function LyricLines({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (text: string) => void }) {
-  const lines = value.split('\n')
-  return (
-    <div className="lyrics-lines" style={{ ['--lines' as string]: Math.max(2, lines.length) }}>
-      <textarea id={id} aria-label={label} value={value} wrap="off" spellCheck placeholder="Write the words…" onChange={(e) => onChange(e.target.value)} />
-      <div className="lyrics-counts" aria-hidden="true" title="Syllables in each line">
-        {lines.map((line, i) => (
-          <span key={i}>{lineSyllables(line) || ''}</span>
-        ))}
-      </div>
-    </div>
-  )
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+  return <textarea ref={ref} id={id} className="lyrics-text" aria-label={label} value={value} rows={1} spellCheck placeholder="Write the words…" onChange={(e) => onChange(e.target.value)} />
 }
