@@ -281,9 +281,10 @@ class Engine {
   }
 
   /**
-   * Records over the loop (or the whole song) once: a silent bar counted down
-   * on the record button, then the progression plays from the loop's start
-   * while the mic records. Resolves once the count-in has started.
+   * Records over the loop (or the whole song) once: a bar counted in on the
+   * click (and counted down on the record button), then the progression
+   * plays from the loop's start while the mic records. Resolves once the
+   * count-in has started.
    */
   async record(song: Playback, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void }) {
     await Tone.start()
@@ -315,7 +316,9 @@ class Engine {
     const countIn = Tone.now() + 0.1
     for (let b = 0; b < num; b++) {
       const time = countIn + b * beatSeconds
-      // A silent count-in: the button counts down the beats.
+      // A bar counted in out loud on the metronome's click, the first beat higher, so the tempo is in your head before the take starts;
+      // each handed over a moment ahead, so cancelling the count-in stops the clicks still to come. The button counts down the beats too.
+      at(time - 0.08, () => this.click.triggerAttackRelease(b === 0 ? 'C6' : 'G5', 0.03, monoStart(this.click, time), b === 0 ? 1 : 0.6))
       at(time, () => on.count(num - b))
     }
     const startAt = countIn + num * beatSeconds
