@@ -131,13 +131,19 @@ export async function openBackup(file: File) {
 
 /** Starts an empty sketch, keeping the sound and arpeggiator settings. */
 export async function newSketch() {
-  if (useStore.getState().recording !== 'off') return
-  if (!(await keepCurrent())) return
+  if (useStore.getState().recording !== 'off') return false
+  if (!(await keepCurrent())) return false
   stopEverything()
   // One empty section, called Verse, to start from.
   quietly(() => useStore.setState({ ...songState({}), title: '', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumTrack: false, drumsMuted: false, drumsSolo: false, chordsVolume: 0, drumsVolume: 0, chordsColor: null, drumsColor: null }))
   useStore.getState().setSaved(null, null)
   clearHistory()
+  return true
+}
+
+/** A new sketch, opened on its one empty section, ready for its first chords. */
+export async function startOwnSong() {
+  if (await newSketch()) useStore.getState().setView('section')
 }
 
 /** Opens a ready-made song, with its own sound and arpeggiator settings, as a new, unsaved sketch called `title`. */

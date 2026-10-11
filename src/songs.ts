@@ -149,4 +149,100 @@ export const SONG_TEMPLATES: SongTemplate[] = [
       )
     },
   },
+  {
+    name: 'Bleak piano ballad',
+    think: 'Mad World',
+    // F minor, a bar each: Fm A♭ E♭ B♭, the B♭ major borrowed from F major; the chorus rocks between Fm and B♭. Piano alone.
+    build: () =>
+      songStart(
+        {
+          key: 5,
+          mode: 'minor',
+          bpm: 88,
+          timeSig: [4, 4],
+          sound: preset('Piano', { reverb: 0.38 }),
+          arp: DEFAULT_ARP,
+          rhythm: { chords: 'beats', bass: 'held' },
+          chordsVolume: 0,
+          drumsVolume: 0,
+          drumTrack: false,
+        },
+        [
+          { name: 'Verse', chords: times(2, () => [chord(0, 4), chord(2, 4), chord(6, 4), chord(3, 4, { borrowed: true })]), drums: null },
+          { name: 'Chorus', chords: times(4, () => [chord(0, 4), chord(3, 4, { borrowed: true })]), drums: null },
+        ],
+        [0, 1, 0, 1],
+      ),
+  },
+  {
+    name: 'Picked new wave',
+    think: 'Every Breath You Take',
+    // A♭ major, a bar each: A♭ Fm D♭ E♭ (I vi IV V), picked out in eighths across two octaves.
+    build: () =>
+      songStart(
+        {
+          key: 8,
+          mode: 'major',
+          bpm: 117,
+          timeSig: [4, 4],
+          sound: preset('Pluck', { decay: 0.6, release: 0.5, brightness: 3400, bass: true }),
+          arp: { ...DEFAULT_ARP, on: true, pattern: 'up', rate: '1/8', octaves: 2, gate: 0.8, accent: 0.2 },
+          rhythm: { chords: 'held', bass: 'held' },
+          chordsVolume: 0,
+          drumsVolume: -2,
+        },
+        [{ name: 'Verse', chords: times(2, () => [chord(0, 4), chord(5, 4), chord(3, 4), chord(4, 4)]), drums: 'backbeat', drumFill: 'end' }],
+        [0, 0],
+      ),
+  },
+  {
+    name: 'Cascading piano',
+    think: 'Clocks',
+    // E♭ major, a bar each: E♭ B♭m B♭m Fm, the B♭ minor borrowed from E♭ minor; piano tumbling down each chord, drums joining after the intro.
+    build: () => {
+      const loop = () => times(2, () => [chord(0, 4), chord(4, 4, { borrowed: true }), chord(4, 4, { borrowed: true }), chord(1, 4)])
+      return songStart(
+        {
+          key: 3,
+          mode: 'major',
+          bpm: 131,
+          timeSig: [4, 4],
+          sound: preset('Piano', { reverb: 0.26 }),
+          arp: { ...DEFAULT_ARP, on: true, pattern: 'down', rate: '1/8', octaves: 2, gate: 0.9, accent: 0.45 },
+          rhythm: { chords: 'held', bass: 'held' },
+          chordsVolume: 0,
+          drumsVolume: 0,
+        },
+        [
+          { name: 'Intro', chords: loop(), drums: null },
+          { name: 'Verse', chords: loop(), drums: 'backbeat', drumFill: 'end' },
+        ],
+        [0, 1, 1],
+      )
+    },
+  },
+  {
+    name: 'Disco sequencer',
+    think: 'I Feel Love',
+    // Long on one chord, C, a squelchy sixteenth-note arpeggio over four on the floor, then a while on B♭ (borrowed from C minor) and back.
+    build: () =>
+      songStart(
+        {
+          key: 0,
+          mode: 'major',
+          bpm: 128,
+          timeSig: [4, 4],
+          sound: preset('Synth', { attack: 0.002, decay: 0.15, sustain: 0.1, release: 0.05, brightness: 2800, resonance: 0.5, reverb: 0.15 }),
+          arp: { ...DEFAULT_ARP, on: true, pattern: 'up', rate: '1/16', octaves: 2, gate: 0.4, accent: 0.5 },
+          rhythm: { chords: 'held', bass: 'kick' },
+          chordsVolume: -2,
+          drumsVolume: 0,
+        },
+        [
+          { name: 'Groove', chords: [chord(0, 16), chord(0, 16)], drums: 'four', drumFill: 'none' },
+          { name: 'Shift', chords: [chord(6, 16, { borrowed: true })], drums: 'four', drumFill: 'end' },
+        ],
+        [0, 1, 0],
+      ),
+  },
 ]

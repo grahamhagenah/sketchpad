@@ -9,6 +9,7 @@ import { Icon, ZoomButtons } from './Toolbar'
 import { useNarrow } from '../hooks/useNarrow'
 import { create } from 'zustand'
 import { TrackSheet } from './TrackSheet'
+import { SongCards } from './SongCards'
 import { vocalColor } from '../colors'
 
 /** A gear, for a section's settings. */
@@ -576,6 +577,7 @@ export function SongView() {
   // Worked out here rather than in a selector, since they're new arrays each time.
   const sections = sectionsNow(state)
   const spans = songSpans(state)
+  const blank = sections.every((sec) => !sec.chords.length && !sec.takes.some(Boolean))
   const [num, den] = timeSig
   // A take's length in beats at the song's tempo.
   const takeBeats = (seconds: number) => seconds * (bpm / 60) * (den / 4)
@@ -742,6 +744,10 @@ export function SongView() {
         </p>
       )}
       <div className="song-scroll" ref={scrollRef}>
+        {/* Nothing in the song yet: no empty rows, only ways to start one. */}
+        {blank ? (
+          <SongCards />
+        ) : (
         <div className="song-sheet" style={{ width: `calc(var(--song-head) + ${longest * beatPx + (narrow ? 16 : END_PX)}px)`, height: rowTop(spans.length, rowH) + (narrow ? 80 : 60) }}>
           {/* Faint lines between the rows, staying put while a row is dragged past them. */}
           {spans.slice(1).map((_, i) => (
@@ -921,6 +927,7 @@ export function SongView() {
             />
           )}
         </div>
+        )}
       </div>
     </div>
   )

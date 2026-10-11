@@ -41,7 +41,7 @@ export function StatusBar() {
 export const useHoverHint = create<{ hint: ReactNode }>(() => ({ hint: null }))
 
 function Status() {
-  const s = useFields('arrangement', 'chords', 'chordsName', 'chordsTrackSelected', 'clipboard', 'drumTrack', 'drums', 'drumsName', 'drumsTrackSelected', 'key', 'mode', 'recording', 'sectionKey', 'selectedId', 'selectedVocal', 'takes', 'trims', 'view', 'vocalNames')
+  const s = useFields('arrangement', 'chords', 'chordsName', 'chordsTrackSelected', 'clipboard', 'drumTrack', 'drums', 'drumsName', 'drumsTrackSelected', 'key', 'mode', 'recording', 'sectionKey', 'selectedId', 'selectedVocal', 'takes', 'trims', 'view', 'vocalNames', 'sections', 'activeSection')
   const sel = s.chords.find((c) => c.id === s.selectedId)
   const hint = useHoverHint((h) => h.hint)
 
@@ -66,6 +66,9 @@ function Status() {
   if (s.view === 'song') {
     const shared = new Set(s.arrangement.map((e) => e.section)).size < s.arrangement.length
     if (!s.arrangement.length) return <>Add sections to the song with +, in the order they play.</>
+    // Nothing in it yet: the song view is cards to start from.
+    const empty = (sec: { chords: unknown[]; takes: unknown[] }) => !sec.chords.length && !sec.takes.some(Boolean)
+    if (empty(s) && s.sections.every((sec) => sec.id === s.activeSection || empty(sec))) return <>Start a song of your own, or open a ready-made one to play with.</>
     return (
       <>
         Click a name to edit its section, or its chords to play from there. Drag a row to reorder.

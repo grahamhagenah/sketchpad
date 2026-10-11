@@ -37,6 +37,7 @@ export function SketchesButton() {
   const sketches = useLibrary((s) => s.sketches)
   const deleted = useLibrary((s) => s.deleted)
   const [showDeleted, setShowDeleted] = useState(false)
+  const [showSongs, setShowSongs] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const current = useStore((s) => s.sketchId)
   const dirty = useStore(isDirty)
@@ -103,8 +104,16 @@ export function SketchesButton() {
             <span className="menu-item-title">Demo song</span>
             <span className="menu-item-about">A short song to hear what Bounce does</span>
           </button>
-          <p className="menu-heading">Start from a song</p>
-          {SONG_TEMPLATES.map((song) => (
+          {/* Songs to start from, folded away so they don't push your own sketches down the menu. */}
+          <button type="button" className="menu-item has-icon deleted-toggle" aria-expanded={showSongs} onClick={() => setShowSongs(!showSongs)}>
+            <MenuIcon d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0a3 3 0 0 1 6 0z" />
+            <span className="menu-item-title">
+              Start from a song
+              <Chevron />
+            </span>
+            <span className="menu-item-about">{SONG_TEMPLATES.length} songs you’d know, as a sketch to make your own</span>
+          </button>
+          {showSongs && SONG_TEMPLATES.map((song) => (
             <button
               key={song.name}
               type="button"
@@ -114,7 +123,7 @@ export function SketchesButton() {
                 close()
               }}
             >
-              <MenuIcon d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0a3 3 0 0 1 6 0z" />
+              <span className="menu-item-icon" aria-hidden="true" />
               <span className="menu-item-title">{song.name}</span>
               <span className="menu-item-about">Think “{song.think}”</span>
             </button>
@@ -179,9 +188,7 @@ export function SketchesButton() {
               <button type="button" className="menu-item deleted-toggle" aria-expanded={showDeleted} onClick={() => setShowDeleted(!showDeleted)}>
                 <span className="menu-item-title">
                   Recently deleted ({deleted.length})
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
+                  <Chevron />
                 </span>
                 <span className="menu-item-about">Kept {DELETED_DAYS} days, to put back</span>
               </button>
@@ -285,5 +292,12 @@ function when(time: number) {
 const MenuIcon = ({ d }: { d: string }) => (
   <svg className="menu-item-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d={d} />
+  </svg>
+)
+
+/** The arrow on a row that opens out more rows under it. */
+const Chevron = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6 9l6 6 6-6" />
   </svg>
 )

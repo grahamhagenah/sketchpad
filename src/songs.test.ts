@@ -22,6 +22,19 @@ describe('songs to start from', () => {
       ['Verse', 'Bm G D A Bm G D A'],
       ['Chorus', 'Bm G D A Bm G D A'],
     ])
+    expect(names('Mad World')).toEqual([
+      ['Verse', 'Fm A♭ E♭ B♭ Fm A♭ E♭ B♭'],
+      ['Chorus', 'Fm B♭ Fm B♭ Fm B♭ Fm B♭'],
+    ])
+    expect(names('Every Breath You Take')).toEqual([['Verse', 'A♭ Fm D♭ E♭ A♭ Fm D♭ E♭']])
+    expect(names('Clocks')).toEqual([
+      ['Intro', 'E♭ B♭m B♭m Fm E♭ B♭m B♭m Fm'],
+      ['Verse', 'E♭ B♭m B♭m Fm E♭ B♭m B♭m Fm'],
+    ])
+    expect(names('I Feel Love')).toEqual([
+      ['Groove', 'C C'],
+      ['Shift', 'B♭'],
+    ])
     expect(names('Creep')).toEqual([
       ['Verse', 'G B C Cm G B C Cm'],
       ['Chorus', 'G B C Cm G B C Cm'],

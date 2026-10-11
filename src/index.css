@@ -1481,6 +1481,22 @@ main > .panel {
 .song-row-length { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-small); font-weight: 500; color: var(--muted); }
 .song-view.is-narrow .song-row-title { flex: none; }
 
+/* An empty song: in place of its rows, a song to start or ready-made ones to open, as cards like the progressions an empty section offers. */
+.song-cards { display: flex; flex-direction: column; gap: 6px; padding: 12px 12px 16px; }
+.song-view.is-narrow .song-cards { padding: 8px 4px 16px; }
+.song-view.is-narrow .song-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.song-view.is-narrow .song-card { padding: 10px 12px; }
+.song-cards-title { margin: 0; font-size: var(--fs-title); font-weight: 700; }
+.song-cards-about { margin: 0 0 8px; font-size: var(--fs-small); color: var(--muted); }
+.song-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); grid-auto-rows: 1fr; gap: 8px; }
+.song-card { min-width: 0; padding: 12px 14px; gap: 4px; border-radius: 8px; text-align: left; }
+.song-card .progression-name { font-size: var(--fs-title); }
+/* Starting from nothing: dashed, like the other buttons that add something. */
+.song-card.is-own { border-style: dashed; background: none; }
+.song-card.is-own .progression-name { display: flex; align-items: center; gap: 6px; }
+.song-card.is-own .song-card-about { color: var(--muted); }
+.song-card-about { font-size: var(--fs-small); color: var(--text); }
+
 /* The playhead runs along the row being played, from the start of the grid (under the name, on a phone). */
 .song-playhead {
   position: absolute;
@@ -1941,8 +1957,8 @@ main > .panel {
 @media (hover: none) { .sketch-row .sketch-delete { opacity: 1 !important; } }
 /* Recently deleted: a row that folds open the sketches waiting there, each to put back or delete for good. */
 .deleted-toggle .menu-item-title { display: inline-flex; align-items: center; gap: 6px; }
-.deleted-toggle svg { transition: transform 0.15s ease; }
-.deleted-toggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+.deleted-toggle .menu-item-title svg { transition: transform 0.15s ease; }
+.deleted-toggle[aria-expanded='true'] .menu-item-title svg { transform: rotate(180deg); }
 .sketch-row.is-deleted .menu-item { cursor: default; }
 .sketch-row.is-deleted .menu-item-title { color: var(--muted); }
 .sketch-row.is-deleted .chip { flex: none; }

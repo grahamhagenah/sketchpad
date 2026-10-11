@@ -436,18 +436,18 @@ export interface SectionStart {
 }
 
 /** How a ready-made song sounds. */
-export type SongSettings = Pick<State, 'key' | 'mode' | 'bpm' | 'timeSig' | 'sound' | 'arp' | 'rhythm' | 'chordsVolume' | 'drumsVolume'>
+export type SongSettings = Pick<State, 'key' | 'mode' | 'bpm' | 'timeSig' | 'sound' | 'arp' | 'rhythm' | 'chordsVolume' | 'drumsVolume'> & Partial<Pick<State, 'drumTrack'>>
 export type SongStart = SongSettings & ReturnType<typeof songState> & Pick<State, 'view' | 'drumTrack' | 'loopOn'>
 
 /** A ready-made song: its sections played in `order` (by their index), opening on the song view with the first one open. */
 export function songStart(settings: SongSettings, sections: SectionStart[], order: number[]): SongStart {
   const made = sections.map((sec) => ({ drumFill: 'none' as FillId, sectionKey: null, ...sec, id: newId() }))
   return {
-    ...settings,
-    ...songState({ sections: made, arrangement: order.map((i) => ({ id: newId(), section: made[i].id })), activeSection: made[0].id }),
     view: 'song',
     drumTrack: true,
     loopOn: true,
+    ...settings,
+    ...songState({ sections: made, arrangement: order.map((i) => ({ id: newId(), section: made[i].id })), activeSection: made[0].id }),
   }
 }
 
