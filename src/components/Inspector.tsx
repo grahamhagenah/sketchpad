@@ -5,7 +5,6 @@ import { DEFAULT_CHORDS_COLOR } from '../colors'
 import { CloseButton, LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
 import { VocalPad } from './VocalPad'
 import { DrumPad } from './DrumPad'
-import { SectionPanel } from './Sections'
 import { KeysIcon } from './Timeline'
 import { InspectorButton } from './InspectorToggle'
 
@@ -36,7 +35,13 @@ export function Inspector() {
   else if (s.selectedVocal !== null) [body, title] = [<VocalPad lane={s.selectedVocal} docked />, 'Track settings']
   else if (s.drumsTrackSelected && s.drumTrack) [body, title] = [<DrumPad docked />, 'Track settings']
   else if (s.chordsTrackSelected && s.chords.length) [body, title] = [<ChordsTrackPad docked />, 'Track settings']
-  else [body, title] = [<SectionPanel />, 'Section settings']
+  else
+    [body, title] = [
+      <p className="inspector-empty" key="empty">
+        Select a chord or a track to change it here.
+      </p>,
+      'Settings',
+    ]
   return (
     <aside className="inspector" aria-label={title}>
       <div className="inspector-body">

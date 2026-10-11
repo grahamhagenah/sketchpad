@@ -3,7 +3,7 @@ import { useStore } from './store'
 import { deleteTake, seek, togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
-import { SectionBar, SectionPanel, SongView, useSectionSheet } from './components/Sections'
+import { SectionBar, SongView } from './components/Sections'
 import { StatusBar } from './components/StatusBar'
 import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
@@ -167,8 +167,6 @@ export default function App() {
   const selectedVocal = useStore((s) => s.selectedVocal)
   const drumsSelected = useStore((s) => s.drumsTrackSelected && s.drumTrack)
   const chordsSelected = useStore((s) => s.chordsTrackSelected && s.chords.length > 0)
-  // On a phone, the gear on the tabs brings up the section's own settings in the sheet.
-  const sectionSheet = useSectionSheet((s) => s.open)
   // On a wider screen, what's selected has its settings in a column beside the tracks; an empty section has only its ways to start.
   const hasChords = useStore((s) => s.chords.length > 0)
   const inspectorShown = useInspector((s) => s.shown)
@@ -202,9 +200,7 @@ export default function App() {
         <ToolSheet which={toolSheet} />
       ) : (
         chordPad &&
-        (sectionSheet ? (
-          <SectionPanel docked={false} onDone={() => useSectionSheet.setState({ open: false })} />
-        ) : selectedVocal !== null ? (
+        (selectedVocal !== null ? (
           <VocalPad lane={selectedVocal} />
         ) : drumsSelected ? (
           <DrumPad />

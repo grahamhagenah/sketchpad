@@ -799,12 +799,8 @@ main > .panel {
   .timeline-corner { padding-right: 12px; }
 }
 
-/* The section's settings: three ways to copy it. */
-.section-sheet-copies { width: 100%; }
-.section-sheet-copies button { padding: 0 4px; }
 /* On a blank sketch, under the ways to start: the demo song, to hear what Bounce does first. */
 .starter-demo { margin: 0; font-size: var(--fs-small); color: var(--muted); }
-.section-settings[aria-pressed='true'] { color: var(--text); background: var(--raised); }
 /* Only there while a track is muted or soloed. */
 .unmute-all {
   height: 26px;
@@ -2498,3 +2494,6 @@ main > .panel {
 .vocal-timing .chord-pad-length { width: 100%; }
 .vocal-timing .chord-pad-length button { flex: none; padding: 0 14px; font-size: var(--fs-body); }
 .vocal-timing .chord-pad-length span { flex: 1; justify-content: center; color: var(--muted); }
+
+/* With nothing selected, what the settings column is for. */
+.inspector-empty { margin: 4px 0 0; font-size: var(--fs-body); line-height: 1.5; color: var(--muted); }
