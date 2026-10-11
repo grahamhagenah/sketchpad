@@ -6,7 +6,6 @@ import { CloseButton, LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
 import { VocalPad } from './VocalPad'
 import { DrumPad } from './DrumPad'
 import { KeysIcon } from './Timeline'
-import { InspectorButton } from './InspectorToggle'
 
 const COLORS: { id: ChordColor | undefined; label: string }[] = [
   { id: undefined, label: 'Triad' },
@@ -42,8 +41,6 @@ export function Inspector() {
         {/* Says whose settings these are, level with the Tracks title beside it. */}
         <div className="inspector-title">
           <h2 className="column-title">{title}</h2>
-          {/* Hides the panel; with it hidden, the same button sits by the Tracks title to bring it back. */}
-          <InspectorButton />
         </div>
         {body}
       </div>

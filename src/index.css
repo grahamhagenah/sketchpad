@@ -432,13 +432,6 @@ main > .panel {
 /* The titles over the inspector and the track names, side by side on one line: small capitals, in grey. */
 .column-title { margin: 0; font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .inspector-title { display: flex; align-items: center; justify-content: space-between; height: 30px; margin: 6px 0 10px; }
-.inspector-title .inspector-btn, .timeline-corner .inspector-btn { width: 30px; height: 30px; }
-/* Hidden, the button sits before the Tracks title, and the title after it. */
-.timeline-corner .inspector-btn + .column-title { margin-right: auto; margin-left: 4px; }
-.timeline-corner .inspector-btn { margin-left: -8px; }
-/* Its button, with the zoom buttons: white while it shows, grey while hidden. */
-.inspector-btn { color: var(--muted); }
-.inspector-btn.is-on,
 .lyrics-btn.is-on { color: var(--text); }
 .inspector {
   flex: none;

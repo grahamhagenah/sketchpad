@@ -11,7 +11,6 @@ import type { TakeInfo } from '../audio/take'
 import { grooveHits, grooveLabel } from '../audio/drums'
 import { MenuButton } from './Sections'
 import { useNarrow } from '../hooks/useNarrow'
-import { InspectorButton, showInspector, useInspector } from './InspectorToggle'
 import { setLyricsOpen, useLyricsPanel } from '../lyricsPanel'
 import { PALETTE, vocalColor, vocalColorId, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR, type ColorId } from '../colors'
 
@@ -336,10 +335,7 @@ export function Timeline() {
                   audition(c)
                 }}
                 onResize={(beats) => updateChord(c.id, { beats })}
-                onOpen={() => {
-                  select(c.id)
-                  showInspector()
-                }}
+                onOpen={() => select(c.id)}
               />
             )
           })}
@@ -430,7 +426,7 @@ function ChordBlock({ chord, left, beatPx, name, roman, selected, active, draggi
       className={`chord ${selected ? 'is-selected' : ''} ${active ? 'is-active' : ''} ${dragging ? 'is-dragging' : ''}`}
       style={{ left, width: chord.beats * beatPx - 6 }}
     >
-      <button type="button" className="chord-body" onClick={onSelect} onDoubleClick={onOpen} aria-pressed={selected} title="Click to select · double-click for its settings · drag to move" onPointerDown={onPress}>
+      <button type="button" className="chord-body" onClick={onSelect} onDoubleClick={onOpen} aria-pressed={selected} title="Click to select it and see its settings · drag to move" onPointerDown={onPress}>
         <span className="chord-name">{name}</span>
         <span className="chord-roman">{roman}</span>
       </button>
@@ -591,7 +587,6 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
         disabled={locked}
         // A click (not a key press, which has no place) also moves the playhead to where it was.
         onClick={(e) => onSelect(e.detail ? e.clientX : null)}
-        onDoubleClick={showInspector}
       >
         {/* On a phone, an empty track says what it's for, and once selected, where to record from. */}
         {!take && (
@@ -628,7 +623,6 @@ function DrumLane({ beatPx, beats, muted }: { beatPx: number; beats: number; mut
       style={{ width: beats * beatPx - 6 }}
       disabled={locked}
       onClick={selectDrumsTrack}
-      onDoubleClick={showInspector}
     >
       {groove ? (
         <>
@@ -675,14 +669,10 @@ const NARROW_ZOOM = 0.45
 /** Track names with mute and solo, beside each track's row; what's selected has its settings in the inspector beside them. */
 function TrackHeaders({ laneCount, vocalHint, drumTrack, drumHint, addRow }: { laneCount: number; vocalHint: boolean; drumTrack: boolean; drumHint: boolean; addRow: boolean }) {
   const s = useFields('addDrumTrack', 'addVocalTrack', 'chords', 'chordsColor', 'chordsMuted', 'chordsName', 'chordsSolo', 'chordsTrackSelected', 'chordsVolume', 'drumsColor', 'drumsMuted', 'drumsName', 'drumsSolo', 'drumsTrackSelected', 'drumsVolume', 'recording', 'renameChords', 'renameDrums', 'renameVocal', 'selectChordsTrack', 'selectDrumsTrack', 'selectVocal', 'selectedVocal', 'setChordsColor', 'setChordsVolume', 'setDrumsColor', 'setDrumsVolume', 'setVocalColor', 'setVocalVolume', 'toggleChordsMute', 'toggleChordsSolo', 'toggleDrumsMute', 'toggleDrumsSolo', 'toggleVocalMute', 'toggleVocalSolo', 'vocalColors', 'vocalMuted', 'vocalNames', 'vocalSolo', 'vocalVolume')
-  // With the settings panel hidden, its button waits here, where the panel would be.
   const narrow = useNarrow()
-  const shown = useInspector((i) => i.shown)
-  const settingsHidden = !narrow && !shown
   return (
     <div className="track-headers">
       <div className="timeline-corner">
-        {settingsHidden && <InspectorButton />}
         {/* What the column is, level with the inspector's title beside it. */}
         <span className="column-title">Tracks</span>
         <UnmuteAllButton />
@@ -853,10 +843,6 @@ function TrackHeader({ name, icon, className, style, muted, solo, onMute, onSolo
         // Clicks from the colour menu reach here too (it's rendered elsewhere on the page, but within this in React); they don't select.
         if (!e.currentTarget.contains(e.target as Node)) return
         if (!(e.target as HTMLElement).closest('.track-btn, .track-color, input')) onSelect?.()
-      }}
-      onDoubleClick={(e) => {
-        // A double-click on the name renames it instead.
-        if (onSelect && e.currentTarget.contains(e.target as Node) && !(e.target as HTMLElement).closest('.track-btn, .track-color, .track-name, input')) showInspector()
       }}
     >
       <span className="track-title">
