@@ -191,16 +191,25 @@ main > .panel {
 /* As the transport: a mode that's on glows in the accent, like the loop strip; pointed at, an icon grows and brightens. */
 .toolbar-modes .toggle-btn[aria-pressed='true'] svg,
 .toolbar-modes .arp-btn.is-lit svg { filter: drop-shadow(0 0 5px rgb(90 216 200 / 0.45)); }
+/*
+ * Each icon drawn on its own layer from the start, at rest as well as when it
+ * grows: Safari otherwise snaps a resting icon to whole pixels but draws a
+ * growing one where it really is, a fraction of a pixel over, so it jumped
+ * sideways as the hover began. The same transform throughout, only scaled.
+ */
+.toolbar-modes .icon-btn svg,
+.toolbar-icons .icon-btn svg,
+.transport > button svg { transform: translateZ(0); will-change: transform; backface-visibility: hidden; }
 .toolbar-modes .icon-btn svg,
 .toolbar-icons .icon-btn svg { transition: transform 0.12s ease, filter 0.12s ease; }
 @media (hover: hover) {
   .toolbar-modes .icon-btn:not(:disabled):hover svg,
-  .toolbar-icons .icon-btn:not(:disabled):hover svg { transform: scale(1.1); }
+  .toolbar-icons .icon-btn:not(:disabled):hover svg { transform: translateZ(0) scale(1.1); }
   .toolbar-modes .icon-btn:not(:disabled):hover svg { filter: brightness(1.15); }
   .toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover svg,
   .toolbar-modes .arp-btn.is-lit:not(:disabled):hover svg { filter: drop-shadow(0 0 7px rgb(90 216 200 / 0.7)) brightness(1.12); }
   .toolbar-modes .icon-btn:not(:disabled):active svg,
-  .toolbar-icons .icon-btn:not(:disabled):active svg { transform: scale(0.95); }
+  .toolbar-icons .icon-btn:not(:disabled):active svg { transform: translateZ(0) scale(0.95); }
 }
 @media (prefers-reduced-motion: reduce) {
   .toolbar-modes .icon-btn svg,
@@ -268,7 +277,7 @@ main > .panel {
   color: var(--text);
 }
 .transport > button svg { transition: transform 0.12s ease, filter 0.12s ease; }
-.transport > button:not(:disabled):active svg { transform: scale(0.95); }
+.transport > button:not(:disabled):active svg { transform: translateZ(0) scale(0.95); }
 /* Play and record glow in their colours, as the loop strip does in its. */
 .transport .play { color: var(--accent); }
 .transport .play:not(.is-playing) svg { filter: drop-shadow(0 0 5px rgb(90 216 200 / 0.45)); }
@@ -286,10 +295,10 @@ main > .panel {
   .transport .record-btn.is-count-in:not(:disabled):hover { background: color-mix(in srgb, var(--record) 36%, var(--tile)); }
   .transport .record-btn.is-on:not(:disabled):hover { background: color-mix(in srgb, var(--record) 82%, #000); }
   /* Pointed at, an icon grows and brightens, as the loop strip thickens; pressed, it still gives a little. */
-  .transport > button:not(:disabled):hover svg { transform: scale(1.1); }
+  .transport > button:not(:disabled):hover svg { transform: translateZ(0) scale(1.1); }
   .transport .play:not(.is-playing):not(:disabled):hover svg { filter: drop-shadow(0 0 7px rgb(90 216 200 / 0.7)) brightness(1.12); }
   .transport .record-btn:not(.is-on):not(:disabled):hover svg { filter: drop-shadow(0 0 7px rgb(255 90 95 / 0.7)) brightness(1.12); }
-  .transport > button:not(:disabled):active svg { transform: scale(0.95); }
+  .transport > button:not(:disabled):active svg { transform: translateZ(0) scale(0.95); }
 }
 @media (prefers-reduced-motion: reduce) {
   .transport > button svg { transition: none; }

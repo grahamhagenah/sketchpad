@@ -65,6 +65,16 @@ export function toggleChordKeys() {
   keep(next)
 }
 
+/** A piano's keys from above: four white keys, with black ones between the first three, as from C to F. */
+const KEYS_ICON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M7.5 13v6M12 13v6M16.5 5v14" strokeLinecap="round" />
+    <rect x="6" y="5" width="3" height="8" rx="0.6" fill="currentColor" stroke="none" />
+    <rect x="10.5" y="5" width="3" height="8" rx="0.6" fill="currentColor" stroke="none" />
+  </svg>
+)
+
 /** A button in the top bar to bring the keys out or put them away; K does it too. */
 export function ChordKeysButton() {
   const open = useChordKeys((s) => s.open)
@@ -77,7 +87,7 @@ export function ChordKeysButton() {
       title="Chord keys (K)"
       onClick={toggleChordKeys}
     >
-      <Icon d="M3 5h18v14H3zM8 5v8M13 5v8M18 5v8M8 13v6M13 13v6M18 13v6" />
+      {KEYS_ICON}
     </button>
   )
 }
