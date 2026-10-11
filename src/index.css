@@ -812,6 +812,16 @@ main > .panel {
 }
 .unmute-all svg { width: 16px; height: 16px; }
 .unmute-all:hover { color: var(--text); background: var(--raised); }
+/*
+ * Beside the tracks the corner has no room for its words: there it's an icon
+ * the size of the add button beside it, in the accent so a muted or soloed
+ * track isn't missed, its name in the tooltip.
+ */
+@media (min-width: 641px) {
+  .unmute-all { flex: none; width: 30px; height: 30px; justify-content: center; padding: 0; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .unmute-all:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 24%, transparent); }
+  .unmute-all-label { display: none; }
+}
 
 /* The sketch's title, leading the toolbar, with the library and save beside it. */
 .song-bar { display: flex; align-items: center; gap: 2px; }
