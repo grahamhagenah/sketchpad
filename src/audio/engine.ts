@@ -12,6 +12,7 @@ import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback 
 import { keepVocals } from '../history'
 import { quietly, showUndoNote } from '../undoNote'
 import { tally } from '../analytics'
+import { monoStart, safely } from './timing'
 
 interface HitEvent extends Hit {
   time: string
@@ -136,7 +137,7 @@ class Engine {
 
     this.chordEvents = events
     this.chordPart?.dispose()
-    this.chordPart = new Tone.Part<HitEvent>((time, ev) => this.playHit(ev, ev.dur, time), events).start(0)
+    this.chordPart = new Tone.Part<HitEvent>(safely((time, ev) => this.playHit(ev, ev.dur, time)), events).start(0)
 
     // Each vocal starts wherever the loop enters it, every time round. The
     // lane being recorded into stays quiet; the others play along.
@@ -161,7 +162,7 @@ class Engine {
       this.vocalSpans.push({ player, from, to, offset })
       this.vocalParts.push(
         new Tone.Part<VocalEvent>(
-          (time, ev) => player.start(time, ev.offset, ev.duration),
+          safely((time, ev) => player.start(time, ev.offset, ev.duration)),
           [{ time: `${Math.round(from * t.PPQ)}i`, offset, duration: (to - from) * secondsPerQuarter }],
         ).start(0),
       )
@@ -172,7 +173,7 @@ class Engine {
     const drums = song.drums
       .filter((h) => h.beat >= region.start && h.beat < region.end)
       .map((h) => ({ ...h, time: `${Math.round(h.beat * this.ticksPerBeat)}i` }))
-    this.drumPart = new Tone.Part<DrumEvent>((time, ev) => playDrum(this.kit, ev.piece, time, ev.velocity), drums).start(0)
+    this.drumPart = new Tone.Part<DrumEvent>(safely((time, ev) => playDrum(this.kit, ev.piece, time, ev.velocity)), drums).start(0)
 
     this.clickPart?.dispose()
     this.clickPart = null
@@ -181,9 +182,10 @@ class Engine {
       for (let b = region.start; b < region.end; b++) {
         clicks.push({ time: `${Math.round(b * this.ticksPerBeat)}i`, accent: b % num === 0 })
       }
-      this.clickPart = new Tone.Part<ClickEvent>((time, ev) => {
-        this.click.triggerAttackRelease(ev.accent ? 'C6' : 'G5', 0.03, time, ev.accent ? 1 : 0.6)
-      }, clicks).start(0)
+      this.clickPart = new Tone.Part<ClickEvent>(
+        safely((time, ev) => this.click.triggerAttackRelease(ev.accent ? 'C6' : 'G5', 0.03, monoStart(this.click, time), ev.accent ? 1 : 0.6)),
+        clicks,
+      ).start(0)
     }
 
     this.loopStartTicks = Math.round(region.start * this.ticksPerBeat)
@@ -203,7 +205,7 @@ class Engine {
   private playHit(ev: Hit, quarters: number, time: number) {
     const length = quarters * this.secondsPerQuarter
     if (ev.pad.length) this.pad.triggerAttackRelease(ev.pad.map(midiToHz), ev.held ? length * 0.97 : length, time, ev.velocity)
-    if (ev.bass !== null) this.bass.triggerAttackRelease(midiToHz(ev.bass), length * 0.97, time, 0.9)
+    if (ev.bass !== null) this.bass.triggerAttackRelease(midiToHz(ev.bass), length * 0.97, monoStart(this.bass, time), 0.9)
   }
 
   /** Plays from `fromBeat`, or from the start of the loop when that's outside it. */
@@ -373,7 +375,7 @@ class Engine {
     if (!song.arp.on) {
       const info = chordOf(song.key, song.mode, chord)
       this.pad.triggerAttackRelease(voiceChord(info.pcs, null).map(midiToHz), 0.9, now, 0.8)
-      this.bass.triggerAttackRelease(midiToHz(bassNote(info.bassPc)), 0.9, now, 0.9)
+      this.bass.triggerAttackRelease(midiToHz(bassNote(info.bassPc)), 0.9, monoStart(this.bass, now), 0.9)
       return
     }
     const quarter = 60 / song.bpm
@@ -383,7 +385,7 @@ class Engine {
       const at = start + h.start * quarter
       const play = () => {
         if (h.pad.length) this.pad.triggerAttackRelease(h.pad.map(midiToHz), h.dur * quarter, at, h.velocity)
-        if (h.bass !== null) this.bass.triggerAttackRelease(midiToHz(h.bass), h.dur * quarter * 0.97, at, 0.9)
+        if (h.bass !== null) this.bass.triggerAttackRelease(midiToHz(h.bass), h.dur * quarter * 0.97, monoStart(this.bass, at), 0.9)
       }
       // Handed to the synths a moment ahead, on the audio clock; until then, a newer preview can call it off.
       const lead = (at - Tone.now() - 0.1) * 1000

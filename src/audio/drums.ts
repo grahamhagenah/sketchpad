@@ -1,5 +1,6 @@
 import * as Tone from 'tone'
 import type { TimeSig } from '../store'
+import { monoStart } from './timing'
 
 export type DrumPiece = 'kick' | 'snare' | 'hat' | 'tomHigh' | 'tomLow' | 'crash' | 'openHat' | 'clap' | 'rim'
 export type GrooveId = 'backbeat' | 'halftime' | 'four' | 'light' | 'rock' | 'ballad' | 'shuffle' | 'disco' | 'funk' | 'trap' | 'dnb' | 'dembow' | 'bossa'
@@ -316,18 +317,19 @@ export function createKit(): Kit {
 }
 
 export function playDrum(kit: Kit, piece: DrumPiece, time: number, velocity: number) {
-  if (piece === 'kick') kit.kick.triggerAttackRelease('C1', 0.2, time, velocity)
-  else if (piece === 'snare') kit.snare.triggerAttackRelease(0.14, time, velocity)
-  else if (piece === 'hat') kit.hat.triggerAttackRelease(0.04, time, velocity)
-  else if (piece === 'openHat') kit.openHat.triggerAttackRelease(0.3, time, velocity)
-  else if (piece === 'crash') kit.crash.triggerAttackRelease(1.2, time, velocity)
-  else if (piece === 'rim') kit.rim.triggerAttackRelease('E5', 0.05, time, velocity)
+  // Each drum strikes once at a time; see monoStart.
+  if (piece === 'kick') kit.kick.triggerAttackRelease('C1', 0.2, monoStart(kit.kick, time), velocity)
+  else if (piece === 'snare') kit.snare.triggerAttackRelease(0.14, monoStart(kit.snare, time), velocity)
+  else if (piece === 'hat') kit.hat.triggerAttackRelease(0.04, monoStart(kit.hat, time), velocity)
+  else if (piece === 'openHat') kit.openHat.triggerAttackRelease(0.3, monoStart(kit.openHat, time), velocity)
+  else if (piece === 'crash') kit.crash.triggerAttackRelease(1.2, monoStart(kit.crash, time), velocity)
+  else if (piece === 'rim') kit.rim.triggerAttackRelease('E5', 0.05, monoStart(kit.rim, time), velocity)
   else if (piece === 'clap') {
     // Three hands, a moment apart, the last the loudest.
-    kit.clap.triggerAttackRelease(0.01, time, velocity * 0.6)
-    kit.clap.triggerAttackRelease(0.01, time + 0.011, velocity * 0.7)
-    kit.clap.triggerAttackRelease(0.09, time + 0.022, velocity)
-  } else kit.tom.triggerAttackRelease(piece === 'tomHigh' ? 'A2' : 'E2', 0.3, time, velocity)
+    kit.clap.triggerAttackRelease(0.01, monoStart(kit.clap, time), velocity * 0.6)
+    kit.clap.triggerAttackRelease(0.01, monoStart(kit.clap, time + 0.011), velocity * 0.7)
+    kit.clap.triggerAttackRelease(0.09, monoStart(kit.clap, time + 0.022), velocity)
+  } else kit.tom.triggerAttackRelease(piece === 'tomHigh' ? 'A2' : 'E2', 0.3, monoStart(kit.tom, time), velocity)
 }
 
 export function disposeKit(kit: Kit) {
