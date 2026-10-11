@@ -9,6 +9,7 @@ import { audition } from '../audio/engine'
 import { loadPiano } from '../audio/instruments'
 import { ArpSettings } from './ArpPanel'
 import { SheetSlider, TrackSheet } from './TrackSheet'
+import { setLyricsOpen } from '../lyricsPanel'
 
 // Brightness runs on a log scale, so the slider's travel matches what you hear.
 const MIN_HZ = 300
@@ -39,7 +40,12 @@ function usePanel(which: 'sound' | 'arp') {
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(floating && !narrow, close, ref)
   const open = narrow ? sheet : floating
-  const toggle = () => (narrow ? useToolSheet.setState({ open: sheet ? null : which }) : setFloating(!floating))
+  const toggle = () => {
+    if (!narrow) return setFloating(!floating)
+    // One sheet at a time along the bottom: the sound or arpeggiator takes the lyrics' place.
+    if (!sheet) setLyricsOpen(false)
+    useToolSheet.setState({ open: sheet ? null : which })
+  }
   return { ref, open, toggle, floating: open && !narrow }
 }
 
@@ -289,18 +295,21 @@ function SoundSettings() {
         <div className="sound-section">
           <div className="sound-shape-head">
             <span className="sound-heading">Shape</span>
-            {changed && base && (
-              <button
-                type="button"
-                className="track-sheet-link"
-                onClick={() => {
-                  setSound({ ...base.sound, ...extrasOf(base.sound), preset: base.name, bass: sound.bass })
-                  preview()
-                }}
-              >
-                Reset {base.name}
-              </button>
-            )}
+            {/* Always there, hidden until the sound's been changed, so showing it doesn't move anything. */}
+            <button
+              type="button"
+              className="track-sheet-link"
+              style={changed && base ? undefined : { visibility: 'hidden' }}
+              aria-hidden={!(changed && base)}
+              tabIndex={changed && base ? undefined : -1}
+              onClick={() => {
+                if (!base) return
+                setSound({ ...base.sound, ...extrasOf(base.sound), preset: base.name, bass: sound.bass })
+                preview()
+              }}
+            >
+              Reset {base?.name ?? 'sound'}
+            </button>
           </div>
           <div className="sound-grid" role="radiogroup" aria-label="Wave">
             {WAVES.map((w) => (

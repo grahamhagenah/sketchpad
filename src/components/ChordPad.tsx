@@ -56,8 +56,12 @@ const savedQuick = () => {
  * (its options, duplicating, deleting), which the top bar does on a wider
  * screen. With "Tap to add" a tap adds a chord straight away, with a moment to
  * undo. Drag the handle (or tap it) to fold the sheet down to a bar and back.
+ *
+ * Docked, on a wider screen, it's what the settings column beside the tracks
+ * shows with nothing selected: the same pads and options, in the column,
+ * with no handle to fold it by.
  */
-export function ChordPad() {
+export function ChordPad({ docked = false }: { docked?: boolean }) {
   const state = useFields('key', 'mode', 'sectionKey', 'selectedId', 'chords', 'timeSig')
   const { key, mode } = keyOf(state)
   const { selectedId, chords, timeSig } = state
@@ -72,7 +76,7 @@ export function ChordPad() {
   // Leave room under the page for the sheet, however tall it is, so the timeline can scroll clear of it.
   useLayoutEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el || docked) return
     const root = document.documentElement
     const observer = new ResizeObserver(() => root.style.setProperty('--chord-pad-h', `${el.offsetHeight}px`))
     observer.observe(el)
@@ -80,7 +84,7 @@ export function ChordPad() {
       observer.disconnect()
       root.style.removeProperty('--chord-pad-h')
     }
-  }, [open])
+  }, [open, docked])
 
   // The "Added" note fades after a few seconds.
   useEffect(() => {
@@ -187,7 +191,7 @@ export function ChordPad() {
     </div>
   )
 
-  if (!open) {
+  if (!open && !docked) {
     return (
       <div className="chord-pad is-folded" ref={ref}>
         {note}
@@ -205,14 +209,28 @@ export function ChordPad() {
   }
 
   return (
-    <div className="chord-pad" ref={ref} role="region" aria-label="Chord pad" style={dragY ? { transform: `translateY(${dragY}px)`, transition: 'none' } : undefined}>
-      {note}
-      <button type="button" className="chord-pad-handle" aria-label="Fold the chord pad" {...handle}>
-        <span className="chord-pad-grip" aria-hidden="true" />
-      </button>
-      <div className="chord-pad-head" {...area}>
+    <div
+      className={`chord-pad ${docked ? 'is-docked' : ''}`}
+      ref={ref}
+      role="region"
+      aria-label="Chord pad"
+      style={dragY && !docked ? { transform: `translateY(${dragY}px)`, transition: 'none' } : undefined}
+    >
+      {/* Beside the tracks, a chord added shows up right there on the timeline, and undo is a keystroke away. */}
+      {!docked && note}
+      {!docked && (
+        <button type="button" className="chord-pad-handle" aria-label="Fold the chord pad" {...handle}>
+          <span className="chord-pad-grip" aria-hidden="true" />
+        </button>
+      )}
+      <div className="chord-pad-head" {...(docked ? {} : area)}>
+        {/* Docked, the column's own title names it; the key is enough here. */}
         <span className="chord-pad-title">
-          Chords <span className="chord-pad-key">{keyLabel(key, mode)} {mode}</span>
+          {!docked && 'Chords '}
+          <span className="chord-pad-key">
+            {docked ? 'In ' : ''}
+            {keyLabel(key, mode)} {mode}
+          </span>
         </span>
         <button
           type="button"

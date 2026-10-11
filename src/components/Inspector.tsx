@@ -5,7 +5,7 @@ import { DEFAULT_CHORDS_COLOR } from '../colors'
 import { CloseButton, LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
 import { VocalPad } from './VocalPad'
 import { DrumPad } from './DrumPad'
-import { SectionPanel } from './Sections'
+import { ChordPad } from './ChordPad'
 import { KeysIcon } from './Timeline'
 import { InspectorButton } from './InspectorToggle'
 
@@ -25,7 +25,7 @@ const BASSES: { id: ChordBass | undefined; label: string }[] = [
  * On a wider screen, a column beside the track names with the settings of
  * whatever's selected, the same ones a phone shows in the sheet along the
  * bottom: a chord, the chords track, a vocal track or the drum track; with
- * nothing selected, the section's own.
+ * nothing selected, the chord pad, to hear the key's chords and add them.
  */
 export function Inspector() {
   const s = useFields('chords', 'chordsTrackSelected', 'drumTrack', 'drumsTrackSelected', 'selectedId', 'selectedVocal')
@@ -36,7 +36,8 @@ export function Inspector() {
   else if (s.selectedVocal !== null) [body, title] = [<VocalPad lane={s.selectedVocal} docked />, 'Track settings']
   else if (s.drumsTrackSelected && s.drumTrack) [body, title] = [<DrumPad docked />, 'Track settings']
   else if (s.chordsTrackSelected && s.chords.length) [body, title] = [<ChordsTrackPad docked />, 'Track settings']
-  else [body, title] = [<SectionPanel />, 'Section settings']
+  // With nothing selected, the key's chords to hear and add, as a phone has along the bottom.
+  else [body, title] = [<ChordPad docked />, 'Add chords']
   return (
     <aside className="inspector" aria-label={title}>
       <div className="inspector-body">

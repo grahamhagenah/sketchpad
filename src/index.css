@@ -39,6 +39,8 @@
    * what has to be read from a distance, and hero for the count-in.
    */
   --fs-label: 10px;
+  /* The small capitals that head a column, a panel's sections or a menu's groups: a step up from a label. */
+  --fs-heading: 11.5px;
   --fs-small: 11px;
   --fs-body: 13px;
   --fs-title: 15px;
@@ -430,7 +432,7 @@ main > .panel {
 /* The open view, and beside it, when they're showing, the lyrics. */
 .editor-main { flex: 1; display: flex; min-width: 0; min-height: 0; }
 /* The titles over the inspector and the track names, side by side on one line: small capitals, in grey. */
-.column-title { margin: 0; font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.column-title { margin: 0; font-size: var(--fs-heading); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .inspector-title { display: flex; align-items: center; justify-content: space-between; height: 30px; margin: 6px 0 10px; }
 .inspector-title .inspector-btn, .timeline-corner .inspector-btn { width: 30px; height: 30px; }
 /* Hidden, the button sits before the Tracks title, and the title after it. */
@@ -440,6 +442,8 @@ main > .panel {
 .inspector-btn { color: var(--muted); }
 .inspector-btn.is-on,
 .lyrics-btn.is-on { color: var(--text); }
+/* With its name beside the icon, like the section's menu next to it. */
+.section-bar-end .icon-btn.lyrics-btn { width: auto; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 8px; font-size: var(--fs-body); font-weight: 500; }
 .inspector {
   flex: none;
   width: 260px;
@@ -464,7 +468,7 @@ main > .panel {
 /* A setting with its name above it. */
 .inspector-field { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: var(--fs-body); }
 .inspector-field > span,
-.chord-pad-option > span { font-family: 'DM Mono', monospace; font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.chord-pad-option > span { font-family: 'DM Mono', monospace; font-size: var(--fs-heading); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .inspector-field select {
   width: 100%;
   height: 38px;
@@ -799,12 +803,8 @@ main > .panel {
   .timeline-corner { padding-right: 12px; }
 }
 
-/* The section's settings: three ways to copy it. */
-.section-sheet-copies { width: 100%; }
-.section-sheet-copies button { padding: 0 4px; }
 /* On a blank sketch, under the ways to start: the demo song, to hear what Bounce does first. */
 .starter-demo { margin: 0; font-size: var(--fs-small); color: var(--muted); }
-.section-settings[aria-pressed='true'] { color: var(--text); background: var(--raised); }
 /* Only there while a track is muted or soloed. */
 .unmute-all {
   height: 26px;
@@ -1109,7 +1109,7 @@ main > .panel {
 .palette-group { display: flex; flex-direction: column; gap: 8px; }
 .palette-group-label {
   font-family: 'DM Mono', monospace;
-  font-size: var(--fs-label);
+  font-size: var(--fs-heading);
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1282,7 +1282,7 @@ main > .panel {
 .section-menu { width: 280px; z-index: 30; }
 .menu-item.menu-item-row { flex-direction: row; align-items: center; gap: 10px; padding-block: 8px; }
 .menu-item.menu-item-row .menu-item-about { margin-left: auto; }
-.menu-label { margin: 6px 12px 2px; font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.menu-label { margin: 6px 12px 2px; font-size: var(--fs-heading); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .menu-item.is-danger .menu-item-title { color: var(--danger); }
 
 /*
@@ -1968,7 +1968,7 @@ main > .panel {
 .menu-item.has-icon:not(:disabled):hover .menu-item-icon { color: var(--text); }
 .menu-item.has-icon:disabled .menu-item-icon { opacity: 0.5; }
 /* Over a list in a menu, such as the saved sketches. */
-.menu-heading { margin: 8px 12px 2px; font-family: 'DM Mono', monospace; font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.menu-heading { margin: 8px 12px 2px; font-family: 'DM Mono', monospace; font-size: var(--fs-heading); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .menu-empty { margin: 6px 12px 8px; font-size: var(--fs-body); color: var(--muted); }
 /* A quiet link at the foot of the File menu, out to the page about the app. */
 .menu-footnote { display: block; margin: 2px 0; padding: 6px 12px; border-radius: 6px; font-size: var(--fs-label); color: var(--muted); text-decoration: none; }
@@ -2082,7 +2082,7 @@ main > .panel {
 .track-sheet-slider:has(input:disabled) { opacity: 0.4; }
 .sound-heading {
   font-family: 'DM Mono', monospace;
-  font-size: var(--fs-label);
+  font-size: var(--fs-heading);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -2458,39 +2458,39 @@ main > .panel {
   gap: 8px;
 }
 .lyrics-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; height: 42px; background: var(--panel); }
-.lyrics-section { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; border: 1px solid transparent; border-radius: 8px; transition: border-color 0.15s, background 0.15s; }
-.lyrics-section.is-open { background: rgb(255 255 255 / 0.04); border-color: var(--line); }
-.lyrics-section.is-playing { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
-.lyrics-section-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lyrics-section { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 6px 12px 12px; border-top: 1px solid var(--line); }
+.lyrics-section:first-of-type { border-top: 0; }
+/* The section that's open shows its name in the accent; the one playing has a line down its side. */
+.lyrics-section.is-open .lyrics-section-name { color: var(--accent); }
+.lyrics-section.is-playing::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 12px; width: 2px; border-radius: 1px; background: var(--accent); }
+.lyrics-section-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .lyrics-section-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: none; font-size: var(--fs-title); font-weight: 600; color: var(--text); cursor: pointer; }
 .lyrics-section-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .lyrics-section-plays { flex: none; margin-left: auto; font-size: var(--fs-small); color: var(--muted); }
 .lyrics-chords { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); }
-/* The text box exactly as tall as its lines, its syllable counts on the same rows beside it. */
-.lyrics-lines { --lh: 22px; display: flex; gap: 8px; }
-.lyrics-lines textarea {
-  flex: 1;
-  min-width: 0;
-  height: calc(var(--lines) * var(--lh) + 18px);
-  padding: 8px 10px;
+/* The words, written straight on the page: no box, just the text, growing to fit. */
+.lyrics-text {
+  width: 100%;
+  min-height: 0;
+  margin-top: 4px;
+  padding: 0;
   resize: none;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: var(--raised);
+  border: 0;
+  background: none;
   color: var(--text);
   font: inherit;
-  font-size: var(--fs-body);
-  line-height: var(--lh);
+  font-size: var(--fs-title);
+  line-height: 1.6;
 }
-.lyrics-lines textarea:focus { outline: none; border-color: var(--muted); }
-.lyrics-lines textarea::placeholder { color: var(--muted); opacity: 0.6; }
-.lyrics-counts { flex: none; width: 18px; padding-top: 9px; display: flex; flex-direction: column; font-family: 'DM Mono', monospace; font-size: var(--fs-small); line-height: var(--lh); text-align: right; color: var(--muted); }
-.lyrics-counts span { height: var(--lh); }
-.lyrics-panel.is-sheet { position: fixed; inset: 0; z-index: 60; align-self: stretch; width: auto; max-height: none; margin: 0; padding: 0 var(--gutter) 24px; border: 0; background: var(--panel); }
+.lyrics-text:focus { outline: none; }
+.lyrics-text::placeholder { color: var(--muted); opacity: 0.6; }
+/* On a phone, in a sheet along the bottom: each section's words one after another, as in the column. */
+.lyrics-sheet { display: flex; flex-direction: column; margin-left: -12px; }
 @media (max-width: 640px) {
   /* The tab strip's other buttons give way on a phone; the lyrics stay. */
-  .section-bar-end .lyrics-btn { display: inline-grid; }
+  .section-bar-end .icon-btn.lyrics-btn { display: inline-grid; width: 30px; padding: 0; }
+  .lyrics-btn-label { display: none; }
 }
 
 
@@ -2498,3 +2498,15 @@ main > .panel {
 .vocal-timing .chord-pad-length { width: 100%; }
 .vocal-timing .chord-pad-length button { flex: none; padding: 0 14px; font-size: var(--fs-body); }
 .vocal-timing .chord-pad-length span { flex: 1; justify-content: center; color: var(--muted); }
+
+/*
+ * The chord pad in the settings column, with nothing selected: in place
+ * rather than a sheet over the page, its options one to a line to fit.
+ */
+.chord-pad.is-docked { position: static; z-index: auto; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; transition: none; }
+.chord-pad.is-docked .chord-pad-head { cursor: auto; touch-action: auto; flex-wrap: wrap; }
+.chord-pad.is-docked .chord-pad-title { flex-basis: 100%; }
+.chord-pad.is-docked .chord-pad-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.chord-pad.is-docked .chord-pad-pad { height: 54px; }
+.chord-pad.is-docked .chord-pad-options { grid-template-columns: minmax(0, 1fr); }
+.chord-pad.is-docked .chord-pad-add { height: 44px; font-size: var(--fs-body); }
