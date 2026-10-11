@@ -423,7 +423,33 @@ export function sketchSignature(s: State) {
 /** How long each section is, in beats. */
 const sectionBeats = (sections: Pick<Section, 'id' | 'chords'>[]) => new Map(sections.map((sec) => [sec.id, totalBeats(sec.chords)]))
 
-const chord = (degree: number, beats: number, more: Partial<ChordSpec> = {}): Chord => ({ id: newId(), degree, beats, seventh: false, ...more })
+/** A chord to start a ready-made song with: plain, unless `more` says otherwise. */
+export const newChord = (degree: number, beats: number, more: Partial<ChordSpec> = {}): Chord => ({ id: newId(), degree, beats, seventh: false, ...more })
+
+/** A section of a ready-made song. */
+export interface SectionStart {
+  name: string
+  chords: Chord[]
+  drums: GrooveId | null
+  drumFill?: FillId
+  sectionKey?: SectionKey
+}
+
+/** How a ready-made song sounds. */
+export type SongSettings = Pick<State, 'key' | 'mode' | 'bpm' | 'timeSig' | 'sound' | 'arp' | 'rhythm' | 'chordsVolume' | 'drumsVolume'>
+export type SongStart = SongSettings & ReturnType<typeof songState> & Pick<State, 'view' | 'drumTrack' | 'loopOn'>
+
+/** A ready-made song: its sections played in `order` (by their index), opening on the song view with the first one open. */
+export function songStart(settings: SongSettings, sections: SectionStart[], order: number[]): SongStart {
+  const made = sections.map((sec) => ({ drumFill: 'none' as FillId, sectionKey: null, ...sec, id: newId() }))
+  return {
+    ...settings,
+    ...songState({ sections: made, arrangement: order.map((i) => ({ id: newId(), section: made[i].id })), activeSection: made[0].id }),
+    view: 'song',
+    drumTrack: true,
+    loopOn: true,
+  }
+}
 
 /**
  * The demo song, and what a first visit opens on: a quick minor song in G,
@@ -433,38 +459,30 @@ const chord = (degree: number, beats: number, more: Partial<ChordSpec> = {}): Ch
  * the demo back.
  */
 export function demoSong() {
+  const chord = newChord
   // The hook, C B♭ E♭ · C F E♭: the major IV borrowed from G major, against the minor key's ♭III and ♭VI.
   const hook = (end: Chord[]) => [chord(3, 2, { borrowed: true }), chord(2, 2), chord(5, 4), chord(3, 2, { borrowed: true }), ...end]
-  const verse = {
-    id: newId(),
-    name: 'Verse',
-    chords: [...hook([chord(6, 2), chord(5, 4)]), ...hook([chord(5, 2), chord(6, 4)])],
-    drums: 'halftime' as const,
-    drumFill: 'end' as const,
-  }
   // Gm7 E♭maj7 C B♭, then down to the minor iv and v and up to F, back round to Gm.
-  const choruses = () => [chord(0, 4, { seventh: true }), chord(5, 4, { seventh: true }), chord(3, 4, { borrowed: true }), chord(2, 4), chord(0, 4, { seventh: true }), chord(5, 4, { seventh: true }), chord(3, 2), chord(4, 2), chord(6, 4)]
-  const chorus = { id: newId(), name: 'Chorus', chords: choruses(), drums: 'backbeat' as const, drumFill: 'four' as const }
-  const lift = { ...chorus, id: newId(), name: 'Last chorus', chords: choruses(), drumFill: 'end' as const, sectionKey: { key: 8, mode: 'minor' as const } }
-  return {
-    key: 7,
-    mode: 'minor' as const,
-    bpm: 132,
-    timeSig: [4, 4] as TimeSig,
-    ...songState({
-      sections: [verse, chorus, lift],
-      arrangement: [verse, chorus, verse, chorus, lift].map((sec) => ({ id: newId(), section: sec.id })),
-      activeSection: verse.id,
-    }),
-    view: 'song' as const,
-    drumTrack: true,
-    loopOn: true,
-    sound: { ...DEFAULT_SOUND, instrument: 'synth', preset: 'Synth', wave: 'sawtooth', attack: 0.045, decay: 0.16, sustain: 0.02, release: 0.03, brightness: 6856, reverb: 0.28, bass: true } satisfies Sound,
-    arp: { on: true, pattern: 'down', rate: '1/16', octaves: 3, gate: 0.7, swing: 0, accent: 0.37 } satisfies Arp,
-    rhythm: { ...DEFAULT_RHYTHM, chords: 'held', bass: 'kick' } satisfies Rhythm,
-    chordsVolume: -3.5,
-    drumsVolume: 6,
-  }
+  const chorus = () => [chord(0, 4, { seventh: true }), chord(5, 4, { seventh: true }), chord(3, 4, { borrowed: true }), chord(2, 4), chord(0, 4, { seventh: true }), chord(5, 4, { seventh: true }), chord(3, 2), chord(4, 2), chord(6, 4)]
+  return songStart(
+    {
+      key: 7,
+      mode: 'minor',
+      bpm: 132,
+      timeSig: [4, 4],
+      sound: { ...DEFAULT_SOUND, instrument: 'synth', preset: 'Synth', wave: 'sawtooth', attack: 0.045, decay: 0.16, sustain: 0.02, release: 0.03, brightness: 6856, reverb: 0.28, bass: true },
+      arp: { on: true, pattern: 'down', rate: '1/16', octaves: 3, gate: 0.7, swing: 0, accent: 0.37 },
+      rhythm: { ...DEFAULT_RHYTHM, chords: 'held', bass: 'kick' },
+      chordsVolume: -3.5,
+      drumsVolume: 6,
+    },
+    [
+      { name: 'Verse', chords: [...hook([chord(6, 2), chord(5, 4)]), ...hook([chord(5, 2), chord(6, 4)])], drums: 'halftime', drumFill: 'end' },
+      { name: 'Chorus', chords: chorus(), drums: 'backbeat', drumFill: 'four' },
+      { name: 'Last chorus', chords: chorus(), drums: 'backbeat', drumFill: 'end', sectionKey: { key: 8, mode: 'minor' } },
+    ],
+    [0, 1, 0, 1, 2],
+  )
 }
 
 /**

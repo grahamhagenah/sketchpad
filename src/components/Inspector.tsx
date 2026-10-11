@@ -1,5 +1,5 @@
 import { chordsTrackName, keyOf, totalBeats, useFields, type Chord } from '../store'
-import { chordOf, type ChordBass, type ChordColor } from '../music/theory'
+import { canMakeMajor, chordOf, type ChordBass, type ChordColor } from '../music/theory'
 import { audition } from '../audio/engine'
 import { DEFAULT_CHORDS_COLOR } from '../colors'
 import { CloseButton, LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
@@ -108,9 +108,10 @@ function ChordPanel({ chord }: { chord: Chord }) {
 
       <label className="inspector-field">
         <span>Chord</span>
-        <select value={chord.degree} onChange={(e) => edit({ degree: Number(e.target.value) })}>
+        {/* Another chord is as the key has it; playing it major is chosen again below. */}
+        <select value={chord.degree} onChange={(e) => edit({ degree: Number(e.target.value), major: undefined })}>
           {Array.from({ length: 7 }, (_, d) => {
-            const o = chordOf(key, mode, { ...chord, degree: d })
+            const o = chordOf(key, mode, { ...chord, degree: d, major: d === chord.degree ? chord.major : undefined })
             return (
               <option key={d} value={d}>
                 {o.name} — {o.roman}
@@ -129,6 +130,19 @@ function ChordPanel({ chord }: { chord: Chord }) {
           ))}
         </div>
       </div>
+      {canMakeMajor(key, mode, chord) && (
+        <div className="inspector-field">
+          <span>Major</span>
+          <div className="chord-pad-seg" role="group" aria-label="Played major" title="Play it major, as a chord from outside the key (the B in G–B–C)">
+            <button type="button" aria-pressed={!chord.major} onClick={() => edit({ major: undefined })}>
+              As in key
+            </button>
+            <button type="button" aria-pressed={!!chord.major} onClick={() => edit({ major: true })}>
+              Major
+            </button>
+          </div>
+        </div>
+      )}
       <div className="inspector-field">
         <span>Bass</span>
         <div className="chord-pad-seg" role="group" aria-label="Bass note">

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { DEFAULT_RHYTHM } from './audio/arrange'
-import { demoSong, sketchSignature, songOf, songState, useStore, type SavedSong, type SongData } from './store'
+import { demoSong, sketchSignature, songOf, songState, useStore, type SavedSong, type SongData, type SongStart } from './store'
 import { engine, loadSongTakes } from './audio/engine'
 import { SKETCHES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage, type SectionTakes } from './audio/take'
 import { takeIdsBySection } from './song'
@@ -140,15 +140,17 @@ export async function newSketch() {
   clearHistory()
 }
 
-/** Opens the demo song, with its own sound and arpeggiator settings, as a new, unsaved sketch. */
-export async function openDemo() {
+/** Opens a ready-made song, with its own sound and arpeggiator settings, as a new, unsaved sketch called `title`. */
+export async function openSong(start: SongStart, title: string) {
   if (useStore.getState().recording !== 'off') return
   if (!(await keepCurrent())) return
   stopEverything()
-  quietly(() => useStore.setState({ title: 'Demo song', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumsMuted: false, drumsSolo: false, chordsColor: null, drumsColor: null, ...demoSong() }))
+  quietly(() => useStore.setState({ title, chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumsMuted: false, drumsSolo: false, chordsColor: null, drumsColor: null, ...start }))
   useStore.getState().setSaved(null, null)
   clearHistory()
 }
+
+export const openDemo = () => openSong(demoSong(), 'Demo song')
 
 /** Moves a sketch to Recently deleted, where it can be put back for DELETED_DAYS; its takes stay until then. */
 export async function deleteSketch(id: string) {

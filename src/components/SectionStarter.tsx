@@ -1,5 +1,6 @@
 import { keyOf, sectionsNow, totalBeats, useFields, useStore } from '../store'
-import { openDemo, reportStorageError } from '../library'
+import { openDemo, openSong, reportStorageError } from '../library'
+import { SONG_TEMPLATES } from '../songs'
 import { chordInfo } from '../music/theory'
 import { audition } from '../audio/engine'
 import { Progressions } from './Palette'
@@ -78,6 +79,15 @@ export function SectionStarter() {
           <button type="button" className="track-sheet-link" onClick={() => void openDemo().catch(reportStorageError('open the demo song'))}>
             Hear a demo song
           </button>
+          , or start from a song you’d know:{' '}
+          {SONG_TEMPLATES.map((song, i) => (
+            <span key={song.name}>
+              {i > 0 && ' · '}
+              <button type="button" className="track-sheet-link" title={`Think “${song.think}”`} onClick={() => void openSong(song.build(), song.name).catch(reportStorageError('open that song'))}>
+                {song.name}
+              </button>
+            </span>
+          ))}
         </p>
       )}
     </div>

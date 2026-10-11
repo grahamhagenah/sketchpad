@@ -13,6 +13,7 @@ import {
   openBackup,
   openDemo,
   openSketch,
+  openSong,
   refreshLibrary,
   reportStorageError,
   restoreSketch,
@@ -21,6 +22,7 @@ import {
   type SketchRecord,
 } from '../library'
 import { ButtonLabel } from './Toolbar'
+import { SONG_TEMPLATES } from '../songs'
 
 /**
  * One button for the sketch file: save, start a new sketch, or open a saved
@@ -101,6 +103,22 @@ export function SketchesButton() {
             <span className="menu-item-title">Demo song</span>
             <span className="menu-item-about">A short song to hear what Bounce does</span>
           </button>
+          <p className="menu-heading">Start from a song</p>
+          {SONG_TEMPLATES.map((song) => (
+            <button
+              key={song.name}
+              type="button"
+              className="menu-item has-icon"
+              onClick={() => {
+                void openSong(song.build(), song.name).catch(reportStorageError('open that song'))
+                close()
+              }}
+            >
+              <MenuIcon d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0a3 3 0 0 1 6 0z" />
+              <span className="menu-item-title">{song.name}</span>
+              <span className="menu-item-about">Think “{song.think}”</span>
+            </button>
+          ))}
           <div className="menu-divider" role="separator" />
           {/* Backups: the sketch, recordings and all, as one file to keep anywhere, and back again. */}
           <button

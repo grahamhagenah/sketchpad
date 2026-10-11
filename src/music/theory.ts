@@ -34,6 +34,8 @@ export interface ChordSpec {
   borrowed?: boolean
   color?: ChordColor
   bass?: ChordBass
+  /** Played major where the key makes it minor (or diminished), as the III in "Creep"; with a 7th, a dominant 7th. */
+  major?: boolean
 }
 
 export interface ChordInfo {
@@ -53,6 +55,11 @@ export function chordInfo(key: number, mode: Mode, degree: number, seventh: bool
   const tone = (i: number) => scale[(degree + i) % 7] + 12 * Math.floor((degree + i) / 7)
   const root = tone(0)
   const intervals = (seventh ? [0, 2, 4, 6] : [0, 2, 4]).map((i) => tone(i) - root)
+  if (extra.major) {
+    intervals[1] = 4
+    intervals[2] = 7
+    if (seventh) intervals[3] = 10
+  }
   const [, third, fifth, sev] = intervals
 
   const triad = third === 4 ? (fifth === 8 ? 'aug' : 'maj') : fifth === 6 ? 'dim' : 'min'
@@ -107,6 +114,12 @@ export function chordInfo(key: number, mode: Mode, degree: number, seventh: bool
 
 /** chordInfo for a chord as stored, with its borrowing, colour and bass. */
 export const chordOf = (key: number, mode: Mode, c: ChordSpec) => chordInfo(key, mode, c.degree, c.seventh, c)
+
+/** Whether a chord is one the key makes minor or diminished, so it can be played major instead. */
+export function canMakeMajor(key: number, mode: Mode, c: ChordSpec) {
+  const { pcs, rootPc } = chordInfo(key, mode, c.degree, false, { borrowed: c.borrowed })
+  return (pcs[1] - rootPc + 12) % 12 === 3
+}
 
 /**
  * Picks the inversion of a chord, around middle C, that moves least from the

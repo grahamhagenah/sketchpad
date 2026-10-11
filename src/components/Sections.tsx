@@ -521,6 +521,8 @@ const ROW_H = 82
 /** On a phone a row is stacked: its name on a line of its own, its chords the full width under it. */
 const NARROW_ROW_H = 112
 const NARROW_HEAD_H = 44
+/** On a phone, the narrowest a chord gets: room for a name like B♭m. */
+const NARROW_CHORD_PX = 48
 const ROW_GAP = 6
 /** Room at the end of each row for its buttons: play from here, up, down, remove, and the menu. */
 const END_PX = 184
@@ -590,7 +592,10 @@ export function SongView() {
   const headPx = narrow ? 8 : 176
   // Room is left at the end of each row for its buttons (see END_PX).
   // A phone has no zoom buttons, so there the song always fits the screen.
-  const beatPx = (sheetWidth ? (sheetWidth - headPx - (narrow ? 16 : END_PX)) / longest : 8) * (narrow ? 1 : Math.max(1, zoom))
+  const fitPx = (sheetWidth ? (sheetWidth - headPx - (narrow ? 16 : END_PX)) / longest : 8) * (narrow ? 1 : Math.max(1, zoom))
+  // On a phone, short chords keep room for their names, and the song scrolls sideways instead.
+  const shortest = Math.min(...sections.flatMap((sec) => sec.chords.map((c) => c.beats)))
+  const beatPx = narrow && Number.isFinite(shortest) ? Math.max(fitPx, NARROW_CHORD_PX / shortest) : fitPx
   const byId = new Map(sections.map((sec) => [sec.id, sec]))
   const uses = new Map<string, number>()
   for (const entry of arrangement) uses.set(entry.section, (uses.get(entry.section) ?? 0) + 1)
@@ -722,7 +727,7 @@ export function SongView() {
   return (
     <div
       className={`song-view ${narrow ? 'is-narrow' : ''}`}
-      style={{ ['--song-head' as string]: `${headPx}px`, ['--song-track-top' as string]: narrow ? `${NARROW_HEAD_H}px` : '0px' }}
+      style={{ ['--song-head' as string]: `${headPx}px`, ['--song-track-top' as string]: narrow ? `${NARROW_HEAD_H}px` : '0px', ['--song-view-w' as string]: `${sheetWidth}px` }}
     >
       {/* How long the song is, and its shape. */}
       {total > 0 && (
@@ -883,7 +888,8 @@ export function SongView() {
             )
           })}
 
-          <div className="song-add" style={{ top: rowTop(spans.length, rowH) }}>
+          {/* On a phone it's in the flow, pinned to the screen as the song scrolls sideways. */}
+          <div className="song-add" style={narrow ? { marginTop: rowTop(spans.length, rowH) } : { top: rowTop(spans.length, rowH) }}>
             <MenuButton label="Add to the song" title="Add a section to the end of the song" className="song-add-btn" menu={(close) => (
               <>
                 {sections.map((sec) => (

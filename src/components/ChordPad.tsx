@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSheetDrag } from '../hooks/useSheetDrag'
 import { keyOf, useFields, useStore, type Chord } from '../store'
-import { BORROWED, chordOf, keyLabel, nextChords, type ChordBass, type ChordColor } from '../music/theory'
+import { BORROWED, canMakeMajor, chordOf, keyLabel, nextChords, type ChordBass, type ChordColor } from '../music/theory'
 import { audition } from '../audio/engine'
 import { quietly } from '../undoNote'
 
@@ -133,11 +133,18 @@ export function ChordPad() {
     if (!('beats' in patch)) audition({ ...selected, ...update })
   }
 
+  // Plays the selected chord major, from outside the key, or as the key has it.
+  const setMajor = (major: boolean) => {
+    if (!selected) return
+    useStore.getState().updateChord(selected.id, { major: major || undefined })
+    audition({ ...selected, major: major || undefined })
+  }
+
   // Swaps the selected chord for the picked one, keeping its options and length.
   const replace = () => {
     if (!selected) return
-    const swapped = { ...selected, degree: pick.degree, borrowed: pick.borrowed || undefined }
-    useStore.getState().updateChord(selected.id, { degree: pick.degree, borrowed: pick.borrowed || undefined })
+    const swapped = { ...selected, degree: pick.degree, borrowed: pick.borrowed || undefined, major: undefined }
+    useStore.getState().updateChord(selected.id, { degree: pick.degree, borrowed: pick.borrowed || undefined, major: undefined })
     audition(swapped)
   }
 
@@ -298,6 +305,19 @@ export function ChordPad() {
               </button>
             </div>
           </div>
+          {selected && canMakeMajor(key, mode, selected) && (
+            <div className="chord-pad-option">
+              <span>Major</span>
+              <div className="chord-pad-seg" role="group" aria-label="Played major">
+                <button type="button" aria-pressed={!selected.major} onClick={() => setMajor(false)}>
+                  Off
+                </button>
+                <button type="button" aria-pressed={!!selected.major} onClick={() => setMajor(true)}>
+                  On
+                </button>
+              </div>
+            </div>
+          )}
           <div className="chord-pad-option is-wide">
             <span>Bass</span>
             <div className="chord-pad-seg" role="group" aria-label="Bass note">

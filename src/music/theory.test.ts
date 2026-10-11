@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chordInfo, keyLabel, keySignature, nextChords, voiceChord, voiceProgression } from './theory'
+import { canMakeMajor, chordInfo, chordOf, keyLabel, keySignature, nextChords, voiceChord, voiceProgression } from './theory'
 
 const C = 0
 const A = 9
@@ -89,5 +89,17 @@ describe('nextChords', () => {
 
   it('knows where borrowed chords go', () => {
     expect(degrees(nextChords('major', { degree: 6, borrowed: true }))).toEqual(['0'])
+  })
+})
+
+describe('a chord played major', () => {
+  it('raises the third (and fifth, from a diminished chord), and makes a 7th dominant', () => {
+    expect(chordOf(7, 'major', { degree: 2, seventh: false, major: true })).toMatchObject({ name: 'B', roman: 'III' })
+    expect(chordOf(7, 'major', { degree: 2, seventh: true, major: true })).toMatchObject({ name: 'B7', roman: 'III7' })
+    expect(chordOf(0, 'major', { degree: 6, seventh: false, major: true }).name).toBe('B')
+  })
+
+  it('is offered only for chords the key makes minor or diminished', () => {
+    expect([0, 1, 2, 3, 4, 5, 6].map((degree) => canMakeMajor(0, 'major', { degree, seventh: false }))).toEqual([false, true, true, false, false, true, true])
   })
 })
