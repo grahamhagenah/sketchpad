@@ -39,6 +39,8 @@
    * what has to be read from a distance, and hero for the count-in.
    */
   --fs-label: 10px;
+  /* The small capitals that head a column, a panel's sections or a menu's groups: a step up from a label. */
+  --fs-heading: 11.5px;
   --fs-small: 11px;
   --fs-body: 13px;
   --fs-title: 15px;
@@ -430,7 +432,7 @@ main > .panel {
 /* The open view, and beside it, when they're showing, the lyrics. */
 .editor-main { flex: 1; display: flex; min-width: 0; min-height: 0; }
 /* The titles over the inspector and the track names, side by side on one line: small capitals, in grey. */
-.column-title { margin: 0; font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.column-title { margin: 0; font-size: var(--fs-heading); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .inspector-title { display: flex; align-items: center; justify-content: space-between; height: 30px; margin: 6px 0 10px; }
 .inspector-title .inspector-btn, .timeline-corner .inspector-btn { width: 30px; height: 30px; }
 /* Hidden, the button sits before the Tracks title, and the title after it. */
@@ -464,7 +466,7 @@ main > .panel {
 /* A setting with its name above it. */
 .inspector-field { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: var(--fs-body); }
 .inspector-field > span,
-.chord-pad-option > span { font-family: 'DM Mono', monospace; font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.chord-pad-option > span { font-family: 'DM Mono', monospace; font-size: var(--fs-heading); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .inspector-field select {
   width: 100%;
   height: 38px;
@@ -1105,7 +1107,7 @@ main > .panel {
 .palette-group { display: flex; flex-direction: column; gap: 8px; }
 .palette-group-label {
   font-family: 'DM Mono', monospace;
-  font-size: var(--fs-label);
+  font-size: var(--fs-heading);
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1278,7 +1280,7 @@ main > .panel {
 .section-menu { width: 280px; z-index: 30; }
 .menu-item.menu-item-row { flex-direction: row; align-items: center; gap: 10px; padding-block: 8px; }
 .menu-item.menu-item-row .menu-item-about { margin-left: auto; }
-.menu-label { margin: 6px 12px 2px; font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.menu-label { margin: 6px 12px 2px; font-size: var(--fs-heading); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .menu-item.is-danger .menu-item-title { color: var(--danger); }
 
 /*
@@ -1964,7 +1966,7 @@ main > .panel {
 .menu-item.has-icon:not(:disabled):hover .menu-item-icon { color: var(--text); }
 .menu-item.has-icon:disabled .menu-item-icon { opacity: 0.5; }
 /* Over a list in a menu, such as the saved sketches. */
-.menu-heading { margin: 8px 12px 2px; font-family: 'DM Mono', monospace; font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.menu-heading { margin: 8px 12px 2px; font-family: 'DM Mono', monospace; font-size: var(--fs-heading); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .menu-empty { margin: 6px 12px 8px; font-size: var(--fs-body); color: var(--muted); }
 /* A quiet link at the foot of the File menu, out to the page about the app. */
 .menu-footnote { display: block; margin: 2px 0; padding: 6px 12px; border-radius: 6px; font-size: var(--fs-label); color: var(--muted); text-decoration: none; }
@@ -2078,7 +2080,7 @@ main > .panel {
 .track-sheet-slider:has(input:disabled) { opacity: 0.4; }
 .sound-heading {
   font-family: 'DM Mono', monospace;
-  font-size: var(--fs-label);
+  font-size: var(--fs-heading);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -2495,5 +2497,14 @@ main > .panel {
 .vocal-timing .chord-pad-length button { flex: none; padding: 0 14px; font-size: var(--fs-body); }
 .vocal-timing .chord-pad-length span { flex: 1; justify-content: center; color: var(--muted); }
 
-/* With nothing selected, what the settings column is for. */
-.inspector-empty { margin: 4px 0 0; font-size: var(--fs-body); line-height: 1.5; color: var(--muted); }
+/*
+ * The chord pad in the settings column, with nothing selected: in place
+ * rather than a sheet over the page, its options one to a line to fit.
+ */
+.chord-pad.is-docked { position: static; z-index: auto; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; transition: none; }
+.chord-pad.is-docked .chord-pad-head { cursor: auto; touch-action: auto; flex-wrap: wrap; }
+.chord-pad.is-docked .chord-pad-title { flex-basis: 100%; }
+.chord-pad.is-docked .chord-pad-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.chord-pad.is-docked .chord-pad-pad { height: 54px; }
+.chord-pad.is-docked .chord-pad-options { grid-template-columns: minmax(0, 1fr); }
+.chord-pad.is-docked .chord-pad-add { height: 44px; font-size: var(--fs-body); }
