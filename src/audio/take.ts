@@ -100,6 +100,27 @@ interface StoredTake {
   pcm: Int16Array
 }
 
+/**
+ * Where each pass of a loop recorded over and over starts and ends, in
+ * samples, `passSeconds` apiece: each whole pass, and the last one cut short
+ * by stopping if at least `minSeconds` of it was sung (or if it's the first,
+ * so stopping early still leaves a take).
+ */
+export function passesOf(length: number, sampleRate: number, passSeconds: number, minSeconds: number): [number, number][] {
+  const passes: [number, number][] = []
+  for (let k = 0; ; k++) {
+    const start = Math.round(k * passSeconds * sampleRate)
+    const end = Math.round((k + 1) * passSeconds * sampleRate)
+    if (start >= length) break
+    if (end <= length) passes.push([start, end])
+    else {
+      if (k === 0 || length - start >= minSeconds * sampleRate) passes.push([start, length])
+      break
+    }
+  }
+  return passes
+}
+
 /** Rounds samples to what 16-bit storage keeps, so a take sounds the same before and after a reload. */
 export function quantize(samples: Float32Array) {
   return decodePcm(encodePcm(samples))

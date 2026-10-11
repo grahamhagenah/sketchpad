@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { keyOf, useFields, useStore, type Chord } from '../store'
 import { BORROWED, chordOf, keyLabel, nextChords, type ChordBass, type ChordColor } from '../music/theory'
-import { audition } from '../audio/engine'
+import { audition, holdChord } from '../audio/engine'
 import { Icon } from './Toolbar'
 
 /**
@@ -119,6 +119,7 @@ export function ChordKeys() {
   const typedKey = (k: { degree: number; borrowed: boolean }) =>
     letter(k.borrowed ? (TYPED_BORROWED[BORROWED[mode].indexOf(k.degree)] ?? '') : TYPED[k.degree])
 
+  // Struck once, as Enter on a focused key or adding a chord does.
   const play = (k: { degree: number; borrowed: boolean }) => {
     audition(asChord(k), true)
     setLit(id(k))
@@ -129,6 +130,37 @@ export function ChordKeys() {
     const t = setTimeout(() => setLit(null), 220)
     return () => clearTimeout(t)
   }, [lit])
+
+  // Held down (with the mouse or a computer key), a key sounds until it's let go, as a keyboard's does.
+  const holding = useRef(new Map<string, () => void>())
+  const [held, setHeld] = useState<string[]>([])
+  const press = (k: { degree: number; borrowed: boolean }) => {
+    const kid = id(k)
+    if (holding.current.has(kid)) return
+    holding.current.set(kid, holdChord(asChord(k)))
+    setHeld([...holding.current.keys()])
+  }
+  const lift = (kid: string) => {
+    const release = holding.current.get(kid)
+    if (!release) return
+    release()
+    holding.current.delete(kid)
+    setHeld([...holding.current.keys()])
+  }
+  // Whatever's held is let go if the window loses focus (a key's release would go elsewhere) or the keys are put away.
+  useEffect(() => {
+    const held = holding.current
+    const letGo = () => {
+      held.forEach((release) => release())
+      held.clear()
+      setHeld([])
+    }
+    window.addEventListener('blur', letGo)
+    return () => {
+      window.removeEventListener('blur', letGo)
+      letGo()
+    }
+  }, [])
 
   const add = (k: { degree: number; borrowed: boolean }) => {
     const s = useStore.getState()
@@ -142,8 +174,12 @@ export function ChordKeys() {
 
   // Played from the computer keyboard: the home row and the row above (see TYPED), or ⇧1–⇧7 as 1–7 add them.
   // Ahead of the app's own shortcuts, so A, S and D play chords while the keys are out, rather than their usual jobs.
-  const playRef = useRef(play)
-  playRef.current = play
+  const pressRef = useRef(press)
+  pressRef.current = press
+  const liftRef = useRef(lift)
+  liftRef.current = lift
+  // Which chord each computer key down is holding, to let go of when it comes up (⇧ may be let go of first).
+  const typedDown = useRef(new Map<string, string>())
   const borrowedRef = useRef(BORROWED[mode])
   borrowedRef.current = BORROWED[mode]
   useEffect(() => {
@@ -163,11 +199,27 @@ export function ChordKeys() {
       if (!k) return
       e.preventDefault()
       e.stopPropagation()
-      // A key held down plays once, as a piano's would.
-      if (!e.repeat) playRef.current(k)
+      // Held down, it sounds until it comes up; the keyboard's repeats are ignored.
+      if (e.repeat || typedDown.current.has(e.code)) return
+      typedDown.current.set(e.code, `${k.borrowed ? 'b' : ''}${k.degree}`)
+      pressRef.current(k)
     }
+    const onKeyUp = (e: KeyboardEvent) => {
+      const kid = typedDown.current.get(e.code)
+      if (kid === undefined) return
+      typedDown.current.delete(e.code)
+      liftRef.current(kid)
+    }
+    const typed = typedDown.current
+    const onBlur = () => typed.clear()
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    window.addEventListener('keyup', onKeyUp, true)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keyup', onKeyUp, true)
+      window.removeEventListener('blur', onBlur)
+    }
   }, [])
 
   // Kept on the screen: where it was left, pulled back in if the window has since narrowed.
@@ -257,14 +309,21 @@ export function ChordKeys() {
           const info = chordOf(key, mode, asChord(k))
           const kid = id(k)
           return (
-            <div key={kid} className={`chord-key ${k.borrowed ? 'is-borrowed' : ''} ${i === 7 ? 'is-first-borrowed' : ''} ${lit === kid ? 'is-lit' : ''} ${hinted(k) ? 'is-hinted' : ''}`}>
+            <div key={kid} className={`chord-key ${k.borrowed ? 'is-borrowed' : ''} ${i === 7 ? 'is-first-borrowed' : ''} ${lit === kid || held.includes(kid) ? 'is-lit' : ''} ${hinted(k) ? 'is-hinted' : ''}`}>
               <button
                 type="button"
                 className="chord-key-play"
                 aria-label={`Play ${info.name}, ${info.roman}${k.borrowed ? ', borrowed' : ''}${hinted(k) ? ', a usual next chord' : ''}`}
                 title={`${k.borrowed ? `${info.name}, borrowed from ${mode === 'major' ? 'minor' : 'major'}` : info.name} (${typedKey(k)})`}
-                // Sounds as the key goes down, as a key does; Enter or Space from the keyboard play it too.
-                onPointerDown={(e) => e.button === 0 && play(k)}
+                // Sounds as the key goes down and for as long as it's held, as a key does; Enter or Space on it strike it once.
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                  press(k)
+                }}
+                onPointerUp={() => lift(kid)}
+                onPointerCancel={() => lift(kid)}
+                onLostPointerCapture={() => lift(kid)}
                 onClick={(e) => e.detail === 0 && play(k)}
               >
                 <span className="chord-key-name">{info.name}</span>

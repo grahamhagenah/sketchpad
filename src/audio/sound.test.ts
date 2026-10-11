@@ -1,20 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { changedFrom, extrasOf, PRESETS, presetFor } from './sound'
+import { bassVoiceOf, DEFAULT_SOUND, hasTone } from './sound'
 
-const preset = (name: string) => PRESETS.find((p) => p.name === name)!.sound
-
-describe('sound extras', () => {
-  it('fills in what older sounds don’t have as they sounded then: no resonance, the usual width', () => {
-    expect(extrasOf(preset('Synth'))).toEqual({ width: 0.36, resonance: 0 })
-    expect(extrasOf(preset('Strings')).width).toBe(0.5)
+describe('bassVoiceOf', () => {
+  it('gives a sound saved before the bass could change the round bass it had', () => {
+    expect(bassVoiceOf(DEFAULT_SOUND)).toEqual({ kind: 'round', octave: 0, tone: 0.5, glide: 0, level: 0 })
   })
 
-  it('counts width or resonance as a change from the preset, so it can be reset', () => {
-    const pad = preset('Pad')
-    expect(changedFrom({ ...pad }, pad)).toBe(false)
-    expect(changedFrom({ ...pad, resonance: 0.4 }, pad)).toBe(true)
-    expect(changedFrom({ ...pad, width: 0.9 }, pad)).toBe(true)
-    // Still known as the preset it started from.
-    expect(presetFor({ ...pad, width: 0.8, preset: 'Pad' })).toBe('Pad')
+  it('keeps what a sound says, filling in the rest', () => {
+    expect(bassVoiceOf({ ...DEFAULT_SOUND, bassVoice: { kind: 'acid', glide: 0.4 } })).toEqual({ kind: 'acid', octave: 0, tone: 0.5, glide: 0.4, level: 0 })
+  })
+
+  it('has no tone to change on the sine basses', () => {
+    expect(hasTone('sub')).toBe(false)
+    expect(hasTone('808')).toBe(false)
+    expect(hasTone('acid')).toBe(true)
   })
 })

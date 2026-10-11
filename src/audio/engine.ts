@@ -1,13 +1,13 @@
 import * as Tone from 'tone'
 import { keyOf, useStore, loopRange, vocalTrackName, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
-import { arrange, type Hit } from './arrange'
-import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Instruments, type Pad } from './instruments'
+import { arrange, playedSound, type Hit } from './arrange'
+import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Bass, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
 import { measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
-import { keepStorage, loadLanes, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
+import { keepStorage, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 import { keepVocals } from '../history'
 import { quietly, showUndoNote } from '../undoNote'
@@ -32,6 +32,8 @@ interface Recording {
   startBeat: number
   bpm: number
   lane: number
+  /** Recording round the loop: how long each pass is, and the least of the last that's kept; null when it plays once. */
+  cycle: { passSeconds: number; minSeconds: number } | null
 }
 
 interface DrumEvent extends DrumHit {
@@ -43,11 +45,26 @@ interface ClickEvent {
   accent: boolean
 }
 
+/** How far ahead notes are handed to the audio clock: Tone's usual, and more while recording, when steady playback matters more than a quick response. */
+const LOOK_AHEAD = 0.1
+const RECORDING_LOOK_AHEAD = 0.3
+
+/**
+ * Hands notes to the audio clock `seconds` ahead, still checking every 50ms
+ * (Tone would otherwise check only half as often as it looks ahead), so the
+ * page can be held up for nearly all of it before a note comes late.
+ */
+function setLookAhead(seconds: number) {
+  const context = Tone.getContext() as Tone.Context
+  context.lookAhead = seconds
+  context.updateInterval = 0.05
+}
+
 class Engine {
   private ready = false
   private instruments!: Instruments
   private pad!: Pad
-  private bass!: Tone.MonoSynth
+  private bass!: Bass
   private click!: Tone.Synth
   private kit!: Kit
   private drumPart: Tone.Part<DrumEvent> | null = null
@@ -76,7 +93,8 @@ class Engine {
   private setup() {
     if (this.ready) return
     setAudioSession('playback')
-    this.instruments = createInstruments(useStore.getState().sound)
+    const s = useStore.getState()
+    this.instruments = createInstruments(playedSound(s.sound, s.arp, s.bpm))
     this.pad = this.instruments.pad
     this.bass = this.instruments.bass
     this.click = new Tone.Synth({
@@ -205,7 +223,7 @@ class Engine {
   private playHit(ev: Hit, quarters: number, time: number) {
     const length = quarters * this.secondsPerQuarter
     if (ev.pad.length) this.pad.triggerAttackRelease(ev.pad.map(midiToHz), ev.held ? length * 0.97 : length, time, ev.velocity)
-    if (ev.bass !== null) this.bass.triggerAttackRelease(midiToHz(ev.bass), length * 0.97, monoStart(this.bass, time), 0.9)
+    if (ev.bass !== null) this.bass.play(ev.bass, length * 0.97, time, 0.9)
   }
 
   /** Plays from `fromBeat`, or from the start of the loop when that's outside it. */
@@ -256,7 +274,7 @@ class Engine {
     if (!this.ready) return
     Tone.getTransport().stop()
     this.pad.releaseAll()
-    this.bass.triggerRelease()
+    this.bass.release()
     this.players.forEach((player) => player.stop())
   }
 
@@ -280,41 +298,56 @@ class Engine {
   }
 
   /**
-   * Records over the loop (or the whole song) once: a silent bar counted down
-   * on the record button, then the progression plays from the loop's start
-   * while the mic records. Resolves once the count-in has started.
+   * Records over the loop (or the whole song) once: a bar counted in on the
+   * click (and counted down on the record button), then the progression
+   * plays from the loop's start while the mic records. Resolves once the
+   * count-in has started.
    */
-  async record(song: Playback, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void }) {
+  async record(song: Playback, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void; pass: (pass: number) => void }) {
     await Tone.start()
     this.setup()
     const t = Tone.getTransport()
     t.stop()
     this.players.forEach((player) => player.stop())
     const capture = await startCapture(stream)
+    // Scheduled further ahead while recording, so a moment's hold-up on the page (the browser tidying memory, say) can't make the music stutter under the singer.
+    setLookAhead(RECORDING_LOOK_AHEAD)
 
     const [num, den] = song.timeSig
     const total = Math.max(song.chords.reduce((sum, c) => sum + c.beats, 0), num)
     const region = song.loopOn ? loopRange(song.loop, total) : { start: 0, end: total }
     const beatSeconds = (60 / song.bpm) * (4 / den)
 
-    const rec: Recording = { capture, alignTime: 0, startBeat: region.start, bpm: song.bpm, lane }
+    // With the loop on, it goes round and round, a take each time, until stopped; the last is kept if at least a bar of it was sung.
+    const cycle = song.loopOn ? { passSeconds: (region.end - region.start) * beatSeconds, minSeconds: num * beatSeconds } : null
+    const rec: Recording = { capture, alignTime: 0, startBeat: region.start, bpm: song.bpm, lane, cycle }
     this.recording = rec
     // Run fn when the audio clock reaches time, if this recording is still going.
     // A plain timer, unlike Tone's Draw, never skips a callback that runs late.
     const at = (time: number, fn: () => void) =>
       setTimeout(() => this.recording === rec && fn(), Math.max(0, (time - Tone.immediate()) * 1000))
-    // Play the region once, with the other lanes and not this lane's old take.
+    // Play the region, with the other lanes and not this lane's old take: round and round with the loop on, else once.
     this.sync({ ...song, loopOn: true, loop: region })
-    t.loop = false
     if (this.endEvent !== null) t.clear(this.endEvent)
-    this.endEvent = t.scheduleOnce((time) => {
-      setTimeout(() => this.recording === rec && this.onEnd?.(), Math.max(0, (time - Tone.immediate()) * 1000))
-    }, `${Math.round(region.end * this.ticksPerBeat)}i`)
+    this.endEvent = null
+    if (cycle) {
+      // Each time round, the next take.
+      let pass = 1
+      this.onLoop = (time: number) => at(time, () => on.pass(++pass))
+      t.on('loop', this.onLoop)
+    } else {
+      t.loop = false
+      this.endEvent = t.scheduleOnce((time) => {
+        setTimeout(() => this.recording === rec && this.onEnd?.(), Math.max(0, (time - Tone.immediate()) * 1000))
+      }, `${Math.round(region.end * this.ticksPerBeat)}i`)
+    }
 
     const countIn = Tone.now() + 0.1
     for (let b = 0; b < num; b++) {
       const time = countIn + b * beatSeconds
-      // A silent count-in: the button counts down the beats.
+      // A bar counted in out loud on the metronome's click, the first beat higher, so the tempo is in your head before the take starts;
+      // each handed over a moment ahead, so cancelling the count-in stops the clicks still to come. The button counts down the beats too.
+      at(time - 0.08, () => this.click.triggerAttackRelease(b === 0 ? 'C6' : 'G5', 0.03, monoStart(this.click, time), b === 0 ? 1 : 0.6))
       at(time, () => on.count(num - b))
     }
     const startAt = countIn + num * beatSeconds
@@ -330,28 +363,43 @@ class Engine {
     return this.recording ? this.recording.capture.level() : null
   }
 
-  /** Stops a recording and returns the take, lined up with the song, and its lane. */
-  async finishRecording(): Promise<{ lane: number; take: Take | null } | null> {
+  /** What counts the passes of a recording round the loop, while one goes on. */
+  private onLoop: ((time: number) => void) | null = null
+
+  /**
+   * Stops a recording and returns its takes, lined up with the song, and
+   * their lane: one, or recorded round the loop, one for each time round.
+   */
+  async finishRecording(): Promise<{ lane: number; takes: Take[] } | null> {
     const rec = this.recording
     if (!rec) return null
     this.recording = null
+    setLookAhead(LOOK_AHEAD)
+    if (this.onLoop) Tone.getTransport().off('loop', this.onLoop)
+    this.onLoop = null
     // Stopping now also cancels a transport start still waiting on the count-in.
     this.stop()
     const { startTime, samples } = await rec.capture.stop()
     const sampleRate = Tone.getContext().sampleRate
     const skip = Math.round((rec.alignTime - startTime) * sampleRate)
     // Nothing sung yet means stopped during the count-in.
-    if (samples.length - skip < sampleRate * 0.25) return { lane: rec.lane, take: null }
+    if (samples.length - skip < sampleRate * 0.25) return { lane: rec.lane, takes: [] }
     const aligned =
       skip >= 0 ? samples.slice(skip) : Float32Array.from({ length: samples.length - skip }, (_, i) => (i < -skip ? 0 : samples[i + skip]))
-    return { lane: rec.lane, take: { id: newId(), startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: quantize(aligned) } }
+    const passes = rec.cycle ? passesOf(aligned.length, sampleRate, rec.cycle.passSeconds, rec.cycle.minSeconds) : [[0, aligned.length] as [number, number]]
+    const takes = passes.map(([from, to]) => ({ id: newId(), startBeat: rec.startBeat, bpm: rec.bpm, sampleRate, samples: quantize(aligned.slice(from, to)) }))
+    return { lane: rec.lane, takes }
   }
 
-  /** Current loop position in beats, or null when stopped. */
+  /**
+   * Current loop position in beats, or null when stopped: where the song is a
+   * usual look-ahead from now, as the transport's own position would be, so
+   * the playhead keeps its place when recording schedules further ahead.
+   */
   position(): number | null {
     const t = Tone.getTransport()
     if (t.state !== 'started') return null
-    return t.ticks / this.ticksPerBeat
+    return t.getTicksAtTime(Tone.immediate() + LOOK_AHEAD) / this.ticksPerBeat
   }
 
   setSound(sound: Sound) {
@@ -375,7 +423,7 @@ class Engine {
     if (!song.arp.on) {
       const info = chordOf(song.key, song.mode, chord)
       this.pad.triggerAttackRelease(voiceChord(info.pcs, null).map(midiToHz), 0.9, now, 0.8)
-      this.bass.triggerAttackRelease(midiToHz(bassNote(info.bassPc)), 0.9, monoStart(this.bass, now), 0.9)
+      this.bass.play(bassNote(info.bassPc), 0.9, now, 0.9)
       return
     }
     const quarter = 60 / song.bpm
@@ -385,13 +433,96 @@ class Engine {
       const at = start + h.start * quarter
       const play = () => {
         if (h.pad.length) this.pad.triggerAttackRelease(h.pad.map(midiToHz), h.dur * quarter, at, h.velocity)
-        if (h.bass !== null) this.bass.triggerAttackRelease(midiToHz(h.bass), h.dur * quarter * 0.97, monoStart(this.bass, at), 0.9)
+        if (h.bass !== null) this.bass.play(h.bass, h.dur * quarter * 0.97, at, 0.9)
       }
       // Handed to the synths a moment ahead, on the audio clock; until then, a newer preview can call it off.
       const lead = (at - Tone.now() - 0.1) * 1000
       if (lead <= 0) play()
       else this.auditionTimers.push(setTimeout(play, lead))
     }
+  }
+
+  /** Counts holds, so the bass (which plays one note) is let go only by the hold that last took it. */
+  private holds = 0
+  private bassHolder = 0
+  /** The arpeggio a held key is playing; one at a time, as an arpeggiator plays. */
+  private stopArp: (() => void) | null = null
+
+  /**
+   * Sounds a chord for as long as a key is held: struck when it goes down,
+   * let go with `release` (what this returns) when it comes up. A sound that
+   * fades by itself (a piano, a pluck, a bell) still fades while held; one
+   * that sustains rings on until let go, then rings out as it does. With the
+   * arpeggiator on, its pattern goes round and round for as long as the key
+   * is down, each note as long as its length says. A minute at most, so a key
+   * whose release goes missing can't ring forever.
+   */
+  hold(song: Pick<Playback, 'key' | 'mode' | 'timeSig' | 'bpm' | 'arp'>, chord: Chord): () => void {
+    const id = ++this.holds
+    let released = false
+    let stop = () => {}
+    void (async () => {
+      await Tone.start()
+      this.setup()
+      const now = Tone.now()
+      const limit = setTimeout(() => release(), 60_000)
+      if (!song.arp.on) {
+        const info = chordOf(song.key, song.mode, chord)
+        const freqs = voiceChord(info.pcs, null).map(midiToHz)
+        this.pad.triggerAttack(freqs, now, 0.8)
+        this.bass.attack(bassNote(info.bassPc), now, 0.9)
+        this.bassHolder = id
+        stop = () => {
+          clearTimeout(limit)
+          const at = Tone.now()
+          this.pad.triggerRelease(freqs, at)
+          if (this.bassHolder === id) this.bass.release(at)
+        }
+      } else {
+        // A newer held key takes over the arpeggio.
+        this.stopArp?.()
+        const quarter = 60 / song.bpm
+        const barQuarters = song.timeSig[0] * (4 / song.timeSig[1])
+        const bar = arrange({ key: song.key, mode: song.mode, timeSig: song.timeSig, chords: [{ ...chord, beats: song.timeSig[0] }], arp: song.arp, rhythm: { chords: 'held', bass: 'held' } })
+        const timers: ReturnType<typeof setTimeout>[] = []
+        const start = now + 0.02
+        // A bar at a time, each handed to the synths a moment ahead of its notes, so letting go stops it at the next note.
+        const queue = (n: number) => {
+          const barStart = start + n * barQuarters * quarter
+          for (const h of bar) {
+            const at = barStart + h.start * quarter
+            const play = () => {
+              if (h.pad.length) this.pad.triggerAttackRelease(h.pad.map(midiToHz), h.dur * quarter, at, h.velocity)
+              if (h.bass !== null) {
+                this.bass.attack(h.bass, at, 0.9)
+                this.bassHolder = id
+              }
+            }
+            const lead = (at - Tone.now() - 0.1) * 1000
+            if (lead <= 0) play()
+            else timers.push(setTimeout(play, lead))
+          }
+          timers.push(setTimeout(() => queue(n + 1), (barStart + barQuarters * quarter - Tone.now() - 0.3) * 1000))
+        }
+        queue(0)
+        const stopThis = () => {
+          clearTimeout(limit)
+          timers.forEach(clearTimeout)
+          if (this.bassHolder === id) this.bass.release(Tone.now())
+          if (this.stopArp === stopThis) this.stopArp = null
+        }
+        this.stopArp = stopThis
+        stop = stopThis
+      }
+      // Let go before the audio was ready (a quick tap, the first time): struck, then let go at once, as a tapped key is.
+      if (released) stop()
+    })()
+    const release = () => {
+      if (released) return
+      released = true
+      stop()
+    }
+    return release
   }
 }
 
@@ -401,7 +532,8 @@ useStore.setState({ latency: measuredLatency() })
 
 // Keep the loop in step with edits made while it plays.
 const unsubscribe = useStore.subscribe((s, prev) => {
-  if (s.sound !== prev.sound) engine.setSound(s.sound)
+  // The arpeggiator's length and speed, and the tempo, set how quickly its notes fade.
+  if (s.sound !== prev.sound || s.arp !== prev.arp || s.bpm !== prev.bpm) engine.setSound(playedSound(s.sound, s.arp, s.bpm))
   // Levels change straight away, playing or not, so a chord auditioned after turning the chords down is quieter too.
   if (s.chordsVolume !== prev.chordsVolume || s.drumsVolume !== prev.drumsVolume || s.vocalVolume !== prev.vocalVolume || s.vocalReverb !== prev.vocalReverb || s.sections !== prev.sections) {
     engine.setLevels(playbackOf(s))
@@ -520,9 +652,10 @@ export async function toggleRecord() {
   s.setRecording('count-in')
   await engine.record(playbackOf(useStore.getState()), stream, lane, {
     count: (n) => useStore.getState().setCountIn(n),
+    pass: (n) => useStore.getState().setRecordPass(n),
     rolling: () => {
       // A recording plays the open section.
-      useStore.setState({ playingView: 'section' })
+      useStore.setState({ playingView: 'section', recordPass: s.loopOn ? 1 : null })
       useStore.getState().setRecording('on')
       useStore.getState().setPlaying(true)
     },
@@ -569,14 +702,17 @@ async function stopRecording() {
   const s = useStore.getState()
   s.setRecording('off')
   s.setPlaying(false)
-  if (result?.take) {
-    const { lane, take } = result
+  if (result?.takes.length) {
+    const { lane, takes } = result
     keepStorage()
-    // Recording over a take can be undone, as deleting one can.
+    // Recording over a take can be undone, as deleting one can; takes recorded round the loop go together.
     if (s.takes[lane]) keepVocals()
-    // The audio first, so it's there to store when the lane changes. Any take already there is kept, to go back to.
-    engine.addTake(take)
-    s.addTake(lane, takeInfo(take))
+    // The audio first, so it's there to store when the lane changes. Any take already there is kept, to go back to;
+    // of several, the last one recorded plays.
+    for (const take of takes) {
+      engine.addTake(take)
+      useStore.getState().addTake(lane, takeInfo(take))
+    }
     s.showVocalTracks(lane + 1)
     tally('record')
   }
@@ -671,6 +807,12 @@ void loadLanes(useStore.getState().activeSection)
 export function audition(chord: Chord, always = false) {
   const s = useStore.getState()
   if (always || !s.playing) void engine.audition({ ...keyOf(s), timeSig: s.timeSig, bpm: s.bpm, arp: s.arp }, chord)
+}
+
+/** Sounds a chord while a key is held, even with the song playing; call what it returns to let go. */
+export function holdChord(chord: Chord) {
+  const s = useStore.getState()
+  return engine.hold({ ...keyOf(s), timeSig: s.timeSig, bpm: s.bpm, arp: s.arp }, chord)
 }
 
 // In development, a code change reloads this module while Tone's transport

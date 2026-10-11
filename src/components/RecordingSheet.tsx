@@ -17,6 +17,8 @@ export function RecordingSheet() {
   const name = useStore((s) => vocalTrackName(s, s.armedLane))
   const counting = recording === 'count-in'
   const lyrics = useStore((s) => s.lyrics)
+  // Round the loop, a take each time round.
+  const pass = useStore((s) => s.recordPass)
 
   return (
     <div className={`record-sheet ${counting ? 'is-counting' : 'is-recording'}`} role="status" aria-live="polite">
@@ -37,8 +39,9 @@ export function RecordingSheet() {
         <>
           <p className="record-sheet-title">
             <span className="record-sheet-dot" aria-hidden="true" />
-            Recording into {name}
+            {pass ? `Take ${pass} into ${name}` : `Recording into ${name}`}
           </p>
+          {pass && <p className="record-sheet-tip">A new take each time round, until you stop</p>}
           {/* Where the take has got to, as plain large numbers on the sheet rather than in the display's box. */}
           <div className="record-sheet-position" role="group" aria-label="Position">
             <Position />

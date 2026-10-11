@@ -1,5 +1,6 @@
 import * as Tone from 'tone'
-import { extrasOf, INSTRUMENT_VOLUME, instrumentOf, WAVE_VOLUME, type Instrument, type Sound } from './sound'
+import { bassVoiceOf, extrasOf, INSTRUMENT_VOLUME, instrumentOf, WAVE_VOLUME, type BassKind, type Instrument, type Sound } from './sound'
+import { monoStart } from './timing'
 
 export const midiToHz = (m: number) => Tone.Frequency(m, 'midi').toFrequency()
 
@@ -33,6 +34,9 @@ export function loadPiano() {
 /** One way of playing the chords; the pad swaps between them as the instrument changes. */
 interface Voice {
   play(freqs: number[], duration: number, time: number, velocity: number): void
+  /** Starts notes that sound until `release`, as for a key held down. */
+  attack(freqs: number[], time: number, velocity: number): void
+  release(freqs: number[], time: number): void
   apply(sound: Sound): void
   releaseAll(): void
   dispose(): void
@@ -42,6 +46,8 @@ function synthVoice(out: Tone.ToneAudioNode, kind: 'synth' | 'strings'): Voice {
   const synth = new Tone.PolySynth(Tone.Synth).connect(out)
   return {
     play: (freqs, duration, time, velocity) => synth.triggerAttackRelease(freqs, duration, time, velocity),
+    attack: (freqs, time, velocity) => synth.triggerAttack(freqs, time, velocity),
+    release: (freqs, time) => synth.triggerRelease(freqs, time),
     apply(sound) {
       // How far apart the stacked oscillators are tuned, in cents: as wide as the width says.
       const { width } = extrasOf(sound)
@@ -72,6 +78,8 @@ function fmVoice(out: Tone.ToneAudioNode, kind: 'epiano' | 'bell'): Voice {
   )
   return {
     play: (freqs, duration, time, velocity) => synth.triggerAttackRelease(freqs, duration, time, velocity),
+    attack: (freqs, time, velocity) => synth.triggerAttack(freqs, time, velocity),
+    release: (freqs, time) => synth.triggerRelease(freqs, time),
     apply(sound) {
       synth.set({ oscillator: { type: 'sine' }, envelope: { attack: sound.attack, decay: sound.decay, sustain: sound.sustain, release: sound.release } })
       synth.volume.value = INSTRUMENT_VOLUME[kind]
@@ -102,6 +110,8 @@ function pianoVoice(out: Tone.ToneAudioNode): Voice {
   else void loadPiano().then(make, () => undefined)
   return {
     play: (freqs, duration, time, velocity) => sampler?.triggerAttackRelease(freqs, duration, time, velocity),
+    attack: (freqs, time, velocity) => sampler?.triggerAttack(freqs, time, velocity),
+    release: (freqs, time) => sampler?.triggerRelease(freqs, time),
     apply,
     releaseAll: () => sampler?.releaseAll(),
     dispose() {
@@ -142,6 +152,14 @@ export class Pad {
     this.voice?.play(freqs, duration, time, velocity)
   }
 
+  triggerAttack(freqs: number[], time: number, velocity: number) {
+    this.voice?.attack(freqs, time, velocity)
+  }
+
+  triggerRelease(freqs: number[], time: number) {
+    this.voice?.release(freqs, time)
+  }
+
   releaseAll() {
     this.voice?.releaseAll()
   }
@@ -152,9 +170,83 @@ export class Pad {
   }
 }
 
+/**
+ * Each bass sound, as a one-note synth: its wave, how its filter opens on
+ * each note (from `filter` Hz, up `octaves`), how it fades, and how loud it is
+ * beside the others, the sine ones being quieter.
+ */
+const BASS_SOUNDS: Record<BassKind, { wave: 'sine' | 'triangle' | 'square' | 'sawtooth'; filter: number; octaves: number; q: number; filterEnvelope: { attack: number; decay: number; sustain: number }; envelope: { attack: number; decay: number; sustain: number; release: number }; gain: number }> = {
+  round: { wave: 'triangle', filter: 160, octaves: 2, q: 1, filterEnvelope: { attack: 0.01, decay: 0.3, sustain: 0.35 }, envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.4 }, gain: 0 },
+  sub: { wave: 'sine', filter: 2000, octaves: 0, q: 1, filterEnvelope: { attack: 0.01, decay: 0.3, sustain: 1 }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.9, release: 0.3 }, gain: -2 },
+  finger: { wave: 'square', filter: 110, octaves: 3.2, q: 1.5, filterEnvelope: { attack: 0.002, decay: 0.18, sustain: 0.15 }, envelope: { attack: 0.003, decay: 0.5, sustain: 0.45, release: 0.15 }, gain: 0 },
+  acid: { wave: 'sawtooth', filter: 90, octaves: 4.5, q: 9, filterEnvelope: { attack: 0.002, decay: 0.22, sustain: 0.1 }, envelope: { attack: 0.003, decay: 0.3, sustain: 0.6, release: 0.1 }, gain: -1 },
+  '808': { wave: 'sine', filter: 2000, octaves: 0, q: 1, filterEnvelope: { attack: 0.01, decay: 0.3, sustain: 1 }, envelope: { attack: 0.002, decay: 1.2, sustain: 0.5, release: 0.5 }, gain: 0 },
+}
+
+/**
+ * The bass: one note at a time, on whichever bass sound is picked, an octave
+ * up or down as set, sliding into each note by its glide, and the 808
+ * dropping into each from above. Notes are MIDI numbers.
+ */
+export class Bass {
+  readonly synth = new Tone.MonoSynth()
+  private octave = 0
+  private drop = false
+  constructor(out: Tone.ToneAudioNode) {
+    this.synth.connect(out)
+  }
+
+  apply(sound: Sound) {
+    const voice = bassVoiceOf(sound)
+    const kind = BASS_SOUNDS[voice.kind]
+    this.octave = voice.octave
+    this.drop = voice.kind === '808'
+    this.synth.set({
+      oscillator: { type: kind.wave },
+      filter: { Q: kind.q },
+      // Tone moves where the filter opens from, from a quarter to four times its usual place.
+      filterEnvelope: { ...kind.filterEnvelope, baseFrequency: kind.filter * 2 ** ((voice.tone - 0.5) * 4), octaves: kind.octaves },
+      envelope: kind.envelope,
+      portamento: voice.glide * 0.15,
+    } as Partial<Tone.MonoSynthOptions>)
+    this.synth.volume.value = sound.bass ? BASS_VOLUME + kind.gain + voice.level : -Infinity
+  }
+
+  private hz = (note: number) => midiToHz(note + 12 * this.octave)
+
+  /** An 808 note starts a little over an octave up and drops to its pitch in a moment. */
+  private bend(hz: number, at: number) {
+    if (!this.drop) return
+    this.synth.frequency.setValueAtTime(hz * 2.2, at)
+    this.synth.frequency.exponentialRampToValueAtTime(hz, at + 0.07)
+  }
+
+  play(note: number, duration: number, time: number, velocity: number) {
+    const at = monoStart(this.synth, time)
+    const hz = this.hz(note)
+    this.synth.triggerAttackRelease(hz, duration, at, velocity)
+    this.bend(hz, at)
+  }
+
+  attack(note: number, time: number, velocity: number) {
+    const at = monoStart(this.synth, time)
+    const hz = this.hz(note)
+    this.synth.triggerAttack(hz, at, velocity)
+    this.bend(hz, at)
+  }
+
+  release(time?: number) {
+    this.synth.triggerRelease(time)
+  }
+
+  dispose() {
+    this.synth.dispose()
+  }
+}
+
 export interface Instruments {
   pad: Pad
-  bass: Tone.MonoSynth
+  bass: Bass
   filter: Tone.Filter
   reverb: Tone.Reverb
   /** The chords track's level: the pad and bass both run through it. */
@@ -170,11 +262,7 @@ export function createInstruments(sound: Sound): Instruments {
   const reverb = new Tone.Reverb({ decay: 2.4 }).connect(bus)
   const filter = new Tone.Filter(sound.brightness, 'lowpass').connect(reverb)
   const pad = new Pad(filter)
-  const bass = new Tone.MonoSynth({
-    oscillator: { type: 'triangle' },
-    filterEnvelope: { baseFrequency: 160, octaves: 2, attack: 0.01, decay: 0.3, sustain: 0.35 },
-    envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.4 },
-  }).connect(bus)
+  const bass = new Bass(bus)
   const instruments = { pad, bass, filter, reverb, bus }
   applySound(instruments, sound)
   return instruments
@@ -187,7 +275,7 @@ export function applySound({ pad, bass, filter, reverb }: Instruments, sound: So
   // From the gentle bump a filter always has to a sharp, singing peak.
   filter.Q.value = 0.7 + extrasOf(sound).resonance * 11
   reverb.wet.value = sound.reverb
-  bass.volume.value = sound.bass ? BASS_VOLUME : -Infinity
+  bass.apply(sound)
 }
 
 /** The room the vocals share, in whichever Tone context is current; each track sends to it as much as its reverb says. */

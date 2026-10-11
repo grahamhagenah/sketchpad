@@ -1,8 +1,8 @@
 import * as Tone from 'tone'
 import { keyLabel, keySignature } from '../music/theory'
-import { arrange } from './arrange'
+import { arrange, playedSound } from './arrange'
 import { createInstruments, createVocalRoom, loadPiano, midiToHz, routeVocal } from './instruments'
-import { instrumentOf, type Instrument } from './sound'
+import { bassVoiceOf, instrumentOf, type Instrument } from './sound'
 import { createKit, DRUM_NOTES, KIT_VOLUME, playDrum } from './drums'
 import { zip } from './zip'
 import { toAudioBuffer, type Take } from './take'
@@ -116,7 +116,9 @@ export function songToMidi(song: ExportSong): Blob {
   if (program !== null) chords.unshift({ tick: 0, order: 0, data: [0xc0, program] })
   const tracks = [track('Bounce', conductor), track(song.arp.on ? 'Arpeggio' : 'Chords', chords)]
   if (song.sound.bass) {
-    const bass = hits.flatMap((h) => (h.bass === null ? [] : [{ ...h, pitches: [h.bass], velocity: 0.9 }]))
+    // In the octave it plays in.
+    const octave = 12 * bassVoiceOf(song.sound).octave
+    const bass = hits.flatMap((h) => (h.bass === null ? [] : [{ ...h, pitches: [h.bass + octave], velocity: 0.9 }]))
     tracks.push(track('Bass', notes(1, bass)))
   }
   if (song.drums?.length) {
@@ -179,14 +181,14 @@ async function render(song: ExportSong, parts: Parts, duration: number) {
   // The piano's notes, loaded before the render, so it's made with them in hand.
   if (parts.pad && instrumentOf(song.sound) === 'piano') await loadPiano()
   const rendered = await Tone.Offline(async () => {
-    const { pad, bass, reverb, bus } = createInstruments(song.sound)
+    const { pad, bass, reverb, bus } = createInstruments(playedSound(song.sound, song.arp, song.bpm))
     bus.volume.value = song.chordsDb ?? 0
     await reverb.ready
     for (const h of hits) {
       const time = h.start * quarterSeconds
       const length = h.dur * quarterSeconds
       if (parts.pad && h.pad.length) pad.triggerAttackRelease(h.pad.map(midiToHz), h.held ? length * 0.97 : length, time, h.velocity)
-      if (parts.bass && h.bass !== null) bass.triggerAttackRelease(midiToHz(h.bass), length * 0.97, time, 0.9)
+      if (parts.bass && h.bass !== null) bass.play(h.bass, length * 0.97, time, 0.9)
     }
     if (parts.drums) {
       const kit = createKit()

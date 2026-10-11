@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { arrange, DEFAULT_ARP, type Arp, type Rhythm } from './arrange'
+import { arrange, DEFAULT_ARP, playedSound, type Arp, type Rhythm } from './arrange'
+import { DEFAULT_SOUND } from './sound'
 import type { Chord, TimeSig } from '../store'
 
 const chords = (beats: number[]): Chord[] => beats.map((b, i) => ({ id: String(i), degree: i % 7, beats: b, seventh: false }))
@@ -46,6 +47,11 @@ describe('arrange', () => {
     expect(steps.map((h) => +h.start.toFixed(3))).toEqual([0, 0.667, 1, 1.667])
     // The note before a late one rings on up to it.
     expect(steps.map((h) => +h.dur.toFixed(3))).toEqual([0.667, 0.333, 0.667, 0.333])
+    // Counted from the bar, so a chord or loop starting on an off eighth swings the same notes.
+    const compound = arrange(song([3, 3], [6, 8], { on: true, rate: '1/8', gate: 1, swing: 1 })).filter((h) => !h.held)
+    expect(compound.map((h) => +h.start.toFixed(3))).toEqual([0, 0.667, 1, 1.667, 2, 2.667])
+    const looped = arrange(song([6], [6, 8], { on: true, rate: '1/8', gate: 1, swing: 1 }), { start: 1, end: 4 }).filter((h) => !h.held)
+    expect(looped.map((h) => +h.start.toFixed(3))).toEqual([0.667, 1, 1.667])
     // Triplets have nothing between to swing.
     const triplets = arrange(song([1], [4, 4], { on: true, rate: '1/8T', swing: 1 })).filter((h) => !h.held)
     expect(triplets.map((h) => +h.start.toFixed(3))).toEqual([0, 0.333, 0.667])
@@ -93,5 +99,25 @@ describe('arrange', () => {
   it('plays a random pattern the same every time', () => {
     const s = song([4, 4], [4, 4], { on: true, rate: '1/16', pattern: 'random', octaves: 2 })
     expect(arrange(s)).toEqual(arrange(s))
+  })
+})
+
+describe('playedSound', () => {
+  const sound = { ...DEFAULT_SOUND, release: 1 }
+  const arp = (a: Partial<Arp>): Arp => ({ ...DEFAULT_ARP, on: true, ...a })
+
+  it('fades the arpeggio within its step, more quickly as its notes get shorter', () => {
+    const long = playedSound(sound, arp({ gate: 0.8 }), 120).release
+    const short = playedSound(sound, arp({ gate: 0.2 }), 120).release
+    // An eighth at 120 is a quarter of a second.
+    expect(long).toBeLessThan(0.25)
+    expect(short).toBeLessThan(long)
+  })
+
+  it('leaves the sound as it is when legato, with the arpeggiator off, or when it already fades quickly', () => {
+    expect(playedSound(sound, arp({ gate: 1 }), 120)).toBe(sound)
+    expect(playedSound(sound, { ...DEFAULT_ARP, on: false }, 120)).toBe(sound)
+    const quick = { ...sound, release: 0.02 }
+    expect(playedSound(quick, arp({ gate: 0.5 }), 120)).toBe(quick)
   })
 })

@@ -157,6 +157,8 @@ interface State extends SectionParts {
   recording: 'off' | 'count-in' | 'on'
   /** Beats left in the count-in, shown on the record button. */
   countIn: number | null
+  /** While recording round the loop, which pass (and so which take) it's on, from 1; null otherwise. */
+  recordPass: number | null
   /** How late recordings arrive on this device, in seconds, once measured; kept with the device, not the song. */
   latency: number | null
   playing: boolean
@@ -233,6 +235,7 @@ interface State extends SectionParts {
   setArmedLane: (lane: number) => void
   setRecording: (recording: State['recording']) => void
   setCountIn: (countIn: number | null) => void
+  setRecordPass: (pass: number | null) => void
   setLatency: (latency: number | null) => void
   setPlaying: (playing: boolean) => void
   setPlayhead: (beat: number) => void
@@ -576,6 +579,7 @@ export const useStore = create<State>()(
       chordsTrackSelected: false, drumsTrackSelected: false,
       recording: 'off',
       countIn: null,
+      recordPass: null,
       latency: null,
       playing: false,
       clipboard: [],
@@ -712,8 +716,9 @@ export const useStore = create<State>()(
       unmuteAll: () =>
         set({ chordsMuted: false, chordsSolo: false, drumsMuted: false, drumsSolo: false, vocalMuted: Array(LANES).fill(false), vocalSolo: Array(LANES).fill(false) }),
       setArmedLane: (armedLane) => set({ armedLane }),
-      setRecording: (recording) => set({ recording, countIn: recording === 'count-in' ? get().countIn : null }),
+      setRecording: (recording) => set({ recording, countIn: recording === 'count-in' ? get().countIn : null, recordPass: recording === 'off' ? null : get().recordPass }),
       setCountIn: (countIn) => set({ countIn }),
+      setRecordPass: (recordPass) => set({ recordPass }),
       setLatency: (latency) => set({ latency }),
       setPlaying: (playing) => set({ playing }),
       setPlayhead: (playhead) => set({ playhead }),

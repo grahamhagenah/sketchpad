@@ -25,6 +25,16 @@ describe('exportName', () => {
 })
 
 describe('songToMidi', () => {
+  it('writes the bass in the octave it plays in', async () => {
+    // Note-ons on the bass's channel (the second): 0x91, then the note.
+    const bassNotes = async (octave: -1 | 0 | 1) =>
+      [...new Uint8Array(await songToMidi({ ...song, sound: { ...song.sound, bassVoice: { octave } } }).arrayBuffer())].flatMap((b, i, all) => (b === 0x91 ? [all[i + 1]] : []))
+    const mid = await bassNotes(0)
+    expect(mid.length).toBeGreaterThan(0)
+    expect(await bassNotes(1)).toEqual(mid.map((n) => n + 12))
+    expect(await bassNotes(-1)).toEqual(mid.map((n) => n - 12))
+  })
+
   it('writes a type-1 file with a conductor, chords and bass track', async () => {
     const bytes = new Uint8Array(await songToMidi(song).arrayBuffer())
     expect(text(bytes, 0)).toBe('MThd')

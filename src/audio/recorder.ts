@@ -1,18 +1,61 @@
 import * as Tone from 'tone'
 
-// Hands every block of microphone input to the page along with the audio
-// clock's frame number, so the recording can be lined up with the song.
+// Gathers the microphone's input into blocks of about a sixth of a second
+// and hands each to the page, with the audio clock's frame number of its
+// first sample, so the recording can be lined up with the song. Handing over
+// every 128-sample quantum as it came (hundreds of messages a second, each a
+// fresh copy) loaded the audio thread and left the page a heap of small
+// buffers to clear away, which in Safari made playback stutter mid-take; a
+// block is handed over whole, without copying.
 const WORKLET = `
+const BLOCK = 8192
 class SketchpadCapture extends AudioWorkletProcessor {
   constructor() {
     super()
     this.on = true
-    this.port.onmessage = () => { this.on = false }
+    this.block = new Float32Array(BLOCK)
+    this.filled = 0
+    this.frame = 0
+    this.port.onmessage = () => {
+      this.send()
+      this.on = false
+    }
+  }
+  send() {
+    if (!this.filled) return
+    const data = this.block.subarray(0, this.filled)
+    this.port.postMessage({ frame: this.frame, data }, [this.block.buffer])
+    this.block = new Float32Array(BLOCK)
+    this.filled = 0
+  }
+  // Silence where the microphone gave nothing (its input can drop out for a
+  // moment), so everything after stays in time with the song.
+  write(samples, count) {
+    let done = 0
+    while (done < count) {
+      const n = Math.min(count - done, BLOCK - this.filled)
+      if (samples) this.block.set(samples.subarray(done, done + n), this.filled)
+      else this.block.fill(0, this.filled, this.filled + n)
+      this.filled += n
+      done += n
+      if (this.filled === BLOCK) this.send()
+    }
   }
   process(inputs) {
+    if (!this.on) return false
     const channel = inputs[0] && inputs[0][0]
-    if (channel && this.on) this.port.postMessage({ frame: currentFrame, data: channel.slice(0) })
-    return this.on
+    if (this.started === undefined) {
+      if (!channel) return true
+      this.started = currentFrame
+      this.next = currentFrame
+    }
+    if (!this.filled) this.frame = this.next
+    // A gap since the last quantum (the audio thread fell behind) is filled too, up to a second.
+    const gap = currentFrame - this.next
+    if (gap > 0 && gap < sampleRate) this.write(null, gap)
+    this.write(channel || null, 128)
+    this.next = currentFrame + 128
+    return true
   }
 }
 registerProcessor('sketchpad-capture', SketchpadCapture)
@@ -79,8 +122,8 @@ export async function startCapture(stream: MediaStream): Promise<Capture> {
     },
     stop: async () => {
       node.port.postMessage('stop')
-      // Let the last blocks arrive.
-      await new Promise((r) => setTimeout(r, 60))
+      // Let the last block arrive.
+      await new Promise((r) => setTimeout(r, 100))
       source.disconnect()
       node.disconnect()
       analyser.disconnect()

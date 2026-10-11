@@ -41,7 +41,7 @@ export function StatusBar() {
 export const useHoverHint = create<{ hint: ReactNode }>(() => ({ hint: null }))
 
 function Status() {
-  const s = useFields('arrangement', 'chords', 'chordsName', 'chordsTrackSelected', 'clipboard', 'drumTrack', 'drums', 'drumsName', 'drumsTrackSelected', 'key', 'mode', 'recording', 'sectionKey', 'selectedId', 'selectedVocal', 'takes', 'trims', 'view', 'vocalNames', 'sections', 'activeSection')
+  const s = useFields('arrangement', 'chords', 'chordsName', 'chordsTrackSelected', 'clipboard', 'drumTrack', 'drums', 'drumsName', 'drumsTrackSelected', 'key', 'mode', 'recording', 'recordPass', 'sectionKey', 'selectedId', 'selectedVocal', 'takes', 'trims', 'view', 'vocalNames', 'sections', 'activeSection')
   const sel = s.chords.find((c) => c.id === s.selectedId)
   const hint = useHoverHint((h) => h.hint)
 
@@ -54,7 +54,8 @@ function Status() {
   if (s.recording === 'on')
     return (
       <>
-        Recording <InputMeter />
+        {/* Round the loop, a take each time; which one it's on. */}
+        {s.recordPass ? `Recording take ${s.recordPass}, a new one each time round` : 'Recording'} <InputMeter />
         <Keys>
           · <kbd>R</kbd> or <kbd>Space</kbd> to stop
         </Keys>

@@ -20,6 +20,8 @@ export interface Sound {
   /** A peak at the brightness cutoff, 0 (none) to 1 (squelchy). */
   resonance?: number
   bass: boolean
+  /** How the bass sounds, when it plays; missing in sounds saved before it could change, which had the round one. */
+  bassVoice?: Partial<BassVoice>
   /** The preset it started from, so the panel can show it picked, and put it back, after the settings are changed. */
   preset?: string
 }
@@ -33,6 +35,38 @@ export function extrasOf(sound: Sound) {
     width: sound.width ?? (instrumentOf(sound) === 'strings' ? 0.5 : 0.36),
     resonance: sound.resonance ?? 0,
   }
+}
+
+/** What plays the bass: a few classic bass sounds, each with its own character. */
+export type BassKind = 'round' | 'sub' | 'finger' | 'acid' | '808'
+
+/** The bass's sound: which one, how high, how bright, how it slides from note to note, and how loud against the chords. */
+export interface BassVoice {
+  kind: BassKind
+  /** Octaves up or down from where it plays, around the second C below middle C. */
+  octave: -1 | 0 | 1
+  /** How bright it is, 0 (dark) to 1 (bright); the clean sine basses have nothing to brighten. */
+  tone: number
+  /** How far it slides into each new note, 0 (none) to 1 (a slow slur). */
+  glide: number
+  /** Its level against the chords, in dB. */
+  level: number
+}
+
+export const BASS_KINDS: { id: BassKind; label: string; about: string }[] = [
+  { id: 'round', label: 'Round', about: 'Warm and full, under anything' },
+  { id: 'sub', label: 'Sub', about: 'A deep, clean low end, felt more than heard' },
+  { id: 'finger', label: 'Finger', about: 'Plucked, like an electric bass' },
+  { id: 'acid', label: 'Acid', about: 'A squelchy, resonant saw' },
+  { id: '808', label: '808', about: 'A booming sine that drops into each note' },
+]
+
+/** Whether a bass sound has a tone to change: the sine ones are as clean as they get. */
+export const hasTone = (kind: BassKind) => kind !== 'sub' && kind !== '808'
+
+/** The bass's sound, with what a sound saved before it could change doesn't say filled in as it was: the round bass. */
+export function bassVoiceOf(sound: Sound): BassVoice {
+  return { kind: 'round', octave: 0, tone: 0.5, glide: 0, level: 0, ...sound.bassVoice }
 }
 
 export const WAVES: { id: Wave; label: string }[] = [
