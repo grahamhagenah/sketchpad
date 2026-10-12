@@ -2506,7 +2506,20 @@ main > .panel {
 .chord-pad.is-docked { position: static; z-index: auto; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; transition: none; }
 .chord-pad.is-docked .chord-pad-head { cursor: auto; touch-action: auto; flex-wrap: wrap; }
 .chord-pad.is-docked .chord-pad-title { flex-basis: 100%; }
-.chord-pad.is-docked .chord-pad-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-.chord-pad.is-docked .chord-pad-pad { height: 54px; }
+.chord-pad.is-docked .chord-pad-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+/* Two across: the name over its numeral, each cut short rather than spilling out of the pad. */
+.chord-pad.is-docked .chord-pad-pad { height: 52px; align-items: flex-start; gap: 2px; padding: 0 12px; }
+.chord-pad.is-docked .chord-pad-roman { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chord-pad.is-docked .chord-pad-pad.is-hinted::after { top: 4px; right: 4px; }
 .chord-pad.is-docked .chord-pad-options { grid-template-columns: minmax(0, 1fr); }
 .chord-pad.is-docked .chord-pad-add { height: 44px; font-size: var(--fs-body); }
+
+/* A chord pad's name, cut short with an ellipsis when it's longer than the pad. */
+.chord-pad-name { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chord-pad-roman { flex: none; }
+/* Under the pads, what their marks mean: a dashed edge, and the dot. */
+.chord-pad-legend { margin: -4px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: var(--fs-small); color: var(--muted); }
+.chord-pad-legend-dash { width: 14px; height: 10px; border: 1px dashed var(--muted); border-radius: 3px; }
+.chord-pad-legend-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
+.chord-pad-legend > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chord-pad-legend { column-gap: 14px; }
