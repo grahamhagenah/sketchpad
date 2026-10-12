@@ -1303,7 +1303,7 @@ main > .panel {
   transition: top 0.16s ease, background 0.08s;
 }
 .song-divider { position: absolute; left: 0; right: 0; height: 1px; background: var(--line); pointer-events: none; }
-.song-row.is-playing { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.song-row.is-playing { --row-mix: 6%; background: color-mix(in srgb, var(--text) 6%, transparent); }
 /* Picked up: lifted off the sheet, lighter, with a white ring like a selected region. */
 .song-row.is-dragging {
   z-index: 4;
@@ -1463,7 +1463,7 @@ main > .panel {
 .song-row-more[aria-expanded='true'] { color: var(--text); background: var(--raised); }
 @media (hover: hover) {
   .song-row-more:hover { color: var(--text); background: var(--raised); }
-  .song-row:not(.is-playing):not(.is-dragging):hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
+  .song-row:not(.is-playing):not(.is-dragging):hover { --row-mix: 3%; background: color-mix(in srgb, var(--text) 3%, transparent); }
 }
 /* A small button under the names, like the ones that add tracks. */
 .song-add { position: absolute; left: 4px; padding-top: 8px; }
@@ -2528,3 +2528,34 @@ main > .panel {
 .sound-body .is-rhythm { order: 2; }
 .sound-body .is-bass { order: 3; }
 .sound-body .is-shape { order: 4; }
+
+/*
+ * Wider than the window (zoomed in), the song scrolls sideways under each
+ * row's name and buttons, which stay in view at its edges: the name at the
+ * left, the buttons at the right, each on the row's own colour (lighter when
+ * it's hovered, playing or picked up), the chords fading out beneath them.
+ */
+.song-row { --row-mix: 0%; --row-fill: color-mix(in srgb, var(--text) var(--row-mix), var(--panel)); }
+.song-row.is-dragging { --row-fill: color-mix(in srgb, var(--text) 10%, var(--raised)); }
+.song-view:not(.is-narrow) .song-row-head {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  align-self: stretch;
+  border-radius: 8px 0 0 8px;
+  background: linear-gradient(to right, var(--row-fill) calc(100% - 10px), transparent);
+}
+.song-view:not(.is-narrow) .song-row-actions {
+  position: sticky;
+  right: 0;
+  top: auto;
+  transform: none;
+  z-index: 3;
+  flex: none;
+  align-self: stretch;
+  padding: 0 6px 0 18px;
+  border-radius: 0 8px 8px 0;
+  background: linear-gradient(to right, transparent, var(--row-fill) 18px);
+}
+/* The playhead passes under them, as the chords do. */
+.song-view:not(.is-narrow) .song-playhead { z-index: 2; }
