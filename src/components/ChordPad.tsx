@@ -109,6 +109,13 @@ export function ChordPad({ docked = false }: { docked?: boolean }) {
     const id = useStore.getState().selectedId
     if (!id) return
     s.updateChord(id, { seventh: p.seventh, color: p.color ?? undefined, bass: p.bass ?? undefined, beats: p.beats })
+    if (docked) {
+      // Beside the tracks, selecting it would put its settings in the pad's place; left unselected, the pad stays to add the next,
+      // which (with nothing selected) goes on the end, after this one.
+      useStore.getState().select(null)
+      requestAnimationFrame(() => [...document.querySelectorAll('.chord')].pop()?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }))
+      return
+    }
     setAdded({ id, name: chordOf(key, mode, asChord(p)).name })
     // Bring the new chord into view.
     requestAnimationFrame(() => document.querySelector('.chord.is-selected')?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }))
@@ -155,6 +162,8 @@ export function ChordPad({ docked = false }: { docked?: boolean }) {
   // Dragging the handle (or the title row) folds or opens the sheet; a tap on the handle does too.
   const { dragY, handle, area } = useSheetDrag(open, setOpen)
 
+  // The parallel key the dashed pads come from: the same tonic, the other mode.
+  const parallel = `${keyLabel(key, mode === 'major' ? 'minor' : 'major')} ${mode === 'major' ? 'minor' : 'major'}`
   const pads = [
     ...Array.from({ length: 7 }, (_, degree) => ({ degree, borrowed: false })),
     ...BORROWED[mode].map((degree) => ({ degree, borrowed: true })),
@@ -286,7 +295,8 @@ export function ChordPad({ docked = false }: { docked?: boolean }) {
               key={`${p.borrowed ? 'b' : ''}${p.degree}`}
               className={`chord-pad-pad ${on ? 'is-picked' : ''} ${p.borrowed ? 'is-borrowed' : ''} ${hinted(p) ? 'is-hinted' : ''}`}
               aria-pressed={quick ? undefined : on}
-              aria-label={`${info.name}, ${info.roman}${hinted(p) ? ', a usual next chord' : ''}${quick ? '. Add it' : ''}`}
+              aria-label={`${info.name}, ${info.roman}${p.borrowed ? `, borrowed from ${parallel}` : ''}${hinted(p) ? ', a usual next chord' : ''}${quick ? '. Add it' : ''}`}
+              title={`${info.name}${p.borrowed ? `: borrowed from ${parallel}` : ''}${hinted(p) ? ' · usually comes next' : ''}`}
               onClick={() => choose({ degree: p.degree, borrowed: p.borrowed }, quick)}
             >
               <span className="chord-pad-name">{info.name}</span>
@@ -295,6 +305,17 @@ export function ChordPad({ docked = false }: { docked?: boolean }) {
           )
         })}
       </div>
+      {/* What the marks on the pads mean. */}
+      <p className="chord-pad-legend">
+        <span>
+          <span className="chord-pad-legend-dash" aria-hidden="true" />
+          Borrowed from {parallel}
+        </span>
+        <span>
+          <span className="chord-pad-legend-dot" aria-hidden="true" />
+          Usually comes next
+        </span>
+      </p>
 
       {/*
         The options of the selected chord (or of the one to add), when asked
