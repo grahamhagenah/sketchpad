@@ -357,4 +357,45 @@ export const SONG_TEMPLATES: SongTemplate[] = [
       )
     },
   },
+  {
+    name: 'Jazz-pop bossa nova',
+    think: 'From the Start',
+    // F major, a bar each, all sevenths: Fmaj7 Dm7 Gm7 C7, then Am7 into D7 (the VI played major, leaning on the ii) Gm7 C7.
+    // The chorus sighs from B♭maj7 to B♭m7, the minor iv borrowed from F minor, down Am7 D7 Gm7 C7 home; the bridge
+    // starts on the vi with a G7 for the ii. A soft electric piano pushed across the bar over bossa rim clicks, the bass
+    // rocking with the kick.
+    build: () => {
+      const turn = () => [chord(2, 4, { seventh: true }), chord(5, 4, { seventh: true, major: true }), chord(1, 4, { seventh: true }), chord(4, 4, { seventh: true })]
+      return songStart(
+        {
+          key: 5,
+          mode: 'major',
+          bpm: 130,
+          timeSig: [4, 4],
+          sound: preset('E-piano', { attack: 0.004, decay: 1.4, sustain: 0.35, release: 0.7, brightness: 4200, reverb: 0.3, bassVoice: { kind: 'round', tone: 0.3 } }),
+          arp: DEFAULT_ARP,
+          rhythm: { chords: 'tresillo', bass: 'kick' },
+          chordsVolume: 0,
+          drumsVolume: -3,
+        },
+        [
+          { name: 'Verse', chords: [chord(0, 4, { seventh: true }), chord(5, 4, { seventh: true }), chord(1, 4, { seventh: true }), chord(4, 4, { seventh: true }), ...turn()], drums: 'bossa', drumFill: 'none', drumIntensity: 'sparse' },
+          {
+            name: 'Chorus',
+            chords: [chord(3, 4, { seventh: true }), chord(3, 4, { seventh: true, borrowed: true }), ...turn(), chord(0, 4, { seventh: true }), chord(4, 4, { color: 'sus4' })],
+            drums: 'bossa',
+            drumFill: 'end',
+          },
+          {
+            name: 'Bridge',
+            chords: [chord(5, 4, { seventh: true }), chord(1, 4, { seventh: true, major: true }), chord(1, 4, { seventh: true }), chord(4, 4, { seventh: true }), chord(2, 4, { seventh: true }), chord(5, 4, { seventh: true, major: true }), chord(1, 4, { seventh: true }), chord(4, 4, { color: 'sus4' })],
+            drums: 'bossa',
+            drumFill: 'end',
+            drumIntensity: 'sparse',
+          },
+        ],
+        [0, 1, 0, 1, 2, 1],
+      )
+    },
+  },
 ]

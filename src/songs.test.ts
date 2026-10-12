@@ -51,6 +51,11 @@ describe('songs to start from', () => {
       ['Verse', 'G B C Cm G B C Cm'],
       ['Chorus', 'G B C Cm G B C Cm'],
     ])
+    expect(names('From the Start')).toEqual([
+      ['Verse', 'Fmaj7 Dm7 Gm7 C7 Am7 D7 Gm7 C7'],
+      ['Chorus', 'B♭maj7 B♭m7 Am7 D7 Gm7 C7 Fmaj7 Csus4'],
+      ['Bridge', 'Dm7 G7 Gm7 C7 Am7 D7 Gm7 Csus4'],
+    ])
   })
 
   it('give each section whole bars, and play every section', () => {
