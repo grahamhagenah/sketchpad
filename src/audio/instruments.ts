@@ -55,7 +55,8 @@ function synthVoice(out: Tone.ToneAudioNode, kind: 'synth' | 'strings'): Voice {
         // Strings are a section of out-of-tune saws; the synth's sine stays pure, its other waves stacked a little apart.
         oscillator:
           kind === 'strings'
-            ? { type: 'fatsawtooth', count: 6, spread: width * 68 }
+            ? // Four saws, not six: two fewer per note to work out in real time, a third less, for much the same sound.
+              { type: 'fatsawtooth', count: 4, spread: width * 68 }
             : sound.wave === 'sine'
               ? { type: 'sine' }
               : { type: `fat${sound.wave}`, count: 3, spread: width * 50 },
