@@ -6,6 +6,8 @@ import { engine, seek, togglePlay } from '../audio/engine'
 import { songBeatOf, songSpans } from '../song'
 import { grooveHits } from '../audio/drums'
 import { Icon, ZoomButtons } from './Toolbar'
+import { useNarrow } from '../hooks/useNarrow'
+import { ChordKeysButton } from './ChordKeys'
 import { SongCards } from './SongCards'
 import { LyricsButton } from './Lyrics'
 import { vocalColor } from '../colors'
@@ -165,6 +167,7 @@ export function SectionBar() {
   const ordered = [...sections].sort((x, y) => (firstPlays.get(x.id) ?? Infinity) - (firstPlays.get(y.id) ?? Infinity))
   const [renaming, setRenaming] = useState<string | null>(null)
   const open = view === 'section' ? sections.find((sec) => sec.id === activeSection) : undefined
+  const narrow = useNarrow()
   const tabsRef = useRef<HTMLDivElement>(null)
   const more = useTabsBeyond(tabsRef, sections.length)
   // The open tab scrolled into view, when the tabs run longer than the strip.
@@ -240,6 +243,8 @@ export function SectionBar() {
         {/* The open section's own settings, few and seldom needed, in a menu: renaming it (as double-clicking its tab does), its key, copies of it, and deleting it. */}
         {open && <SectionMenu section={open} onRename={() => setRenaming(open.id)} />}
         {/* The lyrics, and zoom: they work on whichever view is showing, so they sit with the views. */}
+        {/* The floating chord keys are for a mouse and keyboard. */}
+        {!narrow && <ChordKeysButton />}
         <LyricsButton />
         <ZoomButtons />
       </div>

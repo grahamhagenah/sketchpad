@@ -21,7 +21,7 @@ export function LyricsButton() {
   return (
     <button
       type="button"
-      className={`icon-btn lyrics-btn ${open ? 'is-on' : ''}`}
+      className={`icon-btn lyrics-btn tab-tool-btn ${open ? 'is-on' : ''}`}
       // On a phone it opens and closes the lyrics' sheet itself, so a tap on it isn't a tap outside the sheet.
       data-sheet-toggle
       aria-pressed={open}
@@ -35,7 +35,7 @@ export function LyricsButton() {
     >
       <LyricsIcon />
       {/* Named beside its icon on a wider screen, as the section's menu is; a phone shows the icon alone. */}
-      <span className="lyrics-btn-label" aria-hidden="true">
+      <span className="tab-tool-label" aria-hidden="true">
         Lyrics
       </span>
     </button>

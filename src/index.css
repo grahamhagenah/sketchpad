@@ -441,9 +441,9 @@ main > .panel {
 /* Its button, with the zoom buttons: white while it shows, grey while hidden. */
 .inspector-btn { color: var(--muted); }
 .inspector-btn.is-on,
-.lyrics-btn.is-on { color: var(--text); }
-/* With its name beside the icon, like the section's menu next to it. */
-.section-bar-end .icon-btn.lyrics-btn { width: auto; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 8px; font-size: var(--fs-body); font-weight: 500; }
+/* The panels beside the tabs (keys, lyrics): each with its name beside its icon, like the section's menu next to them; white while open. */
+.tab-tool-btn.is-on { color: var(--text); }
+.section-bar-end .icon-btn.tab-tool-btn { width: auto; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 8px; font-size: var(--fs-body); font-weight: 500; }
 .inspector {
   flex: none;
   width: 260px;
@@ -2489,7 +2489,7 @@ main > .panel {
 @media (max-width: 640px) {
   /* The tab strip's other buttons give way on a phone; the lyrics stay. */
   .section-bar-end .icon-btn.lyrics-btn { display: inline-grid; width: 30px; padding: 0; }
-  .lyrics-btn-label { display: none; }
+  .tab-tool-label { display: none; }
 }
 
 
@@ -2522,3 +2522,9 @@ main > .panel {
 .chord-pad-legend-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
 .chord-pad-legend > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .chord-pad-legend { column-gap: 14px; }
+
+/* On a phone, the sound panel is one list: the sounds, how they're played and the bass, then the shape. */
+.sound-body .is-sounds { order: 1; }
+.sound-body .is-rhythm { order: 2; }
+.sound-body .is-bass { order: 3; }
+.sound-body .is-shape { order: 4; }

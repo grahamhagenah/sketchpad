@@ -75,19 +75,22 @@ const KEYS_ICON = (
   </svg>
 )
 
-/** A button in the top bar to bring the keys out or put them away; K does it too. */
+/** A button beside the tabs, with the lyrics', to bring the keys out or put them away; K does it too. */
 export function ChordKeysButton() {
   const open = useChordKeys((s) => s.open)
   return (
     <button
       type="button"
-      className="icon-btn toggle-btn"
+      className={`icon-btn tab-tool-btn ${open ? 'is-on' : ''}`}
       aria-pressed={open}
       aria-label="Chord keys (K)"
       title="Chord keys (K)"
       onClick={toggleChordKeys}
     >
       {KEYS_ICON}
+      <span className="tab-tool-label" aria-hidden="true">
+        Keys
+      </span>
     </button>
   )
 }
