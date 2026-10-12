@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PART_KEYS, sectionsNow, useFields, useStore } from '../store'
-import { chordOf } from '../music/theory'
 import { engine } from '../audio/engine'
 import { songSpans } from '../song'
 import { setLyricsOpen, toggleLyrics, useLyricsPanel } from '../lyricsPanel'
@@ -69,11 +68,10 @@ function usePlayingSection() {
 
 /**
  * The song's words, section by section in the order they first play (and
- * then any not in the song yet), each under its name, letter and chords, with
- * how many syllables each line has beside it. A section that plays more than
- * once has its words written once. The open section is marked, and while the
- * song plays, the section playing lights up and scrolls into view. Beside the
- * editor on a wider screen; over it, on a phone.
+ * then any not in the song yet), each under its name. A section that plays
+ * more than once has its words written once. The open section is marked, and
+ * while the song plays, the section playing lights up and scrolls into view.
+ * Beside the editor on a wider screen; in a sheet along the bottom on a phone.
  */
 export function LyricsPanel({ sheet = false }: { sheet?: boolean }) {
   const s = useFields(...PART_KEYS, 'sections', 'activeSection', 'arrangement', 'view', 'key', 'mode', 'openSection', 'setLyrics', 'recording')
@@ -92,8 +90,6 @@ export function LyricsPanel({ sheet = false }: { sheet?: boolean }) {
   }, [playingId])
 
   const body = ordered.map((sec) => {
-        const { key, mode } = sec.sectionKey ?? { key: s.key, mode: s.mode }
-        const chords = sec.chords.map((c) => chordOf(key, mode, c).name).join('  ')
         const times = uses.get(sec.id) ?? 0
         const open = s.view === 'section' && sec.id === s.activeSection
         const field = `lyrics-${sec.id}`
@@ -121,7 +117,6 @@ export function LyricsPanel({ sheet = false }: { sheet?: boolean }) {
               </button>
               <span className="lyrics-section-plays">{times === 0 ? 'Not in the song' : times > 1 ? `Plays ${times}×` : ''}</span>
             </div>
-            {chords && <p className="lyrics-chords">{chords}</p>}
             <LyricLines id={field} label={`${sec.name} lyrics`} value={sec.lyrics} onChange={(text) => s.setLyrics(sec.id, text)} />
           </section>
         )

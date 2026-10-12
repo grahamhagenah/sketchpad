@@ -2467,7 +2467,6 @@ main > .panel {
 .lyrics-section-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: none; font-size: var(--fs-title); font-weight: 600; color: var(--text); cursor: pointer; }
 .lyrics-section-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .lyrics-section-plays { flex: none; margin-left: auto; font-size: var(--fs-small); color: var(--muted); }
-.lyrics-chords { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); }
 /* The words, written straight on the page: no box, just the text, growing to fit. */
 .lyrics-text {
   width: 100%;
