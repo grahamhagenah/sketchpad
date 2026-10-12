@@ -16,3 +16,14 @@ describe('bassVoiceOf', () => {
     expect(hasTone('acid')).toBe(true)
   })
 })
+
+describe('newSketchSound', () => {
+  it('is the electric piano as it comes, with the bass on', async () => {
+    const { newSketchSound, presetFor, changedFrom, PRESETS } = await import('./sound')
+    const sound = newSketchSound()
+    expect(presetFor(sound)).toBe('E-piano')
+    expect(changedFrom(sound, PRESETS.find((p) => p.name === 'E-piano')!.sound)).toBe(false)
+    expect(sound.bass).toBe(true)
+    expect(sound.bassVoice).toBeUndefined()
+  })
+})

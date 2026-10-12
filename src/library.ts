@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { DEFAULT_RHYTHM } from './audio/arrange'
+import { DEFAULT_ARP, DEFAULT_RHYTHM } from './audio/arrange'
+import { newSketchSound } from './audio/sound'
 import { demoSong, sketchSignature, songOf, songState, useStore, type SavedSong, type SongData, type SongStart } from './store'
 import { engine, loadSongTakes } from './audio/engine'
 import { SKETCHES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage, type SectionTakes } from './audio/take'
@@ -135,8 +136,8 @@ export async function newSketch() {
   if (useStore.getState().recording !== 'off') return false
   if (!(await keepCurrent())) return false
   stopEverything()
-  // One empty section, called Verse, to start from.
-  quietly(() => useStore.setState({ ...songState({}), title: '', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumTrack: false, drumsMuted: false, drumsSolo: false, chordsVolume: 0, drumsVolume: 0, chordsColor: null, drumsColor: null }))
+  // One empty section, called Verse, to start from, on a standard sound (the electric piano, its bass held to the kick, no arpeggiator) rather than whatever the last sketch was set to.
+  quietly(() => useStore.setState({ ...songState({}), sound: newSketchSound(), arp: DEFAULT_ARP, rhythm: DEFAULT_RHYTHM, title: '', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumTrack: false, drumsMuted: false, drumsSolo: false, chordsVolume: 0, drumsVolume: 0, chordsColor: null, drumsColor: null }))
   useStore.getState().setSaved(null, null)
   clearHistory()
   tally('new')
