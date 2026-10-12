@@ -145,6 +145,12 @@ export const PRESETS: { name: string; about: string; sound: Sound }[] = [
 
 export const DEFAULT_SOUND = PRESETS.find((p) => p.name === 'Synth')!.sound
 
+/** What a new sketch starts on, whatever the last one was set to: the electric piano as it comes, with the bass, and none of the last sketch's own settings. */
+export function newSketchSound(): Sound {
+  const sound = PRESETS.find((p) => p.name === 'E-piano')!.sound
+  return { ...sound, ...extrasOf(sound), preset: 'E-piano', bass: true }
+}
+
 /** Square and saw waves are much louder than sine at the same level. */
 export const WAVE_VOLUME: Record<Wave, number> = { sine: -11, triangle: -13, square: -21, sawtooth: -17 }
 
