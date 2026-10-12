@@ -30,14 +30,20 @@ export const swings = (rate: ArpRate) => rate === '1/8' || rate === '1/16'
  * sound's release can ring on for a second or more after a note ends, longer
  * than a whole step, so shortening the notes would change nothing you could
  * hear. While the arpeggiator is on, short of legato, each note fades out in
- * a fraction of its step instead, so a shorter length leaves a real gap.
+ * a fraction of its step instead, so a shorter length leaves a real gap;
+ * legato, it rings over the next few steps, and no longer.
  */
 export function playedSound(sound: Sound, arp: Arp, bpm: number): Sound {
-  if (!arp.on || arp.gate >= 0.95) return sound
+  if (!arp.on) return sound
   const stepSeconds = ARP_RATES.find((r) => r.id === arp.rate)!.quarters * (60 / bpm)
-  const release = 0.03 + 0.35 * stepSeconds * arp.gate
+  // Legato, each note rings on into the next ones, but for no more than four steps: a long release on fast notes
+  // would otherwise have a dozen or more sounding at once, all to be worked out in real time, for a wash no one hears.
+  const release = arp.gate >= 0.95 ? MAX_LEGATO_STEPS * stepSeconds : 0.03 + 0.35 * stepSeconds * arp.gate
   return release < sound.release ? { ...sound, release } : sound
 }
+
+/** How many steps a legato arpeggio's notes ring on for, at most. */
+const MAX_LEGATO_STEPS = 4
 
 export const ARP_PATTERNS: { id: ArpPattern; label: string }[] = [
   { id: 'up', label: 'Up' },

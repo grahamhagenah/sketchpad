@@ -192,9 +192,9 @@ function SoundSettings() {
 
   return (
     <div className="sound-body">
-      {/* Beside each other on a wider screen: what plays and how, then the shape of its sound; on a phone, one list. */}
+      {/* Beside each other on a wider screen: the chords' sound and its shape, then how the chords and the bass are played; on a phone, one list. */}
       <div className="sound-col">
-        <div className="sound-section" role="radiogroup" aria-label="Sound">
+        <div className="sound-section is-sounds" role="radiogroup" aria-label="Sound">
           <span className="sound-heading">Recorded</span>
           {soundButton(
             PIANO,
@@ -208,91 +208,13 @@ function SoundSettings() {
           <div className="sound-grid">{SYNTHS.map((p) => soundButton(p, '', p.name))}</div>
         </div>
 
-        <div className="sound-section">
-          <span className="sound-heading">Rhythm</span>
-          <div className="sound-grid is-three" role="radiogroup" aria-label="Rhythm">
-            {CHORD_RHYTHMS.map((r) => (
-              <button key={r.id} type="button" role="radio" aria-checked={rhythm.chords === r.id} disabled={arpOn} onClick={() => setRhythm({ chords: r.id })}>
-                {r.label}
-              </button>
-            ))}
-          </div>
-          {arpOn ? (
-            <p className="rhythm-about">
-              The arpeggiator is playing the chords.{' '}
-              <button type="button" className="track-sheet-link" onClick={() => setArp({ on: false })}>
-                Turn it off
-              </button>
-            </p>
-          ) : (
-            <p className="rhythm-about">{CHORD_RHYTHMS.find((r) => r.id === rhythm.chords)?.about}</p>
-          )}
-        </div>
-
-        <div className="sound-section">
-          <span className="sound-heading">Bass</span>
-          <div className="sound-grid is-three" role="radiogroup" aria-label="Bass">
-            {(
-              [
-                ['off', 'Off'],
-                ['held', 'Held'],
-                ['kick', 'With the kick'],
-              ] as const
-            ).map(([id, label]) => (
-              <button key={id} type="button" role="radio" aria-checked={bass === id} onClick={() => setBass(id)}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="rhythm-about">
-            {bass === 'off'
-              ? 'Just the chords'
-              : bass === 'held'
-                ? 'One long low note for each chord'
-                : drumTrack
-                  ? 'Plays with the kick drum, and walks up into each new chord'
-                  : 'Plays with the kick drum once there’s a drum track; held until then'}
-          </p>
-          {/* How the bass sounds, while there is one: which bass, its octave, and how bright, slurred and loud it is. */}
-          {bass !== 'off' && (
-            <>
-              <div className="sound-grid is-five" role="radiogroup" aria-label="Bass sound">
-                {BASS_KINDS.map((k) => (
-                  <button key={k.id} type="button" role="radio" aria-checked={voice.kind === k.id} title={k.about} onClick={() => setVoice({ kind: k.id })}>
-                    {k.label}
-                  </button>
-                ))}
-              </div>
-              <p className="rhythm-about">{BASS_KINDS.find((k) => k.id === voice.kind)?.about}</p>
-              <div className="sound-grid is-three" role="radiogroup" aria-label="Bass octave">
-                {(
-                  [
-                    [-1, 'Low'],
-                    [0, 'Mid'],
-                    [1, 'High'],
-                  ] as const
-                ).map(([octave, label]) => (
-                  <button key={octave} type="button" role="radio" aria-checked={voice.octave === octave} onClick={() => setVoice({ octave })}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <SoundSlider label="Tone" min={0} max={1} step={0.01} value={voice.tone} format={percent} disabled={!hasTone(voice.kind)} onChange={(tone) => setVoice({ tone }, false)} />
-              <SoundSlider label="Glide" min={0} max={1} step={0.01} value={voice.glide} format={(v) => (v < 0.02 ? 'Off' : percent(v))} onChange={(glide) => setVoice({ glide }, false)} />
-              <SoundSlider label="Level" min={-12} max={6} step={1} value={voice.level} format={(v) => (v === 0 ? '0 dB' : `${v > 0 ? '+' : '−'}${Math.abs(v)} dB`)} onChange={(level) => setVoice({ level }, false)} />
-            </>
-          )}
-        </div>
-      </div>
-
       {/*
         The shape of the sound, always to hand: its wave, how it starts, fades
         and stops, then how bright and roomy it is, with a way back to where
         the sound started. Every setting shows whichever the sound, so the
         panel keeps its size; those it doesn't use are greyed out.
       */}
-      <div className="sound-col">
-        <div className="sound-section">
+        <div className="sound-section is-shape">
           <div className="sound-shape-head">
             <span className="sound-heading">Shape</span>
             {/* Always there, hidden until the sound's been changed, so showing it doesn't move anything. */}
@@ -347,6 +269,83 @@ function SoundSettings() {
           <SoundSlider label="Resonance" min={0} max={1} step={0.01} value={extras.resonance} format={percent} onChange={(resonance) => setSound({ resonance })} />
           <SoundSlider label="Reverb" min={0} max={0.8} step={0.01} value={sound.reverb} format={percent} onChange={(reverb) => setSound({ reverb })} />
           <p className="rhythm-about">Piano recordings: Salamander Grand Piano by Alexander Holm, CC BY 3.0.</p>
+        </div>
+      </div>
+      <div className="sound-col">
+        <div className="sound-section is-rhythm">
+          <span className="sound-heading">Rhythm</span>
+          <div className="sound-grid is-three" role="radiogroup" aria-label="Rhythm">
+            {CHORD_RHYTHMS.map((r) => (
+              <button key={r.id} type="button" role="radio" aria-checked={rhythm.chords === r.id} disabled={arpOn} onClick={() => setRhythm({ chords: r.id })}>
+                {r.label}
+              </button>
+            ))}
+          </div>
+          {arpOn ? (
+            <p className="rhythm-about">
+              The arpeggiator is playing the chords.{' '}
+              <button type="button" className="track-sheet-link" onClick={() => setArp({ on: false })}>
+                Turn it off
+              </button>
+            </p>
+          ) : (
+            <p className="rhythm-about">{CHORD_RHYTHMS.find((r) => r.id === rhythm.chords)?.about}</p>
+          )}
+        </div>
+
+        <div className="sound-section is-bass">
+          <span className="sound-heading">Bass</span>
+          <div className="sound-grid is-three" role="radiogroup" aria-label="Bass">
+            {(
+              [
+                ['off', 'Off'],
+                ['held', 'Held'],
+                ['kick', 'With the kick'],
+              ] as const
+            ).map(([id, label]) => (
+              <button key={id} type="button" role="radio" aria-checked={bass === id} onClick={() => setBass(id)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="rhythm-about">
+            {bass === 'off'
+              ? 'Just the chords'
+              : bass === 'held'
+                ? 'One long low note for each chord'
+                : drumTrack
+                  ? 'Plays with the kick drum, and walks up into each new chord'
+                  : 'Plays with the kick drum once there’s a drum track; held until then'}
+          </p>
+          {/* How the bass sounds, while there is one: which bass, its octave, and how bright, slurred and loud it is. */}
+          {bass !== 'off' && (
+            <>
+              <div className="sound-grid is-five" role="radiogroup" aria-label="Bass sound">
+                {BASS_KINDS.map((k) => (
+                  <button key={k.id} type="button" role="radio" aria-checked={voice.kind === k.id} title={k.about} onClick={() => setVoice({ kind: k.id })}>
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+              <p className="rhythm-about">{BASS_KINDS.find((k) => k.id === voice.kind)?.about}</p>
+              <div className="sound-grid is-three" role="radiogroup" aria-label="Bass octave">
+                {(
+                  [
+                    [-1, 'Low'],
+                    [0, 'Mid'],
+                    [1, 'High'],
+                  ] as const
+                ).map(([octave, label]) => (
+                  <button key={octave} type="button" role="radio" aria-checked={voice.octave === octave} onClick={() => setVoice({ octave })}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <SoundSlider label="Tone" min={0} max={1} step={0.01} value={voice.tone} format={percent} disabled={!hasTone(voice.kind)} onChange={(tone) => setVoice({ tone }, false)} />
+              <SoundSlider label="Glide" min={0} max={1} step={0.01} value={voice.glide} format={(v) => (v < 0.02 ? 'Off' : percent(v))} onChange={(glide) => setVoice({ glide }, false)} />
+              <SoundSlider label="Level" min={-12} max={6} step={1} value={voice.level} format={(v) => (v === 0 ? '0 dB' : `${v > 0 ? '+' : '−'}${Math.abs(v)} dB`)} onChange={(level) => setVoice({ level }, false)} />
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -54,6 +54,14 @@ const LOOK_AHEAD = 0.1
 const RECORDING_LOOK_AHEAD = 0.3
 
 /**
+ * When a note played by hand (a chord previewed, a chord key) should sound:
+ * straight away, a moment from now on the audio clock. Tone.now() is the
+ * look-ahead from now, there for the song's scheduled notes, and would have
+ * them answer a tenth of a second late, three tenths while recording.
+ */
+const playNow = () => Tone.immediate() + 0.01
+
+/**
  * Hands notes to the audio clock `seconds` ahead, still checking every 50ms
  * (Tone would otherwise check only half as often as it looks ahead), so the
  * page can be held up for nearly all of it before a note comes late.
@@ -109,6 +117,20 @@ class Engine {
     this.kit = createKit()
     this.vocalRoom = createVocalRoom()
     this.ready = true
+  }
+
+  /**
+   * Builds the instruments ahead of time, while nothing's happening, so the
+   * first play, take or chord doesn't wait the tenth of a second or so it
+   * takes. The audio stays silent until it's first asked for.
+   */
+  warmUp() {
+    try {
+      this.setup()
+    } catch (error) {
+      // Built on first use instead.
+      console.warn(error)
+    }
   }
 
   /** The player for a take, made the first time it's needed. */
@@ -433,7 +455,7 @@ class Engine {
     this.setup()
     this.auditionTimers.forEach(clearTimeout)
     this.auditionTimers = []
-    const now = Tone.now()
+    const now = playNow()
     if (!song.arp.on) {
       const info = chordOf(song.key, song.mode, chord)
       this.pad.triggerAttackRelease(voiceChord(info.pcs, null).map(midiToHz), 0.9, now, 0.8)
@@ -478,7 +500,7 @@ class Engine {
     void (async () => {
       await Tone.start()
       this.setup()
-      const now = Tone.now()
+      const now = playNow()
       const limit = setTimeout(() => release(), 60_000)
       if (!song.arp.on) {
         const info = chordOf(song.key, song.mode, chord)
@@ -488,7 +510,7 @@ class Engine {
         this.bassHolder = id
         stop = () => {
           clearTimeout(limit)
-          const at = Tone.now()
+          const at = playNow()
           this.pad.triggerRelease(freqs, at)
           if (this.bassHolder === id) this.bass.release(at)
         }
@@ -522,7 +544,7 @@ class Engine {
         const stopThis = () => {
           clearTimeout(limit)
           timers.forEach(clearTimeout)
-          if (this.bassHolder === id) this.bass.release(Tone.now())
+          if (this.bassHolder === id) this.bass.release(playNow())
           if (this.stopArp === stopThis) this.stopArp = null
         }
         this.stopArp = stopThis
@@ -541,6 +563,12 @@ class Engine {
 }
 
 export const engine = new Engine()
+
+// In a quiet moment after the page has loaded (and only where there's web audio to build on).
+if (typeof window !== 'undefined' && 'AudioContext' in window) {
+  const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 1500))
+  idle(() => engine.warmUp())
+}
 
 useStore.setState({ latency: measuredLatency() })
 

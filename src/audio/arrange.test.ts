@@ -114,7 +114,12 @@ describe('playedSound', () => {
     expect(short).toBeLessThan(long)
   })
 
-  it('leaves the sound as it is when legato, with the arpeggiator off, or when it already fades quickly', () => {
+  it('lets legato notes ring over the next few steps, and no longer', () => {
+    // Sixteenths at 120 are an eighth of a second: four of them, half a second, rather than a long pad's 1.8.
+    expect(playedSound({ ...sound, release: 1.8 }, arp({ gate: 1, rate: '1/16' }), 120).release).toBeCloseTo(0.5)
+  })
+
+  it('leaves the sound as it is with the arpeggiator off, or when it already fades quickly', () => {
     expect(playedSound(sound, arp({ gate: 1 }), 120)).toBe(sound)
     expect(playedSound(sound, { ...DEFAULT_ARP, on: false }, 120)).toBe(sound)
     const quick = { ...sound, release: 0.02 }

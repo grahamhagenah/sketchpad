@@ -8,7 +8,6 @@ import { engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
 import { ArpButton, SoundButton } from './SoundPanel'
 import { Position } from './Position'
-import { ChordKeysButton } from './ChordKeys'
 import { SongTitle } from './SongTitle'
 import { tally } from '../analytics'
 import { download, exportName, placedTakes, songToMidi, songToStems, songToWav, takeToWav } from '../audio/export'
@@ -103,8 +102,6 @@ export function Toolbar() {
       </IconToggle>
       <ArpButton />
       <SoundButton />
-      {/* The floating chord keys are for a mouse and keyboard. */}
-      {!narrow && <ChordKeysButton />}
     </div>
   )
   const playButton = (

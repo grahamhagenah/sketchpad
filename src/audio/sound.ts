@@ -149,7 +149,7 @@ export const DEFAULT_SOUND = PRESETS.find((p) => p.name === 'Synth')!.sound
 export const WAVE_VOLUME: Record<Wave, number> = { sine: -11, triangle: -13, square: -21, sawtooth: -17 }
 
 /** Each instrument's level, so they sit about as loud as each other. */
-export const INSTRUMENT_VOLUME: Record<Exclude<Instrument, 'synth'>, number> = { piano: -4, epiano: -12, strings: -18, bell: -11 }
+export const INSTRUMENT_VOLUME: Record<Exclude<Instrument, 'synth'>, number> = { piano: -4, epiano: -12, strings: -16.2, bell: -11 }
 
 /** Whether a sound's settings differ from a preset's; the bass note is a choice of its own, not part of the sound. */
 export function changedFrom(sound: Sound, preset: Sound) {
