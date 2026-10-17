@@ -2517,21 +2517,6 @@ main > .panel {
 .vocal-timing .chord-pad-length button { flex: none; padding: 0 14px; font-size: var(--fs-body); }
 .vocal-timing .chord-pad-length span { flex: 1; justify-content: center; color: var(--muted); }
 
-/*
- * The chord pad in the settings column, with nothing selected: in place
- * rather than a sheet over the page, its options one to a line to fit.
- */
-.chord-pad.is-docked { position: static; z-index: auto; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; transition: none; }
-.chord-pad.is-docked .chord-pad-head { cursor: auto; touch-action: auto; flex-wrap: wrap; }
-.chord-pad.is-docked .chord-pad-title { flex-basis: 100%; }
-.chord-pad.is-docked .chord-pad-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-/* Two across: the name over its numeral, each cut short rather than spilling out of the pad. */
-.chord-pad.is-docked .chord-pad-pad { height: 52px; align-items: flex-start; gap: 2px; padding: 0 12px; }
-.chord-pad.is-docked .chord-pad-roman { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chord-pad.is-docked .chord-pad-pad.is-hinted::after { top: 4px; right: 4px; }
-.chord-pad.is-docked .chord-pad-options { grid-template-columns: minmax(0, 1fr); }
-.chord-pad.is-docked .chord-pad-add { height: 44px; font-size: var(--fs-body); }
-
 /* A chord pad's name, cut short with an ellipsis when it's longer than the pad. */
 .chord-pad-name { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chord-pad-roman { flex: none; }

@@ -5,7 +5,7 @@ import { useSheetDrag } from '../hooks/useSheetDrag'
 
 /**
  * A selected track's settings: its icon in its colour (the palette behind it), its
- * name to edit, and a × to close it, then whatever settings the track has. On a phone
+ * name to edit, and on a phone a × to close it, then whatever settings the track has. On a phone
  * it's a sheet along the bottom in place of the chord pad, folding down to a
  * bar by its handle or title row; `docked`, on a wider screen, it sits in the
  * inspector beside the tracks.
@@ -137,7 +137,8 @@ export function TrackSheet({
         ) : (
           <span className="track-sheet-name is-fixed">{name}</span>
         )}
-        {onDone && <CloseButton onClick={onDone} title={docked ? 'Back to the section' : 'Close'} />}
+        {/* Beside the tracks it's always there, showing whichever track is selected; nothing to close. */}
+        {onDone && !docked && <CloseButton onClick={onDone} title="Close" />}
       </div>
       {picking && onColor && (
         <div className="track-sheet-colors" role="group" aria-label="Colour">
