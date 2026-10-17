@@ -512,6 +512,9 @@ export function recordLane(s: Pick<State, 'selectedVocal' | 'vocalTracks'>): num
   return s.selectedVocal !== null && s.selectedVocal < s.vocalTracks ? s.selectedVocal : null
 }
 
+/** How much reverb a new vocal track starts with (0 to 1). */
+export const DEFAULT_VOCAL_REVERB = 0.25
+
 export const AUDIBLE_FIELDS = ['chordsMuted', 'chordsSolo', 'drumsMuted', 'drumsSolo', 'vocalMuted', 'vocalSolo', 'takes'] as const
 
 export function audibleTracks(s: Pick<State, (typeof AUDIBLE_FIELDS)[number]>) {
@@ -665,7 +668,9 @@ export const useStore = create<State>()(
         if (lane >= LANES || !s.chords.length) return
         // The colour its place takes, the same every time: Vocal 1 violet, Vocal 2 teal, and so on.
         const vocalColors = s.vocalColors.map((c, i) => (i === lane ? null : c))
-        set({ vocalTracks: lane + 1, vocalColors, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false, drumsTrackSelected: false })
+        // Some room on a voice to start with, as a demo's vocal has; turned down to dry, or up, on the track.
+        const vocalReverb = s.vocalReverb.map((r, i) => (i === lane ? DEFAULT_VOCAL_REVERB : r))
+        set({ vocalTracks: lane + 1, vocalColors, vocalReverb, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false, drumsTrackSelected: false })
       },
       setTitle: (title) => set({ title }),
       setSaved: (sketchId, savedSignature) => set({ sketchId, savedSignature }),

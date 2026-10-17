@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { vocalColorId } from './colors'
 import { LANES } from './audio/take'
-import { audibleTracks, loopRange, recordLane, sectionsNow, sketchSignature, songOf, songState, songSummary, totalBeats, useStore } from './store'
+import { audibleTracks, loopRange, DEFAULT_VOCAL_REVERB, recordLane, sectionsNow, sketchSignature, songOf, songState, songSummary, totalBeats, useStore } from './store'
 
 describe('loopRange', () => {
   it('loops the whole progression when there is no region', () => {
@@ -169,6 +169,12 @@ describe('sections', () => {
     const [a, b, c] = get().arrangement
     get().moveInSong(c.id, 0)
     expect(get().arrangement).toEqual([c, a, b])
+  })
+
+  it('starts a new vocal track with some reverb', () => {
+    get().setVocalReverb(0, 0.6)
+    get().addVocalTrack()
+    expect(get().vocalReverb[0]).toBe(DEFAULT_VOCAL_REVERB)
   })
 
   it('records only into a vocal track that has been made and selected', () => {
