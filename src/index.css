@@ -1329,11 +1329,11 @@ main > .panel {
 .key-finder-key.is-best .key-finder-use { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 /* The key it's in already: the size of a Use button, outlined in the accent, with nothing to press. */
 .key-finder-current { flex: none; display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border: 1px solid var(--accent); border-radius: 7px; color: var(--accent); font-size: var(--fs-small); font-weight: 600; white-space: nowrap; }
-/* Waiting for notes: the rows as they'll be, muted, with bars where the keys will go. */
+/* Waiting for notes: the top row says how many more, and tips stand where the other keys will go. */
 .key-finder-key.is-waiting { color: var(--muted); }
 .key-finder-key.is-best.is-waiting { box-shadow: inset 0 0 0 1px var(--line); background: none; }
-.key-finder-blank { align-self: flex-start; border-radius: 4px; background: var(--raised); color: transparent; }
-small > .key-finder-blank { opacity: 0.6; }
+.key-finder-key.is-tip { color: var(--muted); }
+.key-finder-key.is-tip .key-finder-key-name { white-space: nowrap; }
 /* On a touch screen, no computer keyboard to play on. */
 @media (hover: none) {
   .key-finder-typed { display: none; }
