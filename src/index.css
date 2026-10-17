@@ -54,6 +54,9 @@
   font-family: 'DM Sans', system-ui, sans-serif;
   color: var(--text);
   background: var(--panel);
+  /* Text the size it's set, on a phone too: iPhones otherwise enlarge some small text after it's laid out, and it spills from its box. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 * { box-sizing: border-box; }
@@ -1653,6 +1656,8 @@ main > .panel {
   touch-action: manipulation;
 }
 .chord-pad.is-folded { gap: 0; padding: 0 0 env(safe-area-inset-bottom); }
+/* Nothing in a sheet gives way when it's taller than there's room for (the sound settings, say): it scrolls instead, and the handle keeps its place below the top. */
+.chord-pad > * { flex-shrink: 0; }
 /* The grab handle along the top: drag it down to fold the sheet, or tap it. */
 .chord-pad-handle,
 .chord-pad-unfold { width: 100%; padding: 0; border: 0; background: none; touch-action: none; cursor: grab; }
@@ -1873,9 +1878,13 @@ main > .panel {
 .drum-pad-pattern .is-kick { fill: var(--text); }
 .drum-pad-grooves button[aria-checked='true'] .drum-pad-pattern circle:not(.drum-pad-pattern-beat) { fill: var(--text); }
 /* On a phone, a row of cards to scroll sideways, so the sheet leaves the tracks in view. */
-.chord-pad .drum-pad-grooves { flex-direction: row; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 1px 12px; scroll-padding: 12px; scroll-snap-type: x proximity; }
+/* Sideways only: scrolling one way makes a browser scroll the other too, unless told not to; and a swipe on the cards only ever goes sideways, never up or down (the sheet, when it's taller than the screen, scrolls from the rest of it). */
+.chord-pad .drum-pad-grooves { flex-direction: row; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; touch-action: pan-x; scrollbar-width: none; margin: 0 -12px; padding: 1px 12px; scroll-padding: 12px; scroll-snap-type: x proximity; }
 .chord-pad .drum-pad-grooves::-webkit-scrollbar { display: none; }
-.chord-pad .drum-pad-grooves button { flex: none; width: 150px; flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; scroll-snap-align: start; }
+.chord-pad .drum-pad-grooves button { flex: none; width: 164px; overflow: hidden; flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; scroll-snap-align: start; }
+/* However its words fall, a card's text stays inside it. */
+.chord-pad .drum-pad-groove-text { max-width: 100%; }
+.chord-pad .drum-pad-groove-about { overflow-wrap: break-word; }
 /* A vocal track's takes: a row each, the one playing outlined in white, as a pick is everywhere. */
 .vocal-take-list { display: flex; flex-direction: column; gap: 6px; }
 .vocal-take-item { display: flex; align-items: center; gap: 6px; }
