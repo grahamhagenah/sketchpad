@@ -13,6 +13,12 @@ import { useNarrow } from '../hooks/useNarrow'
 
 /** The notes it takes before it says what key they're in. */
 const ENOUGH = 3
+/** Until then, in the keys' places, how to go about it. */
+const TIPS = [
+  ['Sing or hum the tune', 'then tap each note you hear'],
+  ['Start with three notes', 'the more you add, the better the guess'],
+  ['Two keys look right?', 'choose the one that sounds like home'],
+]
 /** A note's key on the computer keyboard, as a piano lies along it in most music apps: A to J the white notes, W E T Y U the black. */
 const TYPED = ['KeyA', 'KeyW', 'KeyS', 'KeyE', 'KeyD', 'KeyF', 'KeyT', 'KeyG', 'KeyY', 'KeyH', 'KeyU', 'KeyJ']
 
@@ -141,7 +147,9 @@ function KeyFinder({ titled = true }: { titled?: boolean }) {
           <small>{g === close ? `${fits(g)} · a close call` : fits(g)}</small>
         </span>
         {isCurrent ? (
-          <span className="key-finder-current">{ownKey ? 'This section’s key' : 'The song’s key'}</span>
+          <span className="key-finder-current" title={ownKey ? 'This section is in this key' : 'The song is in this key'}>
+            {ownKey ? 'Section key' : 'Song key'}
+          </span>
         ) : (
           <button type="button" className="key-finder-use" onClick={() => use(g.key, g.mode)} title={`Put ${ownKey ? 'this section' : 'the song'} in ${label}; the chords move with it`}>
             Use
@@ -218,18 +226,16 @@ function KeyFinder({ titled = true }: { titled?: boolean }) {
             </li>
           )}
         </ul>
-        <p className="key-finder-label">Next likeliest</p>
+        <p className="key-finder-label">{best ? 'Next likeliest' : 'Tips'}</p>
         <ul>
           {best
             ? rest.slice(0, 3).map((g) => row(g))
-            : [0, 1, 2].map((i) => (
-                <li key={i} className="key-finder-key is-waiting" aria-hidden="true">
-                  {/* Text of a row's length, hidden under a bar, so each is exactly as tall as a key's row will be. */}
+            : TIPS.map(([tip, more]) => (
+                // Laid out as a key's row, so the finder is as tall now as once the keys come in.
+                <li key={tip} className="key-finder-key is-tip">
                   <span className="key-finder-key-name">
-                    <span className="key-finder-blank">C major</span>
-                    <small>
-                      <span className="key-finder-blank">Every note fits</span>
-                    </small>
+                    {tip}
+                    <small>{more}</small>
                   </span>
                 </li>
               ))}
