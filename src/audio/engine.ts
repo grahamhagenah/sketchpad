@@ -78,6 +78,8 @@ class Engine {
   private pad!: Pad
   private bass!: Bass
   private click!: Tone.Synth
+  /** The key finder's reference tone, made the first time a note is picked. */
+  private noteVoice: Tone.Synth | null = null
   private kit!: Kit
   private drumPart: Tone.Part<DrumEvent> | null = null
   private chordPart: Tone.Part<HitEvent> | null = null
@@ -312,6 +314,8 @@ class Engine {
       this.vocalRoom.dispose()
       Object.values(this.instruments).forEach((node) => node.dispose())
       this.click.dispose()
+      this.noteVoice?.dispose()
+      this.noteVoice = null
       disposeKit(this.kit)
     }
     this.ready = false
@@ -474,11 +478,21 @@ class Engine {
    * and held a moment.
    */
   /** Sounds one note on the chords' sound, as a tune is played into the key finder. */
+  /**
+   * Sounds a note for the key finder: a soft, steady tone of its own, the
+   * same whatever the song's sound, held a few seconds and fading slowly, to
+   * sing against and find the tune by. One at a time: the next takes over.
+   */
   async playNote(midi: number) {
     await Tone.start()
     this.setup()
-    // Gently, and long enough to hear it as a note in a tune.
-    this.pad.triggerAttackRelease([midiToHz(midi)], 1, playNow(), 0.6)
+    // A pure sine, eased in, the gentlest tone there is; held a moment and let fade.
+    this.noteVoice ??= new Tone.Synth({
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.06, decay: 0.3, sustain: 0.8, release: 1.2 },
+      volume: -14,
+    }).toDestination()
+    this.noteVoice.triggerAttackRelease(midiToHz(midi), 1.6, playNow(), 0.7)
   }
 
   async audition(song: Pick<Playback, 'key' | 'mode' | 'timeSig' | 'bpm' | 'arp'>, chord: Chord) {
