@@ -507,6 +507,11 @@ export function demoSong() {
  * always silences a track, soloed or not. Vocal lanes without a take never play.
  */
 /** What audibleTracks reads, for a component to watch. */
+/** The vocal track a recording goes into: the selected one. With none selected (or none made yet) there's nothing to record into. */
+export function recordLane(s: Pick<State, 'selectedVocal' | 'vocalTracks'>): number | null {
+  return s.selectedVocal !== null && s.selectedVocal < s.vocalTracks ? s.selectedVocal : null
+}
+
 export const AUDIBLE_FIELDS = ['chordsMuted', 'chordsSolo', 'drumsMuted', 'drumsSolo', 'vocalMuted', 'vocalSolo', 'takes'] as const
 
 export function audibleTracks(s: Pick<State, (typeof AUDIBLE_FIELDS)[number]>) {

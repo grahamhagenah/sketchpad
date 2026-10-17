@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { vocalColorId } from './colors'
 import { LANES } from './audio/take'
-import { audibleTracks, loopRange, sectionsNow, sketchSignature, songOf, songState, songSummary, totalBeats, useStore } from './store'
+import { audibleTracks, loopRange, recordLane, sectionsNow, sketchSignature, songOf, songState, songSummary, totalBeats, useStore } from './store'
 
 describe('loopRange', () => {
   it('loops the whole progression when there is no region', () => {
@@ -169,6 +169,16 @@ describe('sections', () => {
     const [a, b, c] = get().arrangement
     get().moveInSong(c.id, 0)
     expect(get().arrangement).toEqual([c, a, b])
+  })
+
+  it('records only into a vocal track that has been made and selected', () => {
+    expect(recordLane(get())).toBeNull()
+    get().addVocalTrack()
+    expect(recordLane(get())).toBe(0)
+    get().selectChordsTrack()
+    expect(recordLane(get())).toBeNull()
+    get().selectVocal(0)
+    expect(recordLane(get())).toBe(0)
   })
 
   it('moves a section among the tabs, leaving the song as it was', () => {

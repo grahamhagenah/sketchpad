@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { keyOf, useStore, loopRange, vocalTrackName, type Chord } from '../store'
+import { keyOf, recordLane, useStore, loopRange, vocalTrackName, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
 import { arrange, playedSound, type Hit } from './arrange'
 import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Bass, type Instruments, type Pad } from './instruments'
@@ -688,6 +688,9 @@ export async function toggleRecord() {
   if (s.recording !== 'off') return stopRecording()
   // Vocals belong to a section, so they're recorded in one, not over the whole song.
   if (!s.chords.length || s.view !== 'section') return
+  // Only into a vocal track that's been made and selected.
+  const lane = recordLane(s)
+  if (lane === null) return
   if (s.playing) {
     engine.stop()
     s.setPlaying(false)
@@ -701,11 +704,6 @@ export async function toggleRecord() {
     window.alert(micProblem('record'))
     return
   }
-  // Record into the selected track, or else the first one without a take
-  // (adding a track if need be). With every lane full and none selected, the
-  // last take selected is replaced.
-  const free = s.takes.indexOf(null)
-  const lane = s.selectedVocal ?? (free === -1 ? s.armedLane : free)
   s.setArmedLane(lane)
   s.setRecording('count-in')
   await engine.record(playbackOf(useStore.getState()), stream, lane, {

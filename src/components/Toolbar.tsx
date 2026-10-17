@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
 import { useDropBelow } from '../hooks/useDropBelow'
 import { useNarrow } from '../hooks/useNarrow'
-import { chordsTrackName, drumsTrackName, MAX_BPM, MIN_BPM, sectionsNow, TIME_SIG_GROUPS, TIME_SIGS, useFields, useStore, vocalTrackName, ZOOMS } from '../store'
+import { chordsTrackName, drumsTrackName, MAX_BPM, MIN_BPM, recordLane, sectionsNow, TIME_SIG_GROUPS, TIME_SIGS, useFields, useStore, vocalTrackName, ZOOMS } from '../store'
 import { keyLabel, type Mode } from '../music/theory'
 import { engine, seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
@@ -370,8 +370,10 @@ function RecordButton() {
   const recording = useStore((s) => s.recording)
   const countIn = useStore((s) => s.countIn)
   const hasChords = useStore((s) => s.chords.length > 0)
-  // Vocals belong to a section, so they're recorded with one open.
+  // Vocals belong to a section, so they're recorded with one open, into a vocal track picked first.
   const inSong = useStore((s) => s.view === 'song')
+  const hasTrack = useStore((s) => s.vocalTracks > 0)
+  const canRecord = useStore((s) => recordLane(s) !== null)
   const label = recording === 'off' ? 'Record a vocal (R)' : recording === 'count-in' ? 'Cancel recording (R)' : 'Stop recording (R)'
   return (
     <button
@@ -382,11 +384,15 @@ function RecordButton() {
       title={
         inSong
           ? 'Open a section to record a vocal over it'
+          : recording === 'off' && !hasTrack
+            ? 'Add a vocal track to record into: + beside the tracks, then Vocal track'
+          : recording === 'off' && !canRecord
+            ? 'Select a vocal track to record into'
           : recording === 'off'
             ? 'Record a vocal over the loop (R). Headphones help keep the chords out of the take.'
             : label
       }
-      disabled={!hasChords || (inSong && recording === 'off')}
+      disabled={!hasChords || (recording === 'off' && (inSong || !canRecord))}
       onClick={() => void toggleRecord()}
     >
       {recording === 'count-in' ? (
