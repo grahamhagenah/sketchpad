@@ -1875,7 +1875,8 @@ main > .panel {
 .drum-pad-pattern .is-kick { fill: var(--text); }
 .drum-pad-grooves button[aria-checked='true'] .drum-pad-pattern circle:not(.drum-pad-pattern-beat) { fill: var(--text); }
 /* On a phone, a row of cards to scroll sideways, so the sheet leaves the tracks in view. */
-.chord-pad .drum-pad-grooves { flex-direction: row; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 1px 12px; scroll-padding: 12px; scroll-snap-type: x proximity; }
+/* Sideways only: scrolling one way makes a browser scroll the other too, unless told not to; and a swipe on the cards only ever goes sideways, never up or down (the sheet, when it's taller than the screen, scrolls from the rest of it). */
+.chord-pad .drum-pad-grooves { flex-direction: row; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; touch-action: pan-x; scrollbar-width: none; margin: 0 -12px; padding: 1px 12px; scroll-padding: 12px; scroll-snap-type: x proximity; }
 .chord-pad .drum-pad-grooves::-webkit-scrollbar { display: none; }
 .chord-pad .drum-pad-grooves button { flex: none; width: 150px; flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; scroll-snap-align: start; }
 /* A vocal track's takes: a row each, the one playing outlined in white, as a pick is everywhere. */
