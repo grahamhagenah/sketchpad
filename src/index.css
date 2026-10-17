@@ -1463,7 +1463,25 @@ small > .key-finder-blank { opacity: 0.6; }
 .song-drum.is-rim,
 .song-drum.is-tomHigh,
 .song-drum.is-tomLow { height: 60%; top: 20%; bottom: auto; opacity: 0.35; }
-.song-take { position: absolute; border-radius: 2px; opacity: 0.75; }
+/* A take, in its track's colour: a soft band where it runs, its waveform over it. */
+/*
+ * A take, in its track's colour: a steady wave along the stretch it runs, a
+ * sign of a voice rather than a picture of this one, over a faint band.
+ */
+.song-take {
+  position: absolute;
+  border-radius: 3px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  overflow: hidden;
+}
+.song-take::after {
+  content: '';
+  position: absolute;
+  inset: 1px 2px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'%3E%3Cpath d='M0 5 Q3 0 6 5 T12 5' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E") repeat-x left center / auto 100%;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'%3E%3Cpath d='M0 5 Q3 0 6 5 T12 5' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E") repeat-x left center / auto 100%;
+}
 /* An empty section: just its name, with a dashed stub to show there's nothing to play yet. */
 /* An empty section: a dashed slot as tall as a row's chords, asking for some; it opens the section like the name does. */
 .song-row.is-empty .song-row-track { display: flex; align-items: center; }
