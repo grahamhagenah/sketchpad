@@ -2287,9 +2287,9 @@ small > .key-finder-blank { opacity: 0.6; }
   .track-btn.is-mute { margin-left: auto; }
   /* Over the bar numbers, so it covers them rather than mixing with them. */
   .timeline-corner .unmute-all { background: var(--panel); }
-  /* Bigger to tap: wider, nearly the name row's full height, and reaching up into the gap above for a finger. */
-  .track-btn { position: relative; width: 36px; height: 30px; border-radius: 7px; font-size: var(--fs-body); }
-  .track-btn::before { content: ''; position: absolute; inset: -6px 0 -2px; }
+  /* A little bigger than on a wider screen, and bigger again to tap: the area a finger can hit reaches round it, into the gap above. */
+  .track-btn { position: relative; width: 28px; height: 24px; border-radius: 6px; font-size: var(--fs-small); }
+  .track-btn::before { content: ''; position: absolute; inset: -8px -2px -6px; }
   .track-header .track-volume { display: none; }
   /* The status bar's hints are for a keyboard and mouse; a phone does without it (recording timing is in the vocal panel). */
   .status-bar { display: none; }
