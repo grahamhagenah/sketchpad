@@ -244,6 +244,22 @@ class Engine {
           setTimeout(() => this.onEnd?.(), Math.max(0, (time - Tone.immediate()) * 1000))
         }, `${loopEndTicks}i`)
     if (t.ticks < this.loopStartTicks || t.ticks >= loopEndTicks) t.ticks = this.loopStartTicks
+
+    // Already playing: a take muted (or otherwise dropped) stops now rather than
+    // at its end, and one unmuted part-way through comes in where it's got to.
+    if (t.state === 'started') {
+      const live = new Set(this.vocalSpans.map((v) => v.player))
+      this.players.forEach((player) => {
+        if (!live.has(player) && player.state === 'started') player.stop()
+      })
+      const q = t.ticks / t.PPQ
+      const time = Tone.now()
+      for (const v of this.vocalSpans) {
+        if (v.player.state !== 'started' && v.from < q && q < v.to) {
+          v.player.start(time, v.offset + (q - v.from) * this.secondsPerQuarter, (v.to - q) * this.secondsPerQuarter)
+        }
+      }
+    }
   }
 
   private playHit(ev: Hit, quarters: number, time: number) {
