@@ -470,7 +470,8 @@ class Engine {
   async playNote(midi: number) {
     await Tone.start()
     this.setup()
-    this.pad.triggerAttackRelease([midiToHz(midi)], 0.45, playNow(), 0.8)
+    // Gently, and long enough to hear it as a note in a tune.
+    this.pad.triggerAttackRelease([midiToHz(midi)], 1, playNow(), 0.6)
   }
 
   async audition(song: Pick<Playback, 'key' | 'mode' | 'timeSig' | 'bpm' | 'arp'>, chord: Chord) {

@@ -103,8 +103,8 @@ export const PRESETS: { name: string; about: string; sound: Sound }[] = [
   },
   {
     name: 'Synth',
-    about: 'Bright and classic',
-    sound: { instrument: 'synth', wave: 'sawtooth', attack: 0.015, decay: 0.4, sustain: 0.55, release: 0.9, brightness: 2200, reverb: 0.18, bass: true },
+    about: 'Warm and classic',
+    sound: { instrument: 'synth', wave: 'sawtooth', attack: 0.03, decay: 0.8, sustain: 0.75, release: 1.5, brightness: 1700, reverb: 0.22, bass: true },
   },
   {
     name: 'Pad',
