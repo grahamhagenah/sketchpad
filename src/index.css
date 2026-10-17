@@ -1653,6 +1653,8 @@ main > .panel {
   touch-action: manipulation;
 }
 .chord-pad.is-folded { gap: 0; padding: 0 0 env(safe-area-inset-bottom); }
+/* Nothing in a sheet gives way when it's taller than there's room for (the sound settings, say): it scrolls instead, and the handle keeps its place below the top. */
+.chord-pad > * { flex-shrink: 0; }
 /* The grab handle along the top: drag it down to fold the sheet, or tap it. */
 .chord-pad-handle,
 .chord-pad-unfold { width: 100%; padding: 0; border: 0; background: none; touch-action: none; cursor: grab; }
