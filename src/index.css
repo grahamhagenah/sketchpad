@@ -1309,7 +1309,8 @@ main > .panel {
 .key-finder-tune { flex: 1; min-width: 0; display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; overflow-x: auto; scrollbar-width: none; }
 .key-finder-tune::-webkit-scrollbar { display: none; }
 .key-finder-tune li { flex: none; }
-.key-finder-tune button { height: 24px; padding: 0 7px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--raised); color: var(--text); font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
+/* All one width, whatever the note's name, so the tune reads as a row of even steps. */
+.key-finder-tune button { width: 32px; height: 24px; padding: 0; text-align: center; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--raised); color: var(--text); font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
 .key-finder-tune button:hover { border-color: var(--danger); color: var(--danger); text-decoration: line-through; }
 .key-finder-empty { flex: 1; align-self: center; font-size: var(--fs-small); color: var(--muted); opacity: 0.7; }
 .key-finder-edit { flex: none; display: flex; gap: 4px; }
