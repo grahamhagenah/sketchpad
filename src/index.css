@@ -1166,7 +1166,8 @@ main > .panel {
 .section-bar-end { flex: none; margin-left: auto; display: flex; gap: 2px; }
 .section-bar-end .icon-btn { width: 30px; height: 30px; }
 .section-bar-end .icon-btn svg { width: 17px; height: 17px; }
-.section-tabs { display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 0 2px; scrollbar-width: none; }
+/* Above the strip's lower edge, so the open tab can break through it (the fade mask keeps the tabs' own z-index inside). */
+.section-tabs { position: relative; z-index: 1; display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 0 2px; scrollbar-width: none; }
 .section-tabs::-webkit-scrollbar { display: none; }
 .section-tab-wrap { flex: none; display: flex; align-items: center; }
 /* Tabs: the ones behind are muted on the dark strip; the open one is the same
