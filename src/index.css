@@ -2244,6 +2244,12 @@ main > .panel {
    */
   .timeline-wrap { --label-h: 34px; }
   .track-headers { position: absolute; inset: 0; width: auto; z-index: 4; pointer-events: none; }
+  /*
+   * The tracks have the screen's whole width, as the toolbar and tabs do,
+   * rather than stopping a gutter short of each edge: the chords, names and
+   * slots start just in from the edge, and scroll on past it.
+   */
+  .timeline-wrap { margin-inline: calc(-1 * var(--gutter)); }
   .track-header, .track-add, .timeline-corner > * { pointer-events: auto; }
   /* Level with the chord blocks above; one gap apart, as they have no name above them to make room for. */
   .track-add {
@@ -2252,13 +2258,13 @@ main > .panel {
     top: calc(var(--vocal-top) - var(--label-h) + var(--adds-shift, 0px) + var(--adds-row, 0) * var(--vocal-step) + (var(--row, 0) - var(--adds-row, 0)) * (var(--vocal-h) + var(--gap)));
   }
   /* An empty vocal track: the screen's width, with no outline, just what to do in it. */
-  .vocal-row.is-empty { right: auto; width: calc(100vw - 2 * var(--gutter) - 6px); display: flex; align-items: center; background: none; box-shadow: none; }
+  .vocal-row.is-empty { right: auto; width: calc(100vw - 6px); display: flex; align-items: center; background: none; box-shadow: none; }
   .vocal-row.is-empty:not(:disabled):hover { background: none; }
   /* Selected, it lights a little: the colour bar beside it says it's the one. */
   .vocal-row.is-empty.is-selected { background: rgb(255 255 255 / 0.04); box-shadow: none; }
   .vocal-row-empty { display: inline-flex; }
   /* A section without drums: its + Groove slot the screen's width too, like an empty vocal track (its set width is the section's length). */
-  .drum-region.is-empty { width: calc(100vw - 2 * var(--gutter) - 6px) !important; }
+  .drum-region.is-empty { width: calc(100vw - 6px) !important; }
   .vocal-row.is-selected .vocal-row-empty { color: var(--text); }
   /* The screen's width, level with the track under it: its name on the left, mute and solo at the far right. */
   .track-header {
@@ -2309,13 +2315,13 @@ main > .panel {
   .timeline { background: none; }
   .ruler-notches i.is-bar { display: block; }
   /* The chord pad along the bottom has the key's chords; the starter keeps the rest, the screen's width. */
-  .starter { width: calc(100vw - 2 * var(--gutter) - 6px); }
+  .starter { width: calc(100vw - 6px); }
   .starter .progressions,
   .starter-copies { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .starter-group.is-chords { display: none; }
   /* The names sit above each track on a phone; there's no column to title. */
   .timeline-corner .column-title { display: none; }
-  .timeline-corner { top: var(--ruler-top); height: var(--ruler-h); left: auto; padding: 0; }
+  .timeline-corner { top: var(--ruler-top); height: var(--ruler-h); left: auto; right: 3px; padding: 0; }
   /* Just the gear, to leave the tabs room. */
   .section-settings-label { display: none; }
   .section-settings { padding: 0 7px; margin-right: 0; }
