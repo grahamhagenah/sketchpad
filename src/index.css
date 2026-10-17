@@ -1334,8 +1334,8 @@ main > .panel {
 .key-finder-key.is-best.is-waiting { box-shadow: inset 0 0 0 1px var(--line); background: none; }
 .key-finder-key.is-tip { color: var(--muted); }
 .key-finder-key.is-tip .key-finder-key-name { white-space: nowrap; }
-/* On a touch screen, no computer keyboard to play on. */
-@media (hover: none) {
+/* On a phone (or any touch screen), no computer keyboard to play on: no letters on the pads, nor mention of them. */
+@media (hover: none), (max-width: 640px) {
   .key-finder-typed { display: none; }
 }
 .menu-item.menu-item-row { flex-direction: row; align-items: center; gap: 10px; padding-block: 8px; }
