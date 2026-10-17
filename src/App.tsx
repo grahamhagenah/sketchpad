@@ -19,6 +19,7 @@ import { RecordingSheet } from './components/RecordingSheet'
 import { useNarrow } from './hooks/useNarrow'
 import { ChordKeys, toggleChordKeys, useChordKeys } from './components/ChordKeys'
 import { LyricsPanel } from './components/Lyrics'
+import { KeyFinderSheet } from './components/KeyFinder'
 import { useLyricsPanel } from './lyricsPanel'
 
 function useShortcuts() {
@@ -207,7 +208,9 @@ export default function App() {
         </section>
       </main>
       <StatusBar />
-      {toolSheet ? (
+      {toolSheet === 'key' ? (
+        <KeyFinderSheet />
+      ) : toolSheet ? (
         <ToolSheet which={toolSheet} />
       ) : lyricsSheet ? (
         <LyricsPanel sheet />

@@ -27,8 +27,8 @@ function preview() {
   audition(chord)
 }
 
-/** On a phone, which of the sound and arpeggiator settings is up in the sheet along the bottom, in place of a floating panel. */
-export const useToolSheet = create<{ open: 'sound' | 'arp' | null }>(() => ({ open: null }))
+/** On a phone, which of the sound and arpeggiator settings (or the key finder) is up in the sheet along the bottom, in place of a floating panel. */
+export const useToolSheet = create<{ open: 'sound' | 'arp' | 'key' | null }>(() => ({ open: null }))
 const closeSheet = () => useToolSheet.setState({ open: null })
 
 /** A toolbar panel's open state: its own on a wider screen, the sheet's on a phone. */

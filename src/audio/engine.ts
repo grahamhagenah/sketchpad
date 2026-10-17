@@ -466,6 +466,13 @@ class Engine {
    * would be in the song, for up to a bar at the song's tempo; otherwise struck
    * and held a moment.
    */
+  /** Sounds one note on the chords' sound, as a tune is played into the key finder. */
+  async playNote(midi: number) {
+    await Tone.start()
+    this.setup()
+    this.pad.triggerAttackRelease([midiToHz(midi)], 0.45, playNow(), 0.8)
+  }
+
   async audition(song: Pick<Playback, 'key' | 'mode' | 'timeSig' | 'bpm' | 'arp'>, chord: Chord) {
     await Tone.start()
     this.setup()
@@ -915,6 +922,11 @@ void loadLanes(useStore.getState().activeSection)
 export function audition(chord: Chord, always = false) {
   const s = useStore.getState()
   if (always || !s.playing) void engine.audition({ ...keyOf(s), timeSig: s.timeSig, bpm: s.bpm, arp: s.arp }, chord)
+}
+
+/** Sounds one note (as MIDI, 60 for middle C), briefly, even with the song playing. */
+export async function playNote(midi: number) {
+  await engine.playNote(midi)
 }
 
 /** Sounds a chord while a key is held, even with the song playing; call what it returns to let go. */

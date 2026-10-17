@@ -20,6 +20,11 @@ export function keyLabel(key: number, mode: Mode) {
   return noteNames(key, mode)[key]
 }
 
+/** A note's name (0 for C to 11 for B) as a key spells it: F♯ in G major, G♭ in D♭ major. */
+export function noteName(pc: number, key: number, mode: Mode) {
+  return noteNames(key, mode)[pc]
+}
+
 /** A sus or added note that changes a chord's colour. */
 export type ChordColor = 'sus2' | 'sus4' | 'add9'
 /** A chord tone other than the root in the bass, making a slash chord. */

@@ -10,6 +10,7 @@ import { useNarrow } from '../hooks/useNarrow'
 import { ChordKeysButton } from './ChordKeys'
 import { SongCards } from './SongCards'
 import { LyricsButton } from './Lyrics'
+import { KeyFinderButton } from './KeyFinder'
 import { vocalColor } from '../colors'
 
 /** A gear, for a section's settings. */
@@ -43,6 +44,8 @@ export function MenuButton({
   menu,
   onOpen,
   align = 'left',
+  role = 'menu',
+  panelClassName = 'section-menu',
 }: {
   label: string
   title?: string
@@ -53,6 +56,10 @@ export function MenuButton({
   /** Called as the menu opens. */
   onOpen?: () => void
   align?: 'left' | 'right'
+  /** What it opens: a menu of things to do, or a small tool of its own (a dialog). */
+  role?: 'menu' | 'dialog'
+  /** The class of what it opens, beside "menu" (which floats it). */
+  panelClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
@@ -109,7 +116,7 @@ export function MenuButton({
         aria-label={label}
         title={title ?? label}
         aria-expanded={open}
-        aria-haspopup="menu"
+        aria-haspopup={role}
         onClick={() => {
           if (!open) onOpen?.()
           setOpen(!open)
@@ -119,7 +126,7 @@ export function MenuButton({
       </button>
       {open &&
         createPortal(
-          <div ref={menuRef} className="menu section-menu" role="menu" aria-label={label} style={{ ...pos, visibility: pos ? undefined : 'hidden' }}>
+          <div ref={menuRef} className={`menu ${panelClassName}`} role={role} aria-label={label} style={{ ...pos, visibility: pos ? undefined : 'hidden' }}>
             {menu(close)}
           </div>,
           document.body,
@@ -319,6 +326,8 @@ export function SectionBar() {
         {/* The lyrics, and zoom: they work on whichever view is showing, so they sit with the views. */}
         {/* The floating chord keys are for a mouse and keyboard. */}
         {!narrow && <ChordKeysButton />}
+        {/* Which key a tune's in, from its notes. */}
+        <KeyFinderButton />
         <LyricsButton />
         <ZoomButtons />
       </div>
