@@ -7,7 +7,7 @@ import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } f
 import type { Sound } from './sound'
 import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
-import { keepStorage, levelUpDb, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
+import { concealDropouts, keepStorage, levelUpDb, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 import { keepVocals } from '../history'
 import { quietly, showUndoNote } from '../undoNote'
@@ -429,6 +429,8 @@ class Engine {
     // Stopping now also cancels a transport start still waiting on the count-in.
     this.stop()
     const { startTime, samples } = await rec.capture.stop()
+    // The moments the browser gave no input, heard as clicks, smoothed over.
+    concealDropouts(samples)
     const sampleRate = Tone.getContext().sampleRate
     // Where the microphone heard the count-in's clicks (singing to speakers, it does), the round trip is measured
     // right there: the take is lined up by that, and the next ones too. On headphones it hears nothing, and the last measure stands.

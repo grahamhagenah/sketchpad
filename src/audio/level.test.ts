@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { levelUpDb } from './take'
+import { concealDropouts, levelUpDb } from './take'
 
 const RATE = 48000
 
@@ -30,3 +30,26 @@ describe('levelling a take', () => {
   })
 })
 
+describe('smoothing over dropouts', () => {
+  const voice = (seconds: number) => Float32Array.from({ length: Math.round(seconds * RATE) }, (_, i) => 0.3 * Math.sin((2 * Math.PI * 220 * i) / RATE))
+
+  it('fills a block or two of lost input inside singing, without a jump at either edge', () => {
+    const take = voice(0.2)
+    take.fill(0, 4800, 4800 + 256)
+    expect(concealDropouts(take)).toBe(1)
+    const gap = take.subarray(4800, 4800 + 256)
+    expect(gap.some((x) => x !== 0)).toBe(true)
+    // Each edge meets its neighbour about as smoothly as the voice moves from sample to sample.
+    const step = 0.3 * 2 * Math.PI * 220 / RATE
+    expect(Math.abs(take[4800] - take[4799])).toBeLessThan(step * 2)
+    expect(Math.abs(take[4800 + 256] - take[4800 + 255])).toBeLessThan(step * 2)
+  })
+
+  it('leaves real silence alone: a pause between lines, or quiet either side', () => {
+    const pause = voice(1)
+    pause.fill(0, 10000, 10000 + RATE / 2)
+    expect(concealDropouts(pause)).toBe(0)
+    const quiet = new Float32Array(RATE / 10)
+    expect(concealDropouts(quiet)).toBe(0)
+  })
+})

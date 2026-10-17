@@ -79,6 +79,48 @@ export function toAudioBuffer(take: Take) {
 }
 
 /**
+ * Smooths over the moments a recording lost, in place, and says how many.
+ * Now and then (more often over Bluetooth) the browser gives the recorder no
+ * input for a block or two of audio, 128 samples each, which it fills with
+ * silence to keep the take in time; a voice cutting out to nothing for a few
+ * milliseconds is heard as a click or scratch. Each such run of silence, with
+ * sound on either side, is filled with the audio either side of it mirrored
+ * into it and crossfaded, so the voice carries on through. A longer silence,
+ * or one between quiet sounds, is left: it's the singer pausing.
+ */
+export function concealDropouts(samples: Float32Array) {
+  const MIN = 64
+  const MAX = 1024
+  const EDGE = 64
+  const loud = (from: number, to: number) => {
+    let peak = 0
+    for (let i = Math.max(0, from); i < Math.min(samples.length, to); i++) peak = Math.max(peak, Math.abs(samples[i]))
+    return peak > 0.002
+  }
+  let fixed = 0
+  let i = 0
+  while (i < samples.length) {
+    if (samples[i] !== 0) {
+      i++
+      continue
+    }
+    let end = i
+    while (end < samples.length && samples[end] === 0) end++
+    const length = end - i
+    if (length >= MIN && length <= MAX && i >= length && end + length <= samples.length && loud(i - EDGE, i) && loud(end, end + EDGE)) {
+      for (let k = 0; k < length; k++) {
+        const w = (k + 0.5) / length
+        // Mirrored about each edge, so each side meets the audio it comes from without a jump.
+        samples[i + k] = (1 - w) * samples[i - 1 - k] + w * samples[end + length - 1 - k]
+      }
+      fixed++
+    }
+    i = end
+  }
+  return fixed
+}
+
+/**
  * How far to raise a take so its singing sits at a steady level, in dB: from
  * how loud its loudest half is, a twentieth of a second at a time (so the
  * quiet between lines doesn't count), up to `target`. A take is never turned
@@ -171,7 +213,12 @@ function decodePcm(pcm: Int16Array) {
 }
 
 const toStored = ({ startBeat, bpm, sampleRate, samples }: Take): StoredTake => ({ startBeat, bpm, sampleRate, pcm: encodePcm(samples) })
-const fromStored = (id: string, { startBeat, bpm, sampleRate, pcm }: StoredTake): Take => ({ id, startBeat, bpm, sampleRate, samples: decodePcm(pcm) })
+const fromStored = (id: string, { startBeat, bpm, sampleRate, pcm }: StoredTake): Take => {
+  // Takes recorded before dropouts were smoothed over play smoothly too; what's stored stays as it was.
+  const samples = decodePcm(pcm)
+  concealDropouts(samples)
+  return { id, startBeat, bpm, sampleRate, samples }
+}
 
 /** A take as version 2 kept it: whole, wherever it was used. */
 type LegacyTake = Omit<Take, 'id'>
