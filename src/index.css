@@ -11,6 +11,9 @@
   --accent: #5ad8c8;
   --on-accent: #052421;
   --danger: #ff8a7a;
+  /* A muted track's mute button, filled so it's plain at a glance it's off; apart from solo's accent and the track colours. */
+  --mute: #ffa94d;
+  --on-mute: #2b1600;
   --record: #ff5a5f;
   /*
    * Track colours, as in Logic: chords blue and drums yellow to start with,
@@ -931,8 +934,10 @@ main > .panel {
   color: color-mix(in srgb, var(--muted) 80%, transparent);
 }
 .track-btn:hover { color: var(--text); }
-.track-btn.is-mute[aria-pressed='true'] { background: var(--raised); color: var(--text); }
-.track-btn.is-solo[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.track-btn.is-mute[aria-pressed='true'],
+.track-btn.is-mute[aria-pressed='true']:hover { background: var(--mute); color: var(--on-mute); }
+.track-btn.is-solo[aria-pressed='true'],
+.track-btn.is-solo[aria-pressed='true']:hover { background: var(--accent); color: var(--on-accent); }
 
 .vocal-take {
   position: absolute;
@@ -1762,8 +1767,10 @@ main > .panel {
 /* What's on the track, beside its mute and solo. */
 .track-sheet-status { display: flex; align-items: center; gap: 12px; }
 /* On as in the track headers: mute in grey, solo in the accent. */
-.track-sheet .chord-pad-seg button.is-mute[aria-pressed='true'] { background: color-mix(in srgb, var(--text) 14%, var(--raised)); color: var(--text); }
-.track-sheet .chord-pad-seg button.is-solo[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, var(--raised)); color: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.track-sheet .chord-pad-seg button.is-mute[aria-pressed='true'],
+.track-sheet .chord-pad-seg button.is-mute[aria-pressed='true']:not(:disabled):hover { background: var(--mute); color: var(--on-mute); border-color: var(--mute); box-shadow: none; }
+.track-sheet .chord-pad-seg button.is-solo[aria-pressed='true'],
+.track-sheet .chord-pad-seg button.is-solo[aria-pressed='true']:not(:disabled):hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); box-shadow: none; }
 .track-sheet-about { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-small); color: var(--muted); }
 /* A slider with its name before it and its value after. */
 .track-sheet-slider { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; font-size: var(--fs-body); }
