@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { songState, useStore } from './store'
-import { playbackOf, sectionBeatOf, songBeatOf, songSpans, takeIdsBySection } from './song'
+import { earliestMove, playbackOf, sectionBeatOf, songBeatOf, songSpans, takeIdsBySection } from './song'
 import { undo, redo, clearHistory, keepVocals } from './history'
 import { LANES } from './audio/take'
 
@@ -117,6 +117,23 @@ describe('trimming a take', () => {
     const [first] = playbackOf(get(), 'song').vocals
     // Verse's take starts on beat 2, plus a beat cut off.
     expect(first).toMatchObject({ id: 'verse-vocal', startBeat: 3, seconds: 1, offset: 0.5 })
+  })
+
+  it('cuts off a take moved to start before its section, playing the rest from the start', () => {
+    get().openSection(id('Verse'))
+    // Verse's 2-second take on beat 2, moved 3 beats earlier: a beat (half a second) before the start.
+    get().setTrim('verse-vocal', { start: 0, end: 2, moved: -3 })
+    expect(playbackOf(get()).vocals[0]).toMatchObject({ startBeat: 0, seconds: 1.5, offset: 0.5 })
+    // In the song view, the second Verse's take starts with it, not in the end of the Chorus before.
+    const placed = playbackOf(get(), 'song').vocals.map((v) => [v.startBeat, v.offset])
+    expect(placed).toEqual([[0, 0.5], [24, 0.5]])
+  })
+
+  it('lets a take move past the start until half a beat of it is left', () => {
+    // On beat 2 and 4 beats long: 5.5 beats earlier leaves its last half beat in the section.
+    expect(earliestMove(take('t', 2, 2), undefined, 0.5)).toBeCloseTo(-5.5)
+    // Trimmed to its first second, it can go only 3.5.
+    expect(earliestMove(take('t', 2, 2), { start: 0, end: 1 }, 0.5)).toBeCloseTo(-3.5)
   })
 
   it('undoes a trim kept as a step, and forgets a deleted take’s trim', () => {

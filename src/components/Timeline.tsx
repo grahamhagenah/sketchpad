@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { AUDIBLE_FIELDS, audibleTracks, chordsTrackName, drumsTrackName, keyOf, useFields, useStore, vocalTrackName, type Chord } from '../store'
 import { chordOf } from '../music/theory'
 import { audition, engine, moveTake, seek, trimTake } from '../audio/engine'
-import { sectionBeatOf } from '../song'
+import { earliestMove, sectionBeatOf } from '../song'
 import { cuts, LANES, MIN_TRIM, trimOf, type Trim } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
@@ -561,7 +561,7 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
       onClick: (e: { stopPropagation: () => void }) => e.stopPropagation(),
     })
 
-    // A take dragged along: by whole beats, or freely with ⌥ held; no earlier than the section's start.
+    // A take dragged along: by whole beats, or freely with ⌥ held; earlier than the section's start, too, where what's before it doesn't play.
     const movable = !locked
     const carry = {
       onPointerDown: (e: PointerEvent<HTMLElement>) => {
@@ -574,7 +574,8 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
         // Picked up, it's selected, as a click would; the playhead moves only on a click.
         if (!selected) onSelect(null)
         const from = trim?.moved ?? 0
-        const min = -(take.startBeat + (kept.start + (trim?.nudge ?? 0)) * (pxPerSecond / beatPx))
+        // Past the section's start, to bring a late take forward, as long as a little of it stays in.
+        const min = earliestMove(take, trim, beatPx / pxPerSecond)
         carrying.current = { x: e.clientX, from, min, moved: false }
       },
       onPointerMove: (e: PointerEvent<HTMLElement>) => {

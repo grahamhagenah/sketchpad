@@ -8,7 +8,7 @@ import type { Sound } from './sound'
 import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
 import { concealDropouts, keepStorage, levelUpDb, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
-import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
+import { earliestMove, playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 import { keepVocals } from '../history'
 import { quietly, showUndoNote } from '../undoNote'
 import { tally } from '../analytics'
@@ -832,8 +832,12 @@ export function trimTake(id: string, trim: Trim | null) {
 
 /** Moves a take along the section to `beats` from where it was recorded, keeping its trim and nudge; undo puts it back. */
 export function moveTake(id: string, beats: number) {
+  const s = useStore.getState()
+  const take = [...s.takes, ...s.allTakes.flat()].find((t) => t?.id === id)
+  if (!take) return
   keepVocals()
-  changeTrim(id, { moved: beats })
+  const beatSeconds = (60 / s.bpm) * (4 / s.timeSig[1])
+  changeTrim(id, { moved: Math.max(earliestMove(take, s.trims[id], beatSeconds), beats) })
 }
 
 /**

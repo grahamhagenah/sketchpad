@@ -91,7 +91,23 @@ function trimmedPlacement(take: TakeInfo, trim: Trim | undefined, beatSeconds: n
   if (!trim) return { startBeat: take.startBeat, seconds: take.seconds }
   const { start, end } = trimOf(take, trim)
   // Nudged, all of it moves earlier or later by that much.
-  return { startBeat: take.startBeat + (trim.moved ?? 0) + (start + (trim.nudge ?? 0)) / beatSeconds, seconds: end - start, offset: start }
+  const startBeat = take.startBeat + (trim.moved ?? 0) + (start + (trim.nudge ?? 0)) / beatSeconds
+  // Moved to start before the section does (to make up for late Bluetooth headphones, say), what's before it doesn't play.
+  if (startBeat < 0) {
+    const cut = Math.min(end - start, -startBeat * beatSeconds)
+    return { startBeat: 0, seconds: end - start - cut, offset: start + cut }
+  }
+  return { startBeat, seconds: end - start, offset: start }
+}
+
+/**
+ * How far a take can be moved earlier, in beats from where it was recorded:
+ * past the section's start, until half a beat of it is left in the section,
+ * to take hold of and bring back.
+ */
+export function earliestMove(take: TakeInfo, trim: Trim | undefined, beatSeconds: number) {
+  const { end } = trimOf(take, trim)
+  return 0.5 - take.startBeat - (end + (trim?.nudge ?? 0)) / beatSeconds
 }
 
 /**
