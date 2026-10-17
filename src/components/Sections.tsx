@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { PART_KEYS, SECTION_KINDS, sectionsNow, totalBeats, useFields, useStore, type Section } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
@@ -406,34 +406,10 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
   )
 }
 
-/**
- * A take's loudness over the part of it that plays, drawn small as a
- * waveform: mirrored about its middle, a column every few pixels, as loud as
- * the loudest moment it covers, so a phrase sung reads as one.
- */
-const TakeWave = memo(function TakeWave({ peaks, shown, width }: { peaks: number[]; shown: number; width: number }) {
-  const count = Math.max(1, Math.min(240, Math.floor(width / 3)))
-  const used = peaks.slice(0, Math.max(1, Math.ceil(peaks.length * Math.min(1, shown))))
-  const per = used.length / count
-  const heights = Array.from({ length: count }, (_, i) => {
-    let max = 0
-    for (let j = Math.floor(i * per); j < Math.ceil((i + 1) * per) && j < used.length; j++) max = Math.max(max, used[j])
-    return Math.max(0.06, max)
-  })
-  // Along the top from left to right, then back along the bottom: one shape, filled.
-  const top = heights.map((h, i) => `${i + 0.5},${1 - h}`)
-  const bottom = heights.map((h, i) => `${i + 0.5},${1 + h}`).reverse()
-  return (
-    <svg className="song-take-wave" viewBox={`0 0 ${count} 2`} preserveAspectRatio="none" aria-hidden="true">
-      <polygon points={[`0,1`, ...top, `${count},1`, ...bottom].join(' ')} />
-    </svg>
-  )
-})
-
 /** Each place in the song is a row this tall, with this gap under it: room for its chords, and a strip each for its drums and vocals. */
 const ROW_H = 82
 /** On a phone a row is stacked: its name on a line of its own, its chords the full width under it. */
-const NARROW_ROW_H = 98
+const NARROW_ROW_H = 94
 const NARROW_HEAD_H = 34
 /** On a phone, the narrowest a chord gets: room for a name like B♭m. */
 const NARROW_CHORD_PX = 48
@@ -772,11 +748,9 @@ export function SongView() {
                                 top: `${(slot / used) * 100}%`,
                                 height: `${100 / used}%`,
                                 // In its track's colour, as on the timeline.
-                                color: vocalColor(section.vocalColors, lane),
+                                background: vocalColor(section.vocalColors, lane),
                               }}
-                            >
-                              <TakeWave peaks={t.peaks} shown={length / takeBeats(t.seconds)} width={length * beatPx} />
-                            </span>
+                            />
                           )
                         })}
                       </span>

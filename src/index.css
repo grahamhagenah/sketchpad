@@ -1373,7 +1373,7 @@ main > .panel {
 .song-row-bar { top: calc(50% - 18px); height: 36px; border-radius: 6px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--tile-edge); }
 .song-row.is-playing .song-row-bar { background: color-mix(in srgb, var(--text) 12%, var(--raised)); }
 .song-row-drums { top: calc(50% + 22px); height: 10px; }
-.song-row-vocals { bottom: calc(50% + 21px); height: 14px; }
+.song-row-vocals { bottom: calc(50% + 22px); height: 8px; }
 /* Each chord a segment of the bar, its name inside, split from the next by a thin line. */
 .song-chord {
   position: absolute;
@@ -1397,9 +1397,7 @@ main > .panel {
 .song-drum.is-rim,
 .song-drum.is-tomHigh,
 .song-drum.is-tomLow { height: 60%; top: 20%; bottom: auto; opacity: 0.35; }
-/* A take, in its track's colour: a soft band where it runs, its waveform over it. */
-.song-take { position: absolute; border-radius: 2px; background: color-mix(in srgb, currentColor 18%, transparent); }
-.song-take-wave { display: block; width: 100%; height: 100%; fill: currentColor; opacity: 0.9; }
+.song-take { position: absolute; border-radius: 2px; opacity: 0.75; }
 /* An empty section: just its name, with a dashed stub to show there's nothing to play yet. */
 /* An empty section: a dashed slot as tall as a row's chords, asking for some; it opens the section like the name does. */
 .song-row.is-empty .song-row-track { display: flex; align-items: center; }
@@ -1494,7 +1492,7 @@ main > .panel {
 /* Its chords right under the name, the drums and any vocals in strips below them, so the name reads as theirs. */
 .song-view.is-narrow .song-row-bar { top: 2px; }
 .song-view.is-narrow .song-row-drums { top: 41px; }
-.song-view.is-narrow .song-row-vocals { top: 54px; bottom: auto; height: 10px; }
+.song-view.is-narrow .song-row-vocals { top: 54px; bottom: auto; height: 6px; }
 .song-view.is-narrow .song-row.is-empty .song-row-track { align-items: flex-start; }
 .song-view.is-narrow .song-row-actions { top: 24px; gap: 4px; }
 /*
