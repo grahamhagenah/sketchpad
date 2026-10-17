@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { keyOf, useFields } from '../store'
 import { findKeys, type KeyGuess } from '../music/findKey'
 import { keyLabel, noteName, type Mode } from '../music/theory'
@@ -13,12 +13,8 @@ import { useNarrow } from '../hooks/useNarrow'
 
 /** The notes it takes before it says what key they're in. */
 const ENOUGH = 3
-/** A note's key on the computer keyboard, as a piano lies along it in most music apps: A to J white, W E T Y U black. */
+/** A note's key on the computer keyboard, as a piano lies along it in most music apps: A to J the white notes, W E T Y U the black. */
 const TYPED = ['KeyA', 'KeyW', 'KeyS', 'KeyE', 'KeyD', 'KeyF', 'KeyT', 'KeyG', 'KeyY', 'KeyH', 'KeyU', 'KeyJ']
-const WHITE = [0, 2, 4, 5, 7, 9, 11]
-const BLACK = [1, 3, 6, 8, 10]
-/** Where each black key sits, in white keys from the left: between the two it's between. */
-const BLACK_AT: Record<number, number> = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 }
 
 const SEARCH = 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM15.5 15.5 20 20'
 
@@ -73,8 +69,11 @@ export function KeyFinderSheet() {
   )
 }
 
-const add = (pc: number) => {
-  useKeyFinder.setState((s) => ({ notes: [...s.notes, pc] }))
+/** Puts a note in the tune, sounding it, or takes it out if it's already in. */
+const toggle = (pc: number) => {
+  const { notes } = useKeyFinder.getState()
+  if (notes.includes(pc)) return useKeyFinder.setState({ notes: notes.filter((n) => n !== pc) })
+  useKeyFinder.setState({ notes: [...notes, pc] })
   void playNote(60 + pc)
 }
 const removeAt = (i: number) => useKeyFinder.setState((s) => ({ notes: s.notes.filter((_, j) => j !== i) }))
@@ -93,7 +92,13 @@ function KeyFinder({ titled = true }: { titled?: boolean }) {
   const [best, ...rest] = ranked
   // Spelled as the likeliest key spells them; until there is one, with flats, as C major does.
   const name = (pc: number) => (best ? noteName(pc, best.key, best.mode) : noteName(pc, 0, 'major'))
-  const counts = notes.reduce((n, pc) => ((n[pc] = (n[pc] ?? 0) + 1), n), {} as Record<number, number>)
+  const played = new Set(notes)
+  // The tune's chips run along one line; the newest is kept in view.
+  const tuneRef = useRef<HTMLOListElement>(null)
+  useEffect(() => {
+    const el = tuneRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [notes.length])
   // Another key every bit as good: the same notes, with the tune sounding nearly as at home in it.
   const close = best && rest[0] && rest[0].outside.length === best.outside.length && best.likeness - rest[0].likeness < 0.08 ? rest[0] : null
 
@@ -108,7 +113,7 @@ function KeyFinder({ titled = true }: { titled?: boolean }) {
       if (pc === -1 && !back) return
       e.preventDefault()
       e.stopPropagation()
-      if (pc !== -1) add(pc)
+      if (pc !== -1) toggle(pc)
       else useKeyFinder.setState((st) => ({ notes: st.notes.slice(0, -1) }))
     }
     window.addEventListener('keydown', onKey, true)
@@ -132,7 +137,8 @@ function KeyFinder({ titled = true }: { titled?: boolean }) {
       <li key={`${g.key}-${g.mode}`} className={`key-finder-key ${top ? 'is-best' : ''}`}>
         <span className="key-finder-key-name">
           {label}
-          <small>{fits(g)}</small>
+          {/* Nearly as likely as the top one: said on its own line, so the list stays the same height. */}
+          <small>{g === close ? `${fits(g)} · a close call` : fits(g)}</small>
         </span>
         {isCurrent ? (
           <span className="key-finder-current">{ownKey ? 'This section’s key' : 'The song’s key'}</span>
@@ -150,28 +156,30 @@ function KeyFinder({ titled = true }: { titled?: boolean }) {
       {/* In the sheet, its header names it. */}
       {titled && <p className="key-finder-title">Find the key</p>}
       <p className="key-finder-about">
-        Play your tune’s notes in order<span className="key-finder-typed">, here or on your keyboard (A to J)</span>. Repeats count.
+        Pick the notes in your tune, in the order they come<span className="key-finder-typed">, here or on your keyboard</span>; pick one again to take it out. The first and last count as likelier home notes.
       </p>
 
-      <div className="key-finder-piano" role="group" aria-label="Notes">
-        {WHITE.map((pc, i) => (
-          <button type="button" key={pc} className={`key-finder-white ${counts[pc] ? 'is-played' : ''}`} style={{ left: `${(i / 7) * 100}%` }} onClick={() => add(pc)} aria-label={`Add ${name(pc)}`}>
-            {counts[pc] > 1 && <b className="key-finder-count">{counts[pc]}</b>}
-            <span className="key-finder-note">{name(pc)}</span>
-            <kbd>{TYPED[pc].slice(3)}</kbd>
-          </button>
-        ))}
-        {BLACK.map((pc) => (
-          <button type="button" key={pc} className={`key-finder-black ${counts[pc] ? 'is-played' : ''}`} style={{ left: `${(BLACK_AT[pc] / 7) * 100}%` }} onClick={() => add(pc)} aria-label={`Add ${name(pc)}`}>
-            {counts[pc] > 1 && <b className="key-finder-count">{counts[pc]}</b>}
-            <kbd>{TYPED[pc].slice(3)}</kbd>
+      {/* The twelve notes as pads, as the chords are in the chord pad; those in the tune outlined. */}
+      <div className="chord-pad-grid key-finder-notes-grid" role="group" aria-label="Notes">
+        {Array.from({ length: 12 }, (_, pc) => (
+          <button
+            type="button"
+            key={pc}
+            className={`chord-pad-pad ${played.has(pc) ? 'is-picked' : ''}`}
+            onClick={() => toggle(pc)}
+            aria-pressed={played.has(pc)}
+            aria-label={name(pc)}
+            title={played.has(pc) ? `Take ${name(pc)} out` : `Add ${name(pc)}`}
+          >
+            <span className="chord-pad-name">{name(pc)}</span>
+            <span className="chord-pad-roman key-finder-typed">{TYPED[pc].slice(3)}</span>
           </button>
         ))}
       </div>
 
       <div className="key-finder-notes">
         {notes.length ? (
-          <ol className="key-finder-tune" aria-label="Your tune">
+          <ol className="key-finder-tune" aria-label="Your tune" ref={tuneRef}>
             {notes.map((pc, i) => (
               <li key={i}>
                 <button type="button" onClick={() => removeAt(i)} title={`Take this ${name(pc)} out`}>
@@ -196,23 +204,36 @@ function KeyFinder({ titled = true }: { titled?: boolean }) {
       </div>
 
       <div className="key-finder-results" aria-live="polite">
-        {!best ? (
-          <p className="key-finder-hint">
-            {notes.length ? `${ENOUGH - notes.length} more ${ENOUGH - notes.length === 1 ? 'note' : 'notes'} and it’ll say what key they’re in.` : `Play at least ${ENOUGH} notes to see what key they’re in.`}
-          </p>
-        ) : (
-          <>
-            <p className="key-finder-label">Most likely</p>
-            <ul>{row(best, true)}</ul>
-            {close && (
-              <p className="key-finder-hint">
-                A close call with {keyLabel(close.key, close.mode)} {close.mode}: go with the one whose first note sounds like home.
-              </p>
-            )}
-            <p className="key-finder-label">Next likeliest</p>
-            <ul>{rest.slice(0, 3).map((g) => row(g))}</ul>
-          </>
-        )}
+        {/* Until there are enough notes, the same rows, waiting: so the finder is as tall from the start, and doesn't jump when the keys come in. */}
+        <p className="key-finder-label">Most likely</p>
+        <ul>
+          {best ? (
+            row(best, true)
+          ) : (
+            <li className="key-finder-key is-best is-waiting">
+              <span className="key-finder-key-name">
+                Pick {notes.length ? `${ENOUGH - notes.length} more` : ENOUGH} {ENOUGH - notes.length === 1 ? 'note' : 'notes'}
+                <small>to see what key they’re in</small>
+              </span>
+            </li>
+          )}
+        </ul>
+        <p className="key-finder-label">Next likeliest</p>
+        <ul>
+          {best
+            ? rest.slice(0, 3).map((g) => row(g))
+            : [0, 1, 2].map((i) => (
+                <li key={i} className="key-finder-key is-waiting" aria-hidden="true">
+                  {/* Text of a row's length, hidden under a bar, so each is exactly as tall as a key's row will be. */}
+                  <span className="key-finder-key-name">
+                    <span className="key-finder-blank">C major</span>
+                    <small>
+                      <span className="key-finder-blank">Every note fits</span>
+                    </small>
+                  </span>
+                </li>
+              ))}
+        </ul>
       </div>
     </div>
   )

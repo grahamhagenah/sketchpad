@@ -1302,23 +1302,13 @@ main > .panel {
 .key-finder { display: flex; flex-direction: column; gap: 10px; }
 .key-finder-title { margin: 0; font-size: var(--fs-heading); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .key-finder-about, .key-finder-hint { margin: 0; font-size: var(--fs-small); color: var(--muted); line-height: 1.4; }
-.key-finder-piano { position: relative; height: 104px; margin-top: 2px; }
-.key-finder-piano button { position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; padding: 0 0 6px; border-radius: 0 0 6px 6px; cursor: pointer; }
-.key-finder-white { width: calc(100% / 7 - 3px); height: 100%; border: 1px solid var(--line-strong); background: #e9ecef; color: #1b1e22; }
-.key-finder-black { z-index: 1; width: calc(100% / 7 * 0.62); height: 62%; transform: translateX(-50%); border: 1px solid #000; background: #1b1e22; color: var(--muted); }
-.key-finder-white:hover { background: #fff; }
-.key-finder-black:hover { background: #2a2f36; }
-/* Played: in the accent, so the tune's notes stand out on the keys. */
-.key-finder-white.is-played { background: color-mix(in srgb, var(--accent) 55%, #e9ecef); }
-.key-finder-black.is-played { background: color-mix(in srgb, var(--accent) 55%, #1b1e22); color: var(--text); }
-.key-finder-white:active, .key-finder-black:active { filter: brightness(0.85); }
-.key-finder-note { font-size: var(--fs-small); font-weight: 600; }
-/* Which computer key plays it: plain, rather than drawn as a keycap. */
-.key-finder-piano kbd { padding: 0; border: 0; color: inherit; font-size: 10px; opacity: 0.55; }
-/* How many times a note's been played, when it's more than once. */
-.key-finder-count { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--on-accent); color: var(--accent); font-size: 10px; line-height: 16px; }
+/* Four across, as the chord pad's are in a phone's width. */
+.chord-pad-grid.key-finder-notes-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .key-finder-notes { display: flex; align-items: flex-start; gap: 8px; min-height: 28px; }
-.key-finder-tune { flex: 1; display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: 92px; overflow-y: auto; }
+/* One line, scrolling sideways as the tune grows, so adding a note never makes the finder taller. */
+.key-finder-tune { flex: 1; min-width: 0; display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; overflow-x: auto; scrollbar-width: none; }
+.key-finder-tune::-webkit-scrollbar { display: none; }
+.key-finder-tune li { flex: none; }
 .key-finder-tune button { height: 24px; padding: 0 7px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--raised); color: var(--text); font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
 .key-finder-tune button:hover { border-color: var(--danger); color: var(--danger); text-decoration: line-through; }
 .key-finder-empty { flex: 1; align-self: center; font-size: var(--fs-small); color: var(--muted); opacity: 0.7; }
@@ -1337,9 +1327,14 @@ main > .panel {
 .key-finder-use:hover { border-color: var(--muted); }
 .key-finder-key.is-best .key-finder-use { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .key-finder-current { flex: none; font-size: var(--fs-small); color: var(--accent); }
+/* Waiting for notes: the rows as they'll be, muted, with bars where the keys will go. */
+.key-finder-key.is-waiting { color: var(--muted); }
+.key-finder-key.is-best.is-waiting { box-shadow: inset 0 0 0 1px var(--line); background: none; }
+.key-finder-blank { align-self: flex-start; border-radius: 4px; background: var(--raised); color: transparent; }
+small > .key-finder-blank { opacity: 0.6; }
 /* On a touch screen, no computer keyboard to play on. */
 @media (hover: none) {
-  .key-finder-piano kbd, .key-finder-typed { display: none; }
+  .key-finder-typed { display: none; }
 }
 .menu-item.menu-item-row { flex-direction: row; align-items: center; gap: 10px; padding-block: 8px; }
 .menu-item.menu-item-row .menu-item-about { margin-left: auto; }
