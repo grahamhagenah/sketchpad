@@ -171,6 +171,15 @@ describe('sections', () => {
     expect(get().arrangement).toEqual([c, a, b])
   })
 
+  it('moves a section among the tabs, leaving the song as it was', () => {
+    get().addSection('Chorus')
+    get().addSection('Bridge')
+    const song = get().arrangement
+    get().moveSection(sectionNamed('Bridge').id, 0)
+    expect(get().sections.map((sec) => sec.name)).toEqual(['Bridge', 'Verse', 'Chorus'])
+    expect(get().arrangement).toEqual(song)
+  })
+
   it('deletes a section, with its places in the song, and opens a neighbour', () => {
     get().addSection('Chorus')
     get().addToSong(sectionNamed('Verse').id)

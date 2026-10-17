@@ -1169,7 +1169,10 @@ main > .panel {
 /* Above the strip's lower edge, so the open tab can break through it (the fade mask keeps the tabs' own z-index inside). */
 .section-tabs { position: relative; z-index: 1; display: flex; align-items: flex-end; gap: 2px; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 0 2px; scrollbar-width: none; }
 .section-tabs::-webkit-scrollbar { display: none; }
-.section-tab-wrap { flex: none; display: flex; align-items: center; }
+.section-tab-wrap { flex: none; display: flex; align-items: center; transition: transform 0.16s ease; touch-action: pan-x; }
+/* Picked up: it follows the pointer, over the others as they step aside. */
+.section-tab-wrap.is-dragging { z-index: 2; transition: none; cursor: grabbing; }
+.section-tab-wrap.is-dragging .section-tab { cursor: grabbing; }
 /* Tabs: the ones behind are muted on the dark strip; the open one is the same
    colour as the timeline, outlined on three sides and open at the bottom, so it
    reads as the top layer with the timeline its page. */

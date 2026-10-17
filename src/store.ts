@@ -278,6 +278,8 @@ interface State extends SectionParts {
   addToSong: (sectionId: string) => void
   removeFromSong: (entryId: string) => void
   moveInSong: (entryId: string, toIndex: number) => void
+  /** Moves a section's tab to another place among them; the song plays as it did. */
+  moveSection: (sectionId: string, toIndex: number) => void
   /** Plays a place in the song again, straight after itself. */
   repeatInSong: (entryId: string) => void
   /** Gives one place in the song its own copy of its section, to change without changing the others. */
@@ -893,6 +895,15 @@ export const useStore = create<State>()(
         const next = arrangement.filter((e) => e.id !== entryId)
         next.splice(Math.max(0, Math.min(next.length, toIndex)), 0, entry)
         if (next.some((e, i) => e !== arrangement[i])) set({ arrangement: next })
+      },
+      moveSection: (sectionId, toIndex) => {
+        const sections = get().sections
+        const from = sections.findIndex((sec) => sec.id === sectionId)
+        const to = Math.max(0, Math.min(sections.length - 1, toIndex))
+        if (from === -1 || to === from) return
+        const next = sections.filter((sec) => sec.id !== sectionId)
+        next.splice(to, 0, sections[from])
+        set({ sections: next })
       },
       makeUnique: (entryId) => {
         const entry = get().arrangement.find((e) => e.id === entryId)
