@@ -141,7 +141,9 @@ function KeyFinder({ titled = true }: { titled?: boolean }) {
           <small>{g === close ? `${fits(g)} · a close call` : fits(g)}</small>
         </span>
         {isCurrent ? (
-          <span className="key-finder-current">{ownKey ? 'This section’s key' : 'The song’s key'}</span>
+          <span className="key-finder-current" title={ownKey ? 'This section is in this key' : 'The song is in this key'}>
+            {ownKey ? 'Section key' : 'Song key'}
+          </span>
         ) : (
           <button type="button" className="key-finder-use" onClick={() => use(g.key, g.mode)} title={`Put ${ownKey ? 'this section' : 'the song'} in ${label}; the chords move with it`}>
             Use

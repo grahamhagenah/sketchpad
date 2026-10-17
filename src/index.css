@@ -1326,7 +1326,8 @@ main > .panel {
 .key-finder-use { flex: none; height: 28px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 7px; background: none; color: var(--text); font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
 .key-finder-use:hover { border-color: var(--muted); }
 .key-finder-key.is-best .key-finder-use { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
-.key-finder-current { flex: none; font-size: var(--fs-small); color: var(--accent); }
+/* The key it's in already: the size of a Use button, outlined in the accent, with nothing to press. */
+.key-finder-current { flex: none; display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border: 1px solid var(--accent); border-radius: 7px; color: var(--accent); font-size: var(--fs-small); font-weight: 600; white-space: nowrap; }
 /* Waiting for notes: the rows as they'll be, muted, with bars where the keys will go. */
 .key-finder-key.is-waiting { color: var(--muted); }
 .key-finder-key.is-best.is-waiting { box-shadow: inset 0 0 0 1px var(--line); background: none; }
