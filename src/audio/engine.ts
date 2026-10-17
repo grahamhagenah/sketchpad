@@ -7,7 +7,7 @@ import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } f
 import type { Sound } from './sound'
 import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
-import { keepStorage, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
+import { keepStorage, levelUpDb, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 import { keepVocals } from '../history'
 import { quietly, showUndoNote } from '../undoNote'
@@ -88,6 +88,8 @@ class Engine {
   private players = new Map<string, Tone.Player>()
   /** Each take's send to the vocals' reverb, by id, and the reverb itself. */
   private sends = new Map<string, Tone.Gain>()
+  /** Each take's vocal chain, to take apart with the rest. */
+  private routes: { dispose: () => void }[] = []
   private vocalRoom!: Tone.Reverb
   private recording: Recording | null = null
   private ticksPerBeat = 192
@@ -139,7 +141,9 @@ class Engine {
     const take = this.audio.get(id)
     if (!player && take && this.ready) {
       player = new Tone.Player(toAudioBuffer(take))
-      this.sends.set(id, routeVocal(player, this.vocalRoom, 0))
+      const route = routeVocal(player, this.vocalRoom, 0, levelUpDb(take.samples, take.sampleRate))
+      this.sends.set(id, route.send)
+      this.routes.push(route)
       this.players.set(id, player)
     }
     return player ?? null
@@ -301,7 +305,8 @@ class Engine {
     this.vocalParts.forEach((part) => part.dispose())
     this.players.forEach((player) => player.dispose())
     this.players.clear()
-    this.sends.forEach((send) => send.dispose())
+    this.routes.forEach((route) => route.dispose())
+    this.routes = []
     this.sends.clear()
     if (this.ready) {
       this.vocalRoom.dispose()

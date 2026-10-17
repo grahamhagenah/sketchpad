@@ -282,9 +282,37 @@ export function applySound({ pad, bass, filter, reverb }: Instruments, sound: So
 /** The room the vocals share, in whichever Tone context is current; each track sends to it as much as its reverb says. */
 export const createVocalRoom = () => new Tone.Reverb({ decay: 2.2, preDelay: 0.02, wet: 1 }).toDestination()
 
-/** Plays a take straight out, and sends it to the room by `amount` (0 to 1); returns the send, to change later. */
-export function routeVocal(player: Tone.Player, room: Tone.Reverb, amount: number) {
-  const send = new Tone.Gain(amount).connect(room)
-  player.toDestination().connect(send)
-  return send
+/**
+ * Plays a take out through a vocal chain, as a demo's vocal would have one,
+ * and sends it to the room (if there is one) by `amount` (0 to 1). The chain,
+ * in order: raised by `levelDb` (see levelUpDb), so takes sit at a steady
+ * level however close the singer was; the rumble and boom under a voice cut
+ * (a close mic makes a voice bassier than it is); less of the boxy low mids,
+ * a little more presence and air; gentle
+ * compression, so soft and loud lines even out; and a limiter, so it never
+ * clips. Returns the send, to change later, and a way to take it all apart.
+ */
+export function routeVocal(player: Tone.Player, room: Tone.Reverb | null, amount: number, levelDb = 0) {
+  const nodes = [
+    new Tone.Gain(levelDb, 'decibels'),
+    new Tone.Filter({ type: 'highpass', frequency: 130, rolloff: -24 }),
+    new Tone.Filter({ type: 'peaking', frequency: 250, Q: 1, gain: -4 }),
+    new Tone.Filter({ type: 'peaking', frequency: 3500, Q: 0.9, gain: 3 }),
+    new Tone.Filter({ type: 'highshelf', frequency: 10000, gain: 2.5 }),
+    new Tone.Compressor({ threshold: -24, ratio: 3, attack: 0.005, release: 0.15, knee: 6 }),
+    new Tone.Gain(4, 'decibels'),
+    new Tone.Limiter(-1),
+  ]
+  player.chain(...nodes)
+  const out = nodes[nodes.length - 1]
+  out.toDestination()
+  const send = new Tone.Gain(amount)
+  if (room) out.connect(send.connect(room))
+  return {
+    send,
+    dispose: () => {
+      nodes.forEach((node) => node.dispose())
+      send.dispose()
+    },
+  }
 }

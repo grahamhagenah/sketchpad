@@ -78,6 +78,28 @@ export function toAudioBuffer(take: Take) {
   return buffer
 }
 
+/**
+ * How far to raise a take so its singing sits at a steady level, in dB: from
+ * how loud its loudest half is, a twentieth of a second at a time (so the
+ * quiet between lines doesn't count), up to `target`. A take is never turned
+ * down, nor up by more than 18 dB, which would only raise the room's hiss.
+ */
+export function levelUpDb(samples: Float32Array, sampleRate: number, target = -20) {
+  const size = Math.max(1, Math.round(sampleRate * 0.05))
+  const power: number[] = []
+  for (let i = 0; i + size <= samples.length; i += size) {
+    let sum = 0
+    for (let j = i; j < i + size; j++) sum += samples[j] * samples[j]
+    power.push(sum / size)
+  }
+  if (!power.length) return 0
+  power.sort((a, b) => b - a)
+  const loud = power.slice(0, Math.ceil(power.length / 2))
+  const rms = Math.sqrt(loud.reduce((a, b) => a + b, 0) / loud.length)
+  if (rms < 1e-5) return 0
+  return Math.max(0, Math.min(18, target - 20 * Math.log10(rms)))
+}
+
 // ---- Keeping takes between visits (too big for localStorage) ----
 
 export const LANES = 8
