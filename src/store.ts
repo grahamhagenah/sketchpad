@@ -278,6 +278,8 @@ interface State extends SectionParts {
   addToSong: (sectionId: string) => void
   removeFromSong: (entryId: string) => void
   moveInSong: (entryId: string, toIndex: number) => void
+  /** Moves a section's tab to another place among them; the song plays as it did. */
+  moveSection: (sectionId: string, toIndex: number) => void
   /** Plays a place in the song again, straight after itself. */
   repeatInSong: (entryId: string) => void
   /** Gives one place in the song its own copy of its section, to change without changing the others. */
@@ -505,6 +507,14 @@ export function demoSong() {
  * always silences a track, soloed or not. Vocal lanes without a take never play.
  */
 /** What audibleTracks reads, for a component to watch. */
+/** The vocal track a recording goes into: the selected one. With none selected (or none made yet) there's nothing to record into. */
+export function recordLane(s: Pick<State, 'selectedVocal' | 'vocalTracks'>): number | null {
+  return s.selectedVocal !== null && s.selectedVocal < s.vocalTracks ? s.selectedVocal : null
+}
+
+/** How much reverb a new vocal track starts with (0 to 1). */
+export const DEFAULT_VOCAL_REVERB = 0.25
+
 export const AUDIBLE_FIELDS = ['chordsMuted', 'chordsSolo', 'drumsMuted', 'drumsSolo', 'vocalMuted', 'vocalSolo', 'takes'] as const
 
 export function audibleTracks(s: Pick<State, (typeof AUDIBLE_FIELDS)[number]>) {
@@ -658,7 +668,9 @@ export const useStore = create<State>()(
         if (lane >= LANES || !s.chords.length) return
         // The colour its place takes, the same every time: Vocal 1 violet, Vocal 2 teal, and so on.
         const vocalColors = s.vocalColors.map((c, i) => (i === lane ? null : c))
-        set({ vocalTracks: lane + 1, vocalColors, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false, drumsTrackSelected: false })
+        // Some room on a voice to start with, as a demo's vocal has; turned down to dry, or up, on the track.
+        const vocalReverb = s.vocalReverb.map((r, i) => (i === lane ? DEFAULT_VOCAL_REVERB : r))
+        set({ vocalTracks: lane + 1, vocalColors, vocalReverb, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false, drumsTrackSelected: false })
       },
       setTitle: (title) => set({ title }),
       setSaved: (sketchId, savedSignature) => set({ sketchId, savedSignature }),
@@ -893,6 +905,15 @@ export const useStore = create<State>()(
         const next = arrangement.filter((e) => e.id !== entryId)
         next.splice(Math.max(0, Math.min(next.length, toIndex)), 0, entry)
         if (next.some((e, i) => e !== arrangement[i])) set({ arrangement: next })
+      },
+      moveSection: (sectionId, toIndex) => {
+        const sections = get().sections
+        const from = sections.findIndex((sec) => sec.id === sectionId)
+        const to = Math.max(0, Math.min(sections.length - 1, toIndex))
+        if (from === -1 || to === from) return
+        const next = sections.filter((sec) => sec.id !== sectionId)
+        next.splice(to, 0, sections[from])
+        set({ sections: next })
       },
       makeUnique: (entryId) => {
         const entry = get().arrangement.find((e) => e.id === entryId)

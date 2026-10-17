@@ -6,19 +6,28 @@ import * as Tone from 'tone'
 // every 128-sample quantum as it came (hundreds of messages a second, each a
 // fresh copy) loaded the audio thread and left the page a heap of small
 // buffers to clear away, which in Safari made playback stutter mid-take; a
-// block is handed over whole, without copying.
+// block is handed over whole, without copying. It runs for as long as the
+// microphone is open, keeping only what comes between 'start' and 'stop'.
 const WORKLET = `
 const BLOCK = 8192
 class SketchpadCapture extends AudioWorkletProcessor {
   constructor() {
     super()
-    this.on = true
+    this.on = false
+    this.closed = false
     this.block = new Float32Array(BLOCK)
     this.filled = 0
     this.frame = 0
-    this.port.onmessage = () => {
-      this.send()
+    this.port.onmessage = (e) => {
+      if (e.data === 'start') {
+        this.on = true
+        this.started = undefined
+        this.filled = 0
+        return
+      }
+      if (this.on) this.send()
       this.on = false
+      if (e.data === 'close') this.closed = true
     }
   }
   send() {
@@ -42,7 +51,8 @@ class SketchpadCapture extends AudioWorkletProcessor {
     }
   }
   process(inputs) {
-    if (!this.on) return false
+    if (this.closed) return false
+    if (!this.on) return true
     const channel = inputs[0] && inputs[0][0]
     if (this.started === undefined) {
       if (!channel) return true
@@ -90,44 +100,130 @@ export interface Capture {
   stop: () => Promise<{ startTime: number; samples: Float32Array }>
 }
 
-export async function startCapture(stream: MediaStream): Promise<Capture> {
+/**
+ * The microphone, open and running into the capture, which keeps nothing
+ * until a take starts. Safari stops all its audio twice when it starts taking
+ * input, for a few hundred milliseconds each: at once, and again about three
+ * seconds later. Opened ahead of a take (when a vocal track is picked) and
+ * left open between takes, that's over before anyone sings.
+ */
+interface Mic {
+  stream: MediaStream
+  source: MediaStreamAudioSourceNode
+  node: AudioWorkletNode
+  analyser: AnalyserNode
+  /** The blocks of the take under way, as they arrive. */
+  chunks: { frame: number; data: Float32Array }[]
+}
+
+let mic: Promise<Mic> | null = null
+/** The microphone once it's open. */
+let open: Mic | null = null
+/** Whether to keep it open between takes: a vocal track is picked to record into. */
+let wanted = false
+/** A take (or a timing check) is using it. */
+let capturing = false
+
+async function openCapture(): Promise<Mic> {
   const ctx = Tone.getContext()
   workletLoaded ??= ctx.addAudioWorkletModule(URL.createObjectURL(new Blob([WORKLET], { type: 'text/javascript' })))
   await workletLoaded
-
+  const stream = await openMic()
   const source = ctx.createMediaStreamSource(stream)
   const node = ctx.createAudioWorkletNode('sketchpad-capture', { channelCount: 1, channelCountMode: 'explicit' })
   // The node only runs while it leads somewhere; it outputs silence.
   source.connect(node)
   node.connect(ctx.rawContext.destination)
-
-  const chunks: { frame: number; data: Float32Array }[] = []
-  node.port.onmessage = (e) => chunks.push(e.data)
-
-  const settings = stream.getAudioTracks()[0]?.getSettings() as MediaTrackSettings & { latency?: number }
-
   // A tap on the input, for the level meter; it leads nowhere and changes nothing that's recorded.
   const analyser = ctx.createAnalyser()
   analyser.fftSize = 1024
   source.connect(analyser)
-  const frame = new Float32Array(analyser.fftSize)
+  const m: Mic = { stream, source, node, analyser, chunks: [] }
+  node.port.onmessage = (e) => m.chunks.push(e.data)
+  // Unplugged, or taken away in the browser's settings: opened afresh next time.
+  stream.getAudioTracks()[0]?.addEventListener('ended', () => shut(m))
+  open = m
+  return m
+}
+
+/** The microphone, opening it if it isn't open; asked for afresh next time if it can't be (refused, say). */
+function micNow() {
+  if (!mic) {
+    mic = openCapture()
+    mic.catch(() => (mic = null))
+  }
+  return mic
+}
+
+function shut(m: Mic) {
+  if (open !== m) return
+  m.node.port.postMessage('close')
+  m.source.disconnect()
+  m.node.disconnect()
+  m.analyser.disconnect()
+  m.stream.getTracks().forEach((t) => t.stop())
+  open = null
+  mic = null
+}
+
+/** Closes the microphone unless it's wanted or in use. */
+function shutIfIdle() {
+  if (!wanted && !capturing && open) shut(open)
+}
+
+/** Opens the microphone ahead of a take, and keeps it open until closeMic. Rejects if it can't be opened. */
+export async function openMicEarly() {
+  wanted = true
+  try {
+    await micNow()
+  } catch (error) {
+    wanted = false
+    throw error
+  }
+  // Closed again while it was opening.
+  shutIfIdle()
+}
+
+/** Closes the microphone, or once the take using it ends. */
+export function closeMic() {
+  wanted = false
+  shutIfIdle()
+}
+
+/** Starts keeping the microphone's input, opening it first if it isn't open. */
+export async function startCapture(): Promise<Capture> {
+  const ctx = Tone.getContext()
+  capturing = true
+  let m: Mic
+  try {
+    m = await micNow()
+  } catch (error) {
+    capturing = false
+    throw error
+  }
+  m.chunks = []
+  m.node.port.postMessage('start')
+  const track = m.stream.getAudioTracks()[0]
+  const settings = track?.getSettings() as (MediaTrackSettings & { latency?: number }) | undefined
+  const frame = new Float32Array(m.analyser.fftSize)
 
   return {
     inputLatency: settings?.latency ?? 0,
     level: () => {
-      analyser.getFloatTimeDomainData(frame)
+      m.analyser.getFloatTimeDomainData(frame)
       let peak = 0
       for (let i = 0; i < frame.length; i++) peak = Math.max(peak, Math.abs(frame[i]))
       return Math.min(1, peak)
     },
     stop: async () => {
-      node.port.postMessage('stop')
+      m.node.port.postMessage('stop')
       // Let the last block arrive.
       await new Promise((r) => setTimeout(r, 100))
-      source.disconnect()
-      node.disconnect()
-      analyser.disconnect()
-      stream.getTracks().forEach((t) => t.stop())
+      const chunks = m.chunks
+      m.chunks = []
+      capturing = false
+      // Kept open for the next take while a vocal track is picked; otherwise closed now.
+      shutIfIdle()
 
       const length = chunks.reduce((n, c) => n + c.data.length, 0)
       const samples = new Float32Array(length)
@@ -222,8 +318,7 @@ export function findClicks(samples: Float32Array, sampleRate: number, startTime:
  */
 export async function measureLatency(): Promise<number | null> {
   await Tone.start()
-  const stream = await openMic()
-  const capture = await startCapture(stream)
+  const capture = await startCapture()
   const click = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.001, decay: 0.03, sustain: 0, release: 0.01 } }).toDestination()
   const COUNT = 8
   const GAP = 0.45

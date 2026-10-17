@@ -10,6 +10,7 @@ import { useNarrow } from '../hooks/useNarrow'
 import { ChordKeysButton } from './ChordKeys'
 import { SongCards } from './SongCards'
 import { LyricsButton } from './Lyrics'
+import { KeyFinderButton } from './KeyFinder'
 import { vocalColor } from '../colors'
 
 /** A gear, for a section's settings. */
@@ -43,6 +44,8 @@ export function MenuButton({
   menu,
   onOpen,
   align = 'left',
+  role = 'menu',
+  panelClassName = 'section-menu',
 }: {
   label: string
   title?: string
@@ -53,6 +56,10 @@ export function MenuButton({
   /** Called as the menu opens. */
   onOpen?: () => void
   align?: 'left' | 'right'
+  /** What it opens: a menu of things to do, or a small tool of its own (a dialog). */
+  role?: 'menu' | 'dialog'
+  /** The class of what it opens, beside "menu" (which floats it). */
+  panelClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
@@ -109,7 +116,7 @@ export function MenuButton({
         aria-label={label}
         title={title ?? label}
         aria-expanded={open}
-        aria-haspopup="menu"
+        aria-haspopup={role}
         onClick={() => {
           if (!open) onOpen?.()
           setOpen(!open)
@@ -119,7 +126,7 @@ export function MenuButton({
       </button>
       {open &&
         createPortal(
-          <div ref={menuRef} className="menu section-menu" role="menu" aria-label={label} style={{ ...pos, visibility: pos ? undefined : 'hidden' }}>
+          <div ref={menuRef} className={`menu ${panelClassName}`} role={role} aria-label={label} style={{ ...pos, visibility: pos ? undefined : 'hidden' }}>
             {menu(close)}
           </div>,
           document.body,
@@ -159,12 +166,10 @@ export function SectionBar() {
   const activeSection = useStore((s) => s.activeSection)
   const arrangement = useStore((s) => s.arrangement)
   const recording = useStore((s) => s.recording !== 'off')
-  const { openSection, setView, addSection, addToSong } = useFields('openSection', 'setView', 'addSection', 'addToSong')
+  const { openSection, setView, addSection, addToSong, moveSection } = useFields('openSection', 'setView', 'addSection', 'addToSong', 'moveSection')
   const inSong = new Set(arrangement.map((entry) => entry.section))
-  // In the order they first play in the song; those not in it yet come last, as they were made.
-  const firstPlays = new Map<string, number>()
-  arrangement.forEach((entry, i) => firstPlays.has(entry.section) || firstPlays.set(entry.section, i))
-  const ordered = [...sections].sort((x, y) => (firstPlays.get(x.id) ?? Infinity) - (firstPlays.get(y.id) ?? Infinity))
+  // In the order they were made, or dragged into; not the song's, which has its own.
+  const ordered = sections
   const [renaming, setRenaming] = useState<string | null>(null)
   const open = view === 'section' ? sections.find((sec) => sec.id === activeSection) : undefined
   const narrow = useNarrow()
@@ -174,6 +179,73 @@ export function SectionBar() {
   useEffect(() => {
     tabsRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
   }, [view, activeSection])
+
+  // Dragging a tab along: the others step aside to make room, as the song's rows do.
+  const [drag, setDrag] = useState<{ id: string; dx: number; from: number; to: number; room: number } | null>(null)
+  const suppressClick = useRef(false)
+  const shift = (i: number) => {
+    if (!drag) return 0
+    if (i === drag.from) return drag.dx
+    if (drag.from < drag.to && i > drag.from && i <= drag.to) return -drag.room
+    if (drag.to < drag.from && i >= drag.to && i < drag.from) return drag.room
+    return 0
+  }
+  const startPress = (id: string, e: PointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || recording || renaming || (e.target as HTMLElement).closest('.section-unused')) return
+    suppressClick.current = false
+    const wraps = [...(tabsRef.current?.querySelectorAll<HTMLElement>('.section-tab-wrap') ?? [])]
+    const from = ordered.findIndex((sec) => sec.id === id)
+    const rects = wraps.map((el) => el.getBoundingClientRect())
+    if (!rects[from]) return
+    // Its own width and the gap after it.
+    const room = rects[from].width + 2
+    const middle = rects[from].left + rects[from].width / 2
+    const x0 = e.clientX
+    const y0 = e.clientY
+    let dx = 0
+    let moved = false
+    // On a touch screen a swipe scrolls the tabs; a tab picks up after being held still.
+    let held = e.pointerType !== 'touch'
+    const hold = held ? undefined : setTimeout(() => ((held = true), navigator.vibrate?.(10)), 350)
+    const stopScroll = (ev: TouchEvent) => held && ev.preventDefault()
+    // Where it would land: past each tab whose middle it has crossed.
+    const landing = () => rects.filter((r, i) => i !== from && r.left + r.width / 2 < middle + dx).length
+    const onMove = (ev: globalThis.PointerEvent) => {
+      dx = ev.clientX - x0
+      if (!held) {
+        if (Math.abs(dx) > 8 || Math.abs(ev.clientY - y0) > 8) finish(false)
+        return
+      }
+      if (!moved && Math.abs(dx) < 5) return
+      moved = true
+      setDrag({ id, dx, from, to: landing(), room })
+    }
+    function finish(commit: boolean) {
+      clearTimeout(hold)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
+      window.removeEventListener('touchmove', stopScroll)
+      if (!moved) return
+      suppressClick.current = true
+      if (commit) moveSection(id, landing())
+      setDrag(null)
+    }
+    const onUp = () => finish(true)
+    const onCancel = () => finish(false)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
+    window.addEventListener('touchmove', stopScroll, { passive: false })
+  }
+  const onTabKey = (e: KeyboardEvent<HTMLElement>, index: number, id: string) => {
+    // ⌥← and ⌥→ move the focused tab, as they move a row in the song.
+    const dir = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0
+    if (!e.altKey || !dir) return
+    e.preventDefault()
+    e.stopPropagation()
+    moveSection(id, index + dir)
+  }
 
   return (
     <nav className="section-bar" aria-label="Song sections">
@@ -191,10 +263,15 @@ export function SectionBar() {
           <Icon d="M4 6h10M4 12h16M4 18h7" />
           Song
         </button>
-        {ordered.map((sec) => {
+        {ordered.map((sec, index) => {
           const isOpen = view === 'section' && sec.id === activeSection
           return (
-            <div key={sec.id} className={`section-tab-wrap ${isOpen ? 'is-open' : ''}`}>
+            <div
+              key={sec.id}
+              className={`section-tab-wrap ${isOpen ? 'is-open' : ''} ${sec.id === drag?.id ? 'is-dragging' : ''}`}
+              style={drag ? { transform: `translateX(${shift(index)}px)` } : undefined}
+              onPointerDown={(e) => startPress(sec.id, e)}
+            >
               {renaming === sec.id ? (
                 <RenameField section={sec} onDone={() => setRenaming(null)} />
               ) : (
@@ -204,9 +281,13 @@ export function SectionBar() {
                   className={`section-tab ${inSong.has(sec.id) ? '' : 'is-unused'}`}
                   aria-selected={isOpen}
                   disabled={recording && !isOpen}
-                  onClick={() => openSection(sec.id)}
+                  onClick={() => {
+                    if (suppressClick.current) return void (suppressClick.current = false)
+                    openSection(sec.id)
+                  }}
                   onDoubleClick={() => setRenaming(sec.id)}
-                  title={inSong.has(sec.id) ? `Edit ${sec.name} (double-click to rename)` : `${sec.name} isn’t in the song yet, so it doesn’t play when the song does`}
+                  onKeyDown={(e) => onTabKey(e, index, sec.id)}
+                  title={inSong.has(sec.id) ? `Edit ${sec.name} (double-click to rename, drag to move the tab)` : `${sec.name} isn’t in the song yet, so it doesn’t play when the song does`}
                 >
                   {sec.name}
                 </button>
@@ -245,6 +326,8 @@ export function SectionBar() {
         {/* The lyrics, and zoom: they work on whichever view is showing, so they sit with the views. */}
         {/* The floating chord keys are for a mouse and keyboard. */}
         {!narrow && <ChordKeysButton />}
+        {/* Which key a tune's in, from its notes. */}
+        <KeyFinderButton />
         <LyricsButton />
         <ZoomButtons />
       </div>
@@ -409,7 +492,7 @@ function SectionMenu({ section, onRename }: { section: Section; onRename: () => 
 /** Each place in the song is a row this tall, with this gap under it: room for its chords, and a strip each for its drums and vocals. */
 const ROW_H = 82
 /** On a phone a row is stacked: its name on a line of its own, its chords the full width under it. */
-const NARROW_ROW_H = 98
+const NARROW_ROW_H = 94
 const NARROW_HEAD_H = 34
 /** On a phone, the narrowest a chord gets: room for a name like B♭m. */
 const NARROW_CHORD_PX = 48
@@ -748,7 +831,7 @@ export function SongView() {
                                 top: `${(slot / used) * 100}%`,
                                 height: `${100 / used}%`,
                                 // In its track's colour, as on the timeline.
-                                color: vocalColor(section.vocalColors, lane),
+                                background: vocalColor(section.vocalColors, lane),
                               }}
                             />
                           )

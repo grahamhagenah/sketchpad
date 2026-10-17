@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { AUDIBLE_FIELDS, audibleTracks, chordsTrackName, drumsTrackName, keyOf, useFields, useStore, vocalTrackName, type Chord } from '../store'
 import { chordOf } from '../music/theory'
-import { audition, engine, seek, trimTake } from '../audio/engine'
-import { sectionBeatOf } from '../song'
+import { audition, engine, moveTake, seek, trimTake } from '../audio/engine'
+import { earliestMove, sectionBeatOf } from '../song'
 import { cuts, LANES, MIN_TRIM, trimOf, type Trim } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
@@ -486,13 +486,20 @@ interface VocalLaneProps {
 /**
  * One vocal track: click it to select it (to record into, or delete); its take
  * is drawn at the beat it starts on. Selected, its ends can be dragged in to
- * trim it, the part cut off showing faintly, to drag back out.
+ * trim it, the part cut off showing faintly, to drag back out. Any take can
+ * be dragged along to another beat with a mouse; on a touch screen, once it's
+ * selected, so a swipe across the others still scrolls.
  */
 function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selected, locked, onSelect, bpm, beatPx, beatsPerQuarter, color }: VocalLaneProps) {
   const row = { ['--row' as string]: lane, ['--track' as string]: color }
   // The trim while an end is dragged, saved only when it's let go.
   const [dragging, setDragging] = useState<Trim | null>(null)
   const drag = useRef<{ edge: 'start' | 'end'; x: number; from: Trim; moved: boolean } | null>(null)
+  // The beats it's moved by while it's dragged along, saved only when it's let go.
+  const [moving, setMoving] = useState<number | null>(null)
+  const carrying = useRef<{ x: number; from: number; min: number; moved: boolean } | null>(null)
+  // A press the drag dealt with, so the click that follows it doesn't select again.
+  const pressed = useRef(false)
   const pxPerSecond = (bpm / 60) * beatsPerQuarter * beatPx
   const fullWidth = take ? take.seconds * pxPerSecond - 6 : 0
   // The whole take's waveform, one bar every 4px, each as tall as the loudest moment it covers;
@@ -507,8 +514,8 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
   if (take) {
     const kept = dragging ?? trimOf(take, trim)
     const cut = dragging ? kept.start > 0.001 || kept.end < take.seconds - 0.001 : cuts(take, trim)
-    // Moved by its nudge, if it has one, as it plays.
-    const fullLeft = take.startBeat * beatPx + (trim?.nudge ?? 0) * pxPerSecond
+    // Moved by the beats it's been dragged and by its nudge, if it has them, as it plays.
+    const fullLeft = (take.startBeat + (moving ?? trim?.moved ?? 0)) * beatPx + (trim?.nudge ?? 0) * pxPerSecond
     const left = fullLeft + kept.start * pxPerSecond
     const width = (kept.end - kept.start) * pxPerSecond - 6
     // A trimmed take shows the part of it that plays, shifted by what's cut, so its bars stay put while an end is dragged.
@@ -554,6 +561,54 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
       onClick: (e: { stopPropagation: () => void }) => e.stopPropagation(),
     })
 
+    // A take dragged along: by whole beats, or freely with ⌥ held; earlier than the section's start, too, where what's before it doesn't play.
+    const movable = !locked
+    const carry = {
+      onPointerDown: (e: PointerEvent<HTMLElement>) => {
+        pressed.current = false
+        // A touch on a take that isn't selected may be a swipe to scroll; a tap selects it (onClick).
+        if (e.button !== 0 || (e.pointerType === 'touch' && !selected)) return
+        e.stopPropagation()
+        e.currentTarget.setPointerCapture(e.pointerId)
+        pressed.current = true
+        // Picked up, it's selected, as a click would; the playhead moves only on a click.
+        if (!selected) onSelect(null)
+        const from = trim?.moved ?? 0
+        // Past the section's start, to bring a late take forward, as long as a little of it stays in.
+        const min = earliestMove(take, trim, beatPx / pxPerSecond)
+        carrying.current = { x: e.clientX, from, min, moved: false }
+      },
+      onPointerMove: (e: PointerEvent<HTMLElement>) => {
+        const c = carrying.current
+        if (!c) return
+        const dx = e.clientX - c.x
+        if (Math.abs(dx) > 3) c.moved = true
+        if (!c.moved) return
+        const by = dx / beatPx
+        setMoving(Math.max(c.min, c.from + (e.altKey ? by : Math.round(by))))
+      },
+      onPointerUp: (e: PointerEvent<HTMLElement>) => {
+        const c = carrying.current
+        carrying.current = null
+        if (c?.moved) {
+          if (moving !== null && Math.abs(moving - c.from) > 0.0005) moveTake(take.id, moving)
+        } else if (c) {
+          // A click, as on the track: the playhead goes there.
+          onSelect(e.clientX)
+        }
+        setMoving(null)
+      },
+      onPointerCancel: () => {
+        carrying.current = null
+        setMoving(null)
+      },
+      onClick: (e: { clientX: number; detail: number }) => {
+        if (pressed.current) return
+        onSelect(e.detail ? e.clientX : null)
+      },
+      onDoubleClick: showInspector,
+    }
+
     content = (
       <>
         {selected && cut && (
@@ -562,8 +617,10 @@ function VocalLane({ lane, name, take, takeCount, takeNumber, trim, muted, selec
           </div>
         )}
         <div
-          className={`vocal-take ${muted ? 'is-muted' : ''} ${selected ? 'is-selected' : ''}`}
+          className={`vocal-take ${muted ? 'is-muted' : ''} ${selected ? 'is-selected' : ''} ${movable ? 'is-movable' : ''} ${moving !== null ? 'is-moving' : ''}`}
           style={{ ...row, left, width }}
+          title={movable ? `${name}: drag to move it (hold ⌥ to move it off the beat)` : undefined}
+          {...(movable ? carry : {})}
           role="img"
           aria-label={`${name} waveform${takeCount > 1 ? `, take ${takeNumber} of ${takeCount}` : ''}${cut ? ', trimmed' : ''}`}
         >

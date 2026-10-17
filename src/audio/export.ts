@@ -5,7 +5,7 @@ import { createInstruments, createVocalRoom, loadPiano, midiToHz, routeVocal } f
 import { bassVoiceOf, instrumentOf, type Instrument } from './sound'
 import { createKit, DRUM_NOTES, KIT_VOLUME, playDrum } from './drums'
 import { zip } from './zip'
-import { toAudioBuffer, type Take } from './take'
+import { levelUpDb, toAudioBuffer, type Take } from './take'
 import type { Playback } from '../song'
 
 type ExportSong = Pick<Playback, 'key' | 'mode' | 'bpm' | 'timeSig' | 'chords' | 'sound' | 'arp'> & Partial<Pick<Playback, 'drums' | 'rhythm' | 'kicks' | 'chordsDb' | 'drumsDb'>>
@@ -200,8 +200,8 @@ async function render(song: ExportSong, parts: Parts, duration: number) {
     if (room) await room.ready
     for (const take of parts.takes) {
       const player = new Tone.Player(toAudioBuffer(take))
-      if (room) routeVocal(player, room, take.reverb ?? 0)
-      else player.toDestination()
+      // Through the same vocal chain as in playback.
+      routeVocal(player, room, take.reverb ?? 0, levelUpDb(take.samples, take.sampleRate))
       player.volume.value = take.db ?? 0
       player.start(take.startBeat * beatSeconds)
     }

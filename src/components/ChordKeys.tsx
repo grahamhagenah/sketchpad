@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { keyOf, useFields, useStore, type Chord } from '../store'
+import { useKeyFinder } from '../keyFinder'
 import { BORROWED, chordOf, keyLabel, nextChords, type ChordBass, type ChordColor } from '../music/theory'
 import { audition, holdChord } from '../audio/engine'
 import { Icon } from './Toolbar'
@@ -197,7 +198,8 @@ export function ChordKeys() {
   borrowedRef.current = BORROWED[mode]
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      // The same keys play notes into the key finder while it's open.
+      if (e.metaKey || e.ctrlKey || e.altKey || useKeyFinder.getState().open) return
       if (e.target instanceof Element && e.target.closest('input, select, textarea, [contenteditable]')) return
       const n = e.shiftKey ? /^Digit([1-7])$/.exec(e.code) : null
       const typed = e.shiftKey ? -1 : TYPED.indexOf(e.code)

@@ -1,14 +1,14 @@
 import * as Tone from 'tone'
-import { keyOf, useStore, loopRange, vocalTrackName, type Chord } from '../store'
+import { keyOf, recordLane, useStore, loopRange, vocalTrackName, type Chord } from '../store'
 import { bassNote, chordOf, voiceChord } from '../music/theory'
 import { arrange, playedSound, type Hit } from './arrange'
 import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Bass, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
-import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
+import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
-import { keepStorage, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
-import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
+import { concealDropouts, keepStorage, levelUpDb, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
+import { earliestMove, playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
 import { keepVocals } from '../history'
 import { quietly, showUndoNote } from '../undoNote'
 import { tally } from '../analytics'
@@ -88,6 +88,8 @@ class Engine {
   private players = new Map<string, Tone.Player>()
   /** Each take's send to the vocals' reverb, by id, and the reverb itself. */
   private sends = new Map<string, Tone.Gain>()
+  /** Each take's vocal chain, to take apart with the rest. */
+  private routes: { dispose: () => void }[] = []
   private vocalRoom!: Tone.Reverb
   private recording: Recording | null = null
   private ticksPerBeat = 192
@@ -139,7 +141,9 @@ class Engine {
     const take = this.audio.get(id)
     if (!player && take && this.ready) {
       player = new Tone.Player(toAudioBuffer(take))
-      this.sends.set(id, routeVocal(player, this.vocalRoom, 0))
+      const route = routeVocal(player, this.vocalRoom, 0, levelUpDb(take.samples, take.sampleRate))
+      this.sends.set(id, route.send)
+      this.routes.push(route)
       this.players.set(id, player)
     }
     return player ?? null
@@ -244,6 +248,22 @@ class Engine {
           setTimeout(() => this.onEnd?.(), Math.max(0, (time - Tone.immediate()) * 1000))
         }, `${loopEndTicks}i`)
     if (t.ticks < this.loopStartTicks || t.ticks >= loopEndTicks) t.ticks = this.loopStartTicks
+
+    // Already playing: a take muted (or otherwise dropped) stops now rather than
+    // at its end, and one unmuted part-way through comes in where it's got to.
+    if (t.state === 'started') {
+      const live = new Set(this.vocalSpans.map((v) => v.player))
+      this.players.forEach((player) => {
+        if (!live.has(player) && player.state === 'started') player.stop()
+      })
+      const q = t.ticks / t.PPQ
+      const time = Tone.now()
+      for (const v of this.vocalSpans) {
+        if (v.player.state !== 'started' && v.from < q && q < v.to) {
+          v.player.start(time, v.offset + (q - v.from) * this.secondsPerQuarter, (v.to - q) * this.secondsPerQuarter)
+        }
+      }
+    }
   }
 
   private playHit(ev: Hit, quarters: number, time: number) {
@@ -285,7 +305,8 @@ class Engine {
     this.vocalParts.forEach((part) => part.dispose())
     this.players.forEach((player) => player.dispose())
     this.players.clear()
-    this.sends.forEach((send) => send.dispose())
+    this.routes.forEach((route) => route.dispose())
+    this.routes = []
     this.sends.clear()
     if (this.ready) {
       this.vocalRoom.dispose()
@@ -329,13 +350,13 @@ class Engine {
    * plays from the loop's start while the mic records. Resolves once the
    * count-in has started.
    */
-  async record(song: Playback, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void; pass: (pass: number) => void }) {
+  async record(song: Playback, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void; pass: (pass: number) => void }) {
     await Tone.start()
     this.setup()
     const t = Tone.getTransport()
     t.stop()
     this.players.forEach((player) => player.stop())
-    const capture = await startCapture(stream)
+    const capture = await startCapture()
     // Scheduled further ahead while recording, so a moment's hold-up on the page (the browser tidying memory, say) can't make the music stutter under the singer.
     setLookAhead(RECORDING_LOOK_AHEAD)
 
@@ -408,6 +429,8 @@ class Engine {
     // Stopping now also cancels a transport start still waiting on the count-in.
     this.stop()
     const { startTime, samples } = await rec.capture.stop()
+    // The moments the browser gave no input, heard as clicks, smoothed over.
+    concealDropouts(samples)
     const sampleRate = Tone.getContext().sampleRate
     // Where the microphone heard the count-in's clicks (singing to speakers, it does), the round trip is measured
     // right there: the take is lined up by that, and the next ones too. On headphones it hears nothing, and the last measure stands.
@@ -450,6 +473,14 @@ class Engine {
    * would be in the song, for up to a bar at the song's tempo; otherwise struck
    * and held a moment.
    */
+  /** Sounds one note on the chords' sound, as a tune is played into the key finder. */
+  async playNote(midi: number) {
+    await Tone.start()
+    this.setup()
+    // Gently, and long enough to hear it as a note in a tune.
+    this.pad.triggerAttackRelease([midiToHz(midi)], 1, playNow(), 0.6)
+  }
+
   async audition(song: Pick<Playback, 'key' | 'mode' | 'timeSig' | 'bpm' | 'arp'>, chord: Chord) {
     await Tone.start()
     this.setup()
@@ -672,27 +703,25 @@ export async function toggleRecord() {
   if (s.recording !== 'off') return stopRecording()
   // Vocals belong to a section, so they're recorded in one, not over the whole song.
   if (!s.chords.length || s.view !== 'section') return
+  // Only into a vocal track that's been made and selected.
+  const lane = recordLane(s)
+  if (lane === null) return
   if (s.playing) {
     engine.stop()
     s.setPlaying(false)
   }
-  let stream: MediaStream
+  // Open already, as the track was picked; if it couldn't be then (refused, say), asked for again now.
   try {
     setAudioSession('play-and-record')
-    stream = await openMic()
+    await openMicEarly()
   } catch {
     setAudioSession('playback')
     window.alert(micProblem('record'))
     return
   }
-  // Record into the selected track, or else the first one without a take
-  // (adding a track if need be). With every lane full and none selected, the
-  // last take selected is replaced.
-  const free = s.takes.indexOf(null)
-  const lane = s.selectedVocal ?? (free === -1 ? s.armedLane : free)
   s.setArmedLane(lane)
   s.setRecording('count-in')
-  await engine.record(playbackOf(useStore.getState()), stream, lane, {
+  await engine.record(playbackOf(useStore.getState()), lane, {
     count: (n) => useStore.getState().setCountIn(n),
     pass: (n) => useStore.getState().setRecordPass(n),
     rolling: () => {
@@ -728,7 +757,8 @@ export async function checkLatency() {
     window.alert(micProblem('check the timing'))
     return
   } finally {
-    setAudioSession('playback')
+    // Back to playback, unless the mic stays open for a picked vocal track.
+    setAudioSession(wantsMic(useStore.getState()) ? 'play-and-record' : 'playback')
   }
   useStore.getState().setLatency(latency ?? useStore.getState().latency)
   window.alert(
@@ -740,7 +770,6 @@ export async function checkLatency() {
 
 async function stopRecording() {
   const result = await engine.finishRecording()
-  setAudioSession('playback')
   const s = useStore.getState()
   s.setRecording('off')
   s.setPlaying(false)
@@ -781,14 +810,34 @@ function takeSeconds(id: string) {
   return [...s.takes, ...s.allTakes.flat()].find((t) => t?.id === id)?.seconds ?? null
 }
 
-/** Trims a take, or with null plays it whole again; either way it keeps its nudge. */
+/**
+ * Changes part of how a take plays (its trim, nudge or move), keeping the
+ * rest; one that plays just as recorded is stored as no trim at all.
+ */
+function changeTrim(id: string, change: Partial<Trim>) {
+  const s = useStore.getState()
+  const seconds = takeSeconds(id)
+  if (seconds === null) return
+  const next: Trim = { ...(s.trims[id] ?? { start: 0, end: seconds }), ...change }
+  const asRecorded = next.start < 0.001 && next.end > seconds - 0.001 && Math.abs(next.nudge ?? 0) < 0.0005 && Math.abs(next.moved ?? 0) < 0.0005
+  s.setTrim(id, asRecorded ? null : next)
+}
+
+/** Trims a take, or with null plays it whole again; either way it keeps its nudge and move. */
 export function trimTake(id: string, trim: Trim | null) {
   keepVocals()
-  const s = useStore.getState()
-  const nudge = s.trims[id]?.nudge
   const seconds = takeSeconds(id)
-  if (trim) s.setTrim(id, nudge ? { ...trim, nudge } : trim)
-  else s.setTrim(id, nudge && seconds !== null ? { start: 0, end: seconds, nudge } : null)
+  if (seconds !== null) changeTrim(id, trim ? { start: trim.start, end: trim.end } : { start: 0, end: seconds })
+}
+
+/** Moves a take along the section to `beats` from where it was recorded, keeping its trim and nudge; undo puts it back. */
+export function moveTake(id: string, beats: number) {
+  const s = useStore.getState()
+  const take = [...s.takes, ...s.allTakes.flat()].find((t) => t?.id === id)
+  if (!take) return
+  keepVocals()
+  const beatSeconds = (60 / s.bpm) * (4 / s.timeSig[1])
+  changeTrim(id, { moved: Math.max(earliestMove(take, s.trims[id], beatSeconds), beats) })
 }
 
 /**
@@ -797,16 +846,11 @@ export function trimTake(id: string, trim: Trim | null) {
  */
 let lastNudge = 0
 export function nudgeTake(id: string, nudge: number) {
-  const s = useStore.getState()
-  const seconds = takeSeconds(id)
-  if (seconds === null) return
+  if (takeSeconds(id) === null) return
   // Clicks in a row undo together.
   if (Date.now() - lastNudge > 1500) keepVocals()
   lastNudge = Date.now()
-  const trim = s.trims[id]
-  const kept = { start: trim?.start ?? 0, end: trim?.end ?? seconds }
-  const cut = kept.start > 0.001 || kept.end < seconds - 0.001
-  s.setTrim(id, Math.abs(nudge) < 0.0005 ? (cut ? kept : null) : { ...kept, nudge })
+  changeTrim(id, { nudge: Math.abs(nudge) < 0.0005 ? undefined : nudge })
 }
 
 /**
@@ -819,12 +863,14 @@ export function learnFromNudge(nudge: number) {
   useStore.getState().setLatency(latency)
 }
 
-/** Deletes one of a track's takes, keeping the track and its others; undo brings it back. */
+/** Deletes one of a track's takes, keeping the track and its others (empty, if it was the only one); undo brings it back. */
 export function deleteOneTake(lane: number, id: string) {
-  const n = useStore.getState().allTakes[lane]?.findIndex((t) => t.id === id) ?? -1
+  const s = useStore.getState()
+  const all = s.allTakes[lane] ?? []
+  const n = all.findIndex((t) => t.id === id)
   keepVocals()
-  useStore.getState().dropTake(lane, id)
-  showUndoNote(n >= 0 ? `Deleted take ${n + 1}` : 'Deleted a take')
+  s.dropTake(lane, id)
+  showUndoNote(all.length > 1 && n >= 0 ? `Deleted take ${n + 1}` : `Deleted the take on ${vocalTrackName(s, lane)}`)
 }
 
 /** Puts a whole song's takes in its sections, as when opening a saved sketch. */
@@ -890,17 +936,46 @@ export function audition(chord: Chord, always = false) {
   if (always || !s.playing) void engine.audition({ ...keyOf(s), timeSig: s.timeSig, bpm: s.bpm, arp: s.arp }, chord)
 }
 
+/** Sounds one note (as MIDI, 60 for middle C), briefly, even with the song playing. */
+export async function playNote(midi: number) {
+  await engine.playNote(midi)
+}
+
 /** Sounds a chord while a key is held, even with the song playing; call what it returns to let go. */
 export function holdChord(chord: Chord) {
   const s = useStore.getState()
   return engine.hold({ ...keyOf(s), timeSig: s.timeSig, bpm: s.bpm, arp: s.arp }, chord)
 }
 
+/**
+ * The mic opens as soon as a vocal track is picked to record into, and stays
+ * open until none is. Safari stops all its audio for a moment when it starts
+ * taking input, and again about three seconds later; opened ahead of a take,
+ * that's over before the take starts, rather than a stutter under the singer.
+ */
+const wantsMic = (s: ReturnType<typeof useStore.getState>) => s.view === 'section' && recordLane(s) !== null
+const unsubscribeMic = useStore.subscribe((s, prev) => {
+  const want = wantsMic(s)
+  if (want === wantsMic(prev)) return
+  if (want) {
+    // Picking the track is a click, which lets the audio start too, so it doesn't start (and pause again) on Record.
+    void Tone.start()
+    setAudioSession('play-and-record')
+    // Refused, say: asked for again on Record, which says what's wrong.
+    openMicEarly().catch(() => setAudioSession('playback'))
+  } else {
+    closeMic()
+    setAudioSession('playback')
+  }
+})
+
 // In development, a code change reloads this module while Tone's transport
 // lives on; without this, the old copy's scheduled chords keep playing too.
 import.meta.hot?.dispose(() => {
   unsubscribe()
   unsubscribeLanes()
+  unsubscribeMic()
+  closeMic()
   engine.dispose()
   useStore.getState().setPlaying(false)
   useStore.getState().setRecording('off')

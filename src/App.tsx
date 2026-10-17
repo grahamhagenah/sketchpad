@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from './store'
-import { deleteTake, seek, togglePlay, toggleRecord } from './audio/engine'
+import { deleteOneTake, deleteTake, moveTake, seek, togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
 import { SectionBar, SongView } from './components/Sections'
@@ -19,6 +19,7 @@ import { RecordingSheet } from './components/RecordingSheet'
 import { useNarrow } from './hooks/useNarrow'
 import { ChordKeys, toggleChordKeys, useChordKeys } from './components/ChordKeys'
 import { LyricsPanel } from './components/Lyrics'
+import { KeyFinderSheet } from './components/KeyFinder'
 import { useLyricsPanel } from './lyricsPanel'
 
 function useShortcuts() {
@@ -76,10 +77,19 @@ function useShortcuts() {
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault()
         const dir = e.key === 'ArrowLeft' ? -1 : 1
+        const take = s.selectedVocal !== null ? s.takes[s.selectedVocal] : null
         if (e.altKey && sel) s.moveChord(sel.id, dir)
+        // ⌥← and ⌥→ move a selected take a beat at a time, as they move a chord.
+        else if (e.altKey && take && s.recording === 'off') moveTake(take.id, (s.trims[take.id]?.moved ?? 0) + dir)
         else s.selectRelative(dir)
       } else if ((e.key === 'Backspace' || e.key === 'Delete') && s.selectedVocal !== null && s.recording === 'off') {
         e.preventDefault()
+        const take = s.takes[s.selectedVocal]
+        // On the timeline, a selected take is deleted and its track kept; from the track's header (or with no take), the track goes.
+        if (take && !target.closest('.track-header')) {
+          deleteOneTake(s.selectedVocal, take.id)
+          return
+        }
         // The focused row now belongs to the track that moved up; don't leave a focus ring on it.
         if (target.closest('.vocal-row, .track-header')) target.blur()
         void deleteTake(s.selectedVocal)
@@ -198,7 +208,9 @@ export default function App() {
         </section>
       </main>
       <StatusBar />
-      {toolSheet ? (
+      {toolSheet === 'key' ? (
+        <KeyFinderSheet />
+      ) : toolSheet ? (
         <ToolSheet which={toolSheet} />
       ) : lyricsSheet ? (
         <LyricsPanel sheet />

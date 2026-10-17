@@ -2,10 +2,9 @@ import { chordsTrackName, keyOf, totalBeats, useFields, type Chord } from '../st
 import { canMakeMajor, chordOf, type ChordBass, type ChordColor } from '../music/theory'
 import { audition } from '../audio/engine'
 import { DEFAULT_CHORDS_COLOR } from '../colors'
-import { CloseButton, LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
+import { LevelSlider, MuteSoloRow, TrackSheet } from './TrackSheet'
 import { VocalPad } from './VocalPad'
 import { DrumPad } from './DrumPad'
-import { ChordPad } from './ChordPad'
 import { KeysIcon } from './Timeline'
 import { InspectorButton } from './InspectorToggle'
 
@@ -24,8 +23,8 @@ const BASSES: { id: ChordBass | undefined; label: string }[] = [
 /**
  * On a wider screen, a column beside the track names with the settings of
  * whatever's selected, the same ones a phone shows in the sheet along the
- * bottom: a chord, the chords track, a vocal track or the drum track; with
- * nothing selected, the chord pad, to hear the key's chords and add them.
+ * bottom: a chord, a vocal track or the drum track; otherwise the chords
+ * track's, as the track every section has.
  */
 export function Inspector() {
   const s = useFields('chords', 'chordsTrackSelected', 'drumTrack', 'drumsTrackSelected', 'selectedId', 'selectedVocal')
@@ -35,9 +34,7 @@ export function Inspector() {
   if (chord) [body, title] = [<ChordPanel chord={chord} />, 'Chord settings']
   else if (s.selectedVocal !== null) [body, title] = [<VocalPad lane={s.selectedVocal} docked />, 'Track settings']
   else if (s.drumsTrackSelected && s.drumTrack) [body, title] = [<DrumPad docked />, 'Track settings']
-  else if (s.chordsTrackSelected && s.chords.length) [body, title] = [<ChordsTrackPad docked />, 'Track settings']
-  // With nothing selected, the key's chords to hear and add, as a phone has along the bottom.
-  else [body, title] = [<ChordPad docked />, 'Add chords']
+  else [body, title] = [<ChordsTrackPad docked />, 'Track settings']
   return (
     <aside className="inspector" aria-label={title}>
       <div className="inspector-body">
@@ -75,11 +72,13 @@ export function ChordsTrackPad({ docked }: { docked?: boolean }) {
         onSolo={s.toggleChordsSolo}
       />
       <LevelSlider value={s.chordsVolume} onChange={s.setChordsVolume} />
-      <div className="chord-pad-actions">
-        <button type="button" className="chord-pad-replace" onClick={s.clearChords} title="Clear every chord in this section; undo brings them back">
-          Clear chords
-        </button>
-      </div>
+      {s.chords.length > 0 && (
+        <div className="chord-pad-actions">
+          <button type="button" className="chord-pad-replace" onClick={s.clearChords} title="Clear every chord in this section; undo brings them back">
+            Clear chords
+          </button>
+        </div>
+      )}
     </TrackSheet>
   )
 }
@@ -104,7 +103,6 @@ function ChordPanel({ chord }: { chord: Chord }) {
           {info.name}
           <span className="chord-pad-roman">{info.roman}</span>
         </span>
-        <CloseButton onClick={() => s.select(null)} title="Back to the section (Esc)" />
       </div>
 
       <label className="inspector-field">
