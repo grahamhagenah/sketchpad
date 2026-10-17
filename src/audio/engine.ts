@@ -5,7 +5,7 @@ import { arrange, playedSound, type Hit } from './arrange'
 import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Bass, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
-import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, openMic, roundTrip, startCapture, type Capture } from './recorder'
+import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
 import { keepStorage, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
@@ -345,13 +345,13 @@ class Engine {
    * plays from the loop's start while the mic records. Resolves once the
    * count-in has started.
    */
-  async record(song: Playback, stream: MediaStream, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void; pass: (pass: number) => void }) {
+  async record(song: Playback, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void; pass: (pass: number) => void }) {
     await Tone.start()
     this.setup()
     const t = Tone.getTransport()
     t.stop()
     this.players.forEach((player) => player.stop())
-    const capture = await startCapture(stream)
+    const capture = await startCapture()
     // Scheduled further ahead while recording, so a moment's hold-up on the page (the browser tidying memory, say) can't make the music stutter under the singer.
     setLookAhead(RECORDING_LOOK_AHEAD)
 
@@ -695,10 +695,10 @@ export async function toggleRecord() {
     engine.stop()
     s.setPlaying(false)
   }
-  let stream: MediaStream
+  // Open already, as the track was picked; if it couldn't be then (refused, say), asked for again now.
   try {
     setAudioSession('play-and-record')
-    stream = await openMic()
+    await openMicEarly()
   } catch {
     setAudioSession('playback')
     window.alert(micProblem('record'))
@@ -706,7 +706,7 @@ export async function toggleRecord() {
   }
   s.setArmedLane(lane)
   s.setRecording('count-in')
-  await engine.record(playbackOf(useStore.getState()), stream, lane, {
+  await engine.record(playbackOf(useStore.getState()), lane, {
     count: (n) => useStore.getState().setCountIn(n),
     pass: (n) => useStore.getState().setRecordPass(n),
     rolling: () => {
@@ -742,7 +742,8 @@ export async function checkLatency() {
     window.alert(micProblem('check the timing'))
     return
   } finally {
-    setAudioSession('playback')
+    // Back to playback, unless the mic stays open for a picked vocal track.
+    setAudioSession(wantsMic(useStore.getState()) ? 'play-and-record' : 'playback')
   }
   useStore.getState().setLatency(latency ?? useStore.getState().latency)
   window.alert(
@@ -754,7 +755,6 @@ export async function checkLatency() {
 
 async function stopRecording() {
   const result = await engine.finishRecording()
-  setAudioSession('playback')
   const s = useStore.getState()
   s.setRecording('off')
   s.setPlaying(false)
@@ -910,11 +910,35 @@ export function holdChord(chord: Chord) {
   return engine.hold({ ...keyOf(s), timeSig: s.timeSig, bpm: s.bpm, arp: s.arp }, chord)
 }
 
+/**
+ * The mic opens as soon as a vocal track is picked to record into, and stays
+ * open until none is. Safari stops all its audio for a moment when it starts
+ * taking input, and again about three seconds later; opened ahead of a take,
+ * that's over before the take starts, rather than a stutter under the singer.
+ */
+const wantsMic = (s: ReturnType<typeof useStore.getState>) => s.view === 'section' && recordLane(s) !== null
+const unsubscribeMic = useStore.subscribe((s, prev) => {
+  const want = wantsMic(s)
+  if (want === wantsMic(prev)) return
+  if (want) {
+    // Picking the track is a click, which lets the audio start too, so it doesn't start (and pause again) on Record.
+    void Tone.start()
+    setAudioSession('play-and-record')
+    // Refused, say: asked for again on Record, which says what's wrong.
+    openMicEarly().catch(() => setAudioSession('playback'))
+  } else {
+    closeMic()
+    setAudioSession('playback')
+  }
+})
+
 // In development, a code change reloads this module while Tone's transport
 // lives on; without this, the old copy's scheduled chords keep playing too.
 import.meta.hot?.dispose(() => {
   unsubscribe()
   unsubscribeLanes()
+  unsubscribeMic()
+  closeMic()
   engine.dispose()
   useStore.getState().setPlaying(false)
   useStore.getState().setRecording('off')
