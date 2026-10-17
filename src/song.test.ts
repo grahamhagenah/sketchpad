@@ -94,6 +94,15 @@ describe('trimming a take', () => {
     expect(playbackOf(get()).vocals[0]).toMatchObject({ startBeat: 3.5, seconds: 2, offset: 1 })
   })
 
+  it('plays a take dragged along by however many beats it was moved, with its trim and nudge', () => {
+    get().setTake(0, take('moved', 2, 4))
+    get().setTrim('moved', { start: 0, end: 4, moved: 3 })
+    expect(playbackOf(get()).vocals[0]).toMatchObject({ startBeat: 5, seconds: 4, offset: 0 })
+    // Earlier, trimmed and nudged too: 2 - 1 beats, plus a second cut (2 beats), less a quarter second (half a beat).
+    get().setTrim('moved', { start: 1, end: 3, nudge: -0.25, moved: -1 })
+    expect(playbackOf(get()).vocals[0]).toMatchObject({ startBeat: 2.5, seconds: 2, offset: 1 })
+  })
+
   it('keeps a trim inside the take, and at least a fifth of a second long', () => {
     get().setTake(0, take('short', 0, 1))
     get().setTrim('short', { start: 0.95, end: 5 })

@@ -795,14 +795,30 @@ function takeSeconds(id: string) {
   return [...s.takes, ...s.allTakes.flat()].find((t) => t?.id === id)?.seconds ?? null
 }
 
-/** Trims a take, or with null plays it whole again; either way it keeps its nudge. */
+/**
+ * Changes part of how a take plays (its trim, nudge or move), keeping the
+ * rest; one that plays just as recorded is stored as no trim at all.
+ */
+function changeTrim(id: string, change: Partial<Trim>) {
+  const s = useStore.getState()
+  const seconds = takeSeconds(id)
+  if (seconds === null) return
+  const next: Trim = { ...(s.trims[id] ?? { start: 0, end: seconds }), ...change }
+  const asRecorded = next.start < 0.001 && next.end > seconds - 0.001 && Math.abs(next.nudge ?? 0) < 0.0005 && Math.abs(next.moved ?? 0) < 0.0005
+  s.setTrim(id, asRecorded ? null : next)
+}
+
+/** Trims a take, or with null plays it whole again; either way it keeps its nudge and move. */
 export function trimTake(id: string, trim: Trim | null) {
   keepVocals()
-  const s = useStore.getState()
-  const nudge = s.trims[id]?.nudge
   const seconds = takeSeconds(id)
-  if (trim) s.setTrim(id, nudge ? { ...trim, nudge } : trim)
-  else s.setTrim(id, nudge && seconds !== null ? { start: 0, end: seconds, nudge } : null)
+  if (seconds !== null) changeTrim(id, trim ? { start: trim.start, end: trim.end } : { start: 0, end: seconds })
+}
+
+/** Moves a take along the section to `beats` from where it was recorded, keeping its trim and nudge; undo puts it back. */
+export function moveTake(id: string, beats: number) {
+  keepVocals()
+  changeTrim(id, { moved: beats })
 }
 
 /**
@@ -811,16 +827,11 @@ export function trimTake(id: string, trim: Trim | null) {
  */
 let lastNudge = 0
 export function nudgeTake(id: string, nudge: number) {
-  const s = useStore.getState()
-  const seconds = takeSeconds(id)
-  if (seconds === null) return
+  if (takeSeconds(id) === null) return
   // Clicks in a row undo together.
   if (Date.now() - lastNudge > 1500) keepVocals()
   lastNudge = Date.now()
-  const trim = s.trims[id]
-  const kept = { start: trim?.start ?? 0, end: trim?.end ?? seconds }
-  const cut = kept.start > 0.001 || kept.end < seconds - 0.001
-  s.setTrim(id, Math.abs(nudge) < 0.0005 ? (cut ? kept : null) : { ...kept, nudge })
+  changeTrim(id, { nudge: Math.abs(nudge) < 0.0005 ? undefined : nudge })
 }
 
 /**
@@ -833,12 +844,14 @@ export function learnFromNudge(nudge: number) {
   useStore.getState().setLatency(latency)
 }
 
-/** Deletes one of a track's takes, keeping the track and its others; undo brings it back. */
+/** Deletes one of a track's takes, keeping the track and its others (empty, if it was the only one); undo brings it back. */
 export function deleteOneTake(lane: number, id: string) {
-  const n = useStore.getState().allTakes[lane]?.findIndex((t) => t.id === id) ?? -1
+  const s = useStore.getState()
+  const all = s.allTakes[lane] ?? []
+  const n = all.findIndex((t) => t.id === id)
   keepVocals()
-  useStore.getState().dropTake(lane, id)
-  showUndoNote(n >= 0 ? `Deleted take ${n + 1}` : 'Deleted a take')
+  s.dropTake(lane, id)
+  showUndoNote(all.length > 1 && n >= 0 ? `Deleted take ${n + 1}` : `Deleted the take on ${vocalTrackName(s, lane)}`)
 }
 
 /** Puts a whole song's takes in its sections, as when opening a saved sketch. */

@@ -62,6 +62,11 @@ export function VocalPad({ lane, docked }: { lane: number; docked?: boolean }) {
           <span className="vocal-pad-record-dot" aria-hidden="true" />
           {take ? 'Record another take' : 'Record'}
         </button>
+        {take && (
+          <button type="button" className="chord-pad-replace" disabled={s.recording !== 'off'} onClick={() => deleteOneTake(lane, take.id)} title="Delete the take that plays, keeping the track (Delete); undo brings it back">
+            Delete take
+          </button>
+        )}
         <button type="button" className="chord-pad-replace" onClick={() => void deleteTake(lane)} title="Delete this track and its takes; undo brings it back">
           Delete track
         </button>

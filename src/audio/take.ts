@@ -30,6 +30,8 @@ export interface Trim {
   end: number
   /** How far the take is moved from where it was recorded, in seconds (earlier when less than 0), to line it up by ear. */
   nudge?: number
+  /** How many beats the take is dragged along from where it was recorded (earlier when less than 0): where it goes in the section, rather than lining it up. */
+  moved?: number
 }
 
 /** Whether a trim cuts anything off the take, rather than only moving it. */

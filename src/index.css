@@ -945,6 +945,10 @@ main > .panel {
   pointer-events: none;
 }
 .vocal-take.is-muted { filter: grayscale(1); opacity: 0.45; }
+/* A take can be dragged along to another beat; on a touch screen once it's selected, so a swipe across the others scrolls. */
+.vocal-take.is-movable { pointer-events: auto; cursor: grab; }
+.vocal-take.is-movable.is-selected { touch-action: none; }
+.vocal-take.is-moving { z-index: 1; cursor: grabbing; }
 .vocal-take { display: flex; align-items: center; gap: 2px; padding: 0 3px; }
 /* The waveform, faintly in the track's colour, so takes on different tracks are told apart. */
 .vocal-take span { flex: none; width: 2px; border-radius: 1px; background: color-mix(in srgb, var(--track) 55%, var(--muted)); }

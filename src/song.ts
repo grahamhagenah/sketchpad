@@ -84,13 +84,14 @@ export function songBeatOf(s: Pick<State, 'arrangement' | 'sections' | 'activeSe
 /**
  * Where a take plays, trimmed: its trimmed start moved later by what's cut,
  * for as long as is left, skipping that much of its audio, and earlier or
- * later still by its nudge. A whole take is as it was.
+ * later still by its nudge and by the beats it's been dragged along. A whole
+ * take is as it was.
  */
 function trimmedPlacement(take: TakeInfo, trim: Trim | undefined, beatSeconds: number) {
   if (!trim) return { startBeat: take.startBeat, seconds: take.seconds }
   const { start, end } = trimOf(take, trim)
   // Nudged, all of it moves earlier or later by that much.
-  return { startBeat: take.startBeat + (start + (trim.nudge ?? 0)) / beatSeconds, seconds: end - start, offset: start }
+  return { startBeat: take.startBeat + (trim.moved ?? 0) + (start + (trim.nudge ?? 0)) / beatSeconds, seconds: end - start, offset: start }
 }
 
 /**
