@@ -1,4 +1,5 @@
 import * as Tone from 'tone'
+import { useRecordPrefs } from '../recordPrefs'
 
 // Gathers the microphone's input into blocks of about a sixth of a second
 // and hands each to the page, with the audio clock's frame number of its
@@ -85,10 +86,24 @@ export function micProblem(doing: string) {
   return `Bounce needs the microphone to ${doing}. Allow it in your browser’s site settings, then try again.`
 }
 
-export function openMic() {
-  return navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-  })
+export async function openMic() {
+  const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+  const { micId } = useRecordPrefs.getState()
+  if (micId) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: { ...audio, deviceId: { exact: micId } } })
+    } catch (error) {
+      // The one picked is gone (unplugged, say): the browser's own, rather than none. Refused stays refused.
+      if (error instanceof DOMException && error.name === 'NotAllowedError') throw error
+    }
+  }
+  return navigator.mediaDevices.getUserMedia({ audio })
+}
+
+/** The microphones there are to pick from. Their names show only once the microphone has been allowed. */
+export async function listMics(): Promise<MediaDeviceInfo[]> {
+  if (!navigator.mediaDevices?.enumerateDevices) return []
+  return (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput')
 }
 
 export interface Capture {
@@ -114,6 +129,8 @@ interface Mic {
   analyser: AnalyserNode
   /** The blocks of the take under way, as they arrive. */
   chunks: { frame: number; data: Float32Array }[]
+  /** Your voice back to you, while singing, if you've asked to hear yourself (on headphones; on speakers it would feed back). */
+  monitor: GainNode
 }
 
 let mic: Promise<Mic> | null = null
@@ -138,7 +155,11 @@ async function openCapture(): Promise<Mic> {
   const analyser = ctx.createAnalyser()
   analyser.fftSize = 1024
   source.connect(analyser)
-  const m: Mic = { stream, source, node, analyser, chunks: [] }
+  const monitor = ctx.createGain()
+  monitor.gain.value = 0
+  source.connect(monitor)
+  monitor.connect(ctx.rawContext.destination)
+  const m: Mic = { stream, source, node, analyser, chunks: [], monitor }
   node.port.onmessage = (e) => m.chunks.push(e.data)
   // Unplugged, or taken away in the browser's settings: opened afresh next time.
   stream.getAudioTracks()[0]?.addEventListener('ended', () => shut(m))
@@ -185,6 +206,7 @@ function shut(m: Mic) {
   m.source.disconnect()
   m.node.disconnect()
   m.analyser.disconnect()
+  m.monitor.disconnect()
   m.stream.getTracks().forEach((t) => t.stop())
   open = null
   mic = null
@@ -208,6 +230,20 @@ export async function openMicEarly() {
   shutIfIdle()
 }
 
+/** Your voice in your ears while a take is under way, if you've asked for it. */
+function hearSelf(m: Mic, taking: boolean) {
+  m.monitor.gain.value = taking && useRecordPrefs.getState().monitor ? 1 : 0
+}
+
+// Turned on or off mid-take, it's heard (or not) at once; another microphone picked, the open one is swapped for it between takes.
+useRecordPrefs.subscribe((prefs, before) => {
+  if (open && capturing) hearSelf(open, true)
+  if (prefs.micId !== before.micId && open && !capturing) {
+    shut(open)
+    if (wanted) void micNow().catch(() => undefined)
+  }
+})
+
 /** Closes the microphone, or once the take using it ends. */
 export function closeMic() {
   wanted = false
@@ -227,6 +263,8 @@ export async function startCapture(): Promise<Capture> {
   }
   m.chunks = []
   m.node.port.postMessage('start')
+  // Heard while singing, if asked for; silent again when the take stops.
+  hearSelf(m, true)
   const track = m.stream.getAudioTracks()[0]
   const settings = track?.getSettings() as (MediaTrackSettings & { latency?: number }) | undefined
   const frame = new Float32Array(m.analyser.fftSize)
@@ -241,6 +279,7 @@ export async function startCapture(): Promise<Capture> {
     },
     stop: async () => {
       m.node.port.postMessage('stop')
+      hearSelf(m, false)
       // Let the last block arrive.
       await new Promise((r) => setTimeout(r, 100))
       const chunks = m.chunks

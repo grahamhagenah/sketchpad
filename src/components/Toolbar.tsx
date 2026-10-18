@@ -7,6 +7,7 @@ import { redo, undo, useHistory } from '../history'
 import { ArpButton, SoundButton } from './SoundPanel'
 import { Position } from './Position'
 import { SongTitle } from './SongTitle'
+import { RecordOptionsButton } from './RecordOptions'
 import { AccountButton } from './Account'
 
 /** The one bar for playback, song settings and editing the selected chord. */
@@ -173,6 +174,8 @@ export function Toolbar() {
           </button>
           {playButton}
           <RecordButton />
+          {/* Which microphone, the count-in, hearing yourself; on a phone, in a vocal track's settings. */}
+          <RecordOptionsButton />
         </div>
       </div>
 

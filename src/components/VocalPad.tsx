@@ -1,5 +1,6 @@
 import { useFields, useStore, vocalTrackName } from '../store'
-import { checkLatency, deleteOneTake, deleteTake, learnFromNudge, nudgeTake, toggleRecord, trimTake } from '../audio/engine'
+import { RecordOptions } from './RecordOptions'
+import { deleteOneTake, deleteTake, learnFromNudge, nudgeTake, toggleRecord, trimTake } from '../audio/engine'
 import { cuts, trimOf, type TakeInfo, type Trim } from '../audio/take'
 import { vocalColorId } from '../colors'
 import { LevelSlider, MuteSoloRow, SheetSlider, TrackSheet } from './TrackSheet'
@@ -46,15 +47,11 @@ export function VocalPad({ lane, docked }: { lane: number; docked?: boolean }) {
       <SheetSlider label="Reverb" min={0} max={1} step={0.01} value={reverb} text={`${Math.round(reverb * 100)}%`} onChange={(v) => s.setVocalReverb(lane, v)} />
       {take && <Takes lane={lane} take={take} all={all.length ? all : [take]} trims={s.trims} locked={s.recording !== 'off'} />}
       {take && <Timing id={take.id} nudge={s.trims[take.id]?.nudge ?? 0} locked={s.recording !== 'off'} />}
-      {/* How late this device's recordings arrive, measured so takes line up with the beat. */}
-      <button
-        type="button"
-        className="track-sheet-link"
-        onClick={() => void checkLatency()}
-        title="Play a few clicks and listen for them, so takes line up with the beat on this device"
-      >
-        {s.latency === null ? 'Check recording timing' : `Recording timing ${Math.round(s.latency * 1000)} ms · check again`}
-      </button>
+      {/* How this device records (the microphone, the count-in, hearing yourself, the timing), folded away until wanted. */}
+      <details className="record-options-fold">
+        <summary>Recording options</summary>
+        <RecordOptions />
+      </details>
 
       {/* Recording first, the width of the panel, then deleting the track under it. */}
       <div className="chord-pad-actions vocal-pad-actions">
