@@ -50,7 +50,6 @@ function SignedIn({ email }: { email: string }) {
     <div className="menu-item account-row">
       <span className="menu-item-title">Signed in</span>
       <span className="menu-item-about account-email">{email}</span>
-      <span className="menu-item-about">Your songs are saved to your account and sync across your devices.</span>
       {/* Whether this device's songs are in step with the account's. */}
       <span className={`account-sync is-${sync.state}`}>
         {sync.state === 'syncing'
@@ -94,10 +93,8 @@ function SignIn({ linkError }: { linkError: string | null }) {
   return (
     <>
       <div className="menu-item account-row">
-        <span className="menu-item-title">Sign in to keep your songs everywhere</span>
-        <span className="menu-item-about">
-          Without an account, songs are saved only in this browser. Sign in to save them to your account and sync them across your devices. The first sign-in makes the account: no password, just a link we email you.
-        </span>
+        <span className="menu-item-title">Sign in to sync your songs</span>
+        <span className="menu-item-about">Keep them on all your devices. No password: we email you a link.</span>
       </div>
       <form
         className="account-form"
