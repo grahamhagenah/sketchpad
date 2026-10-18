@@ -1,4 +1,5 @@
 import { newId } from '../id'
+import { canPack, pack, unpack } from './pack'
 
 /** A recorded vocal: mono samples that start at a beat of the song. */
 export interface Take {
@@ -74,8 +75,70 @@ export function takeInfo(take: Take): TakeInfo {
 
 export function toAudioBuffer(take: Take) {
   const buffer = new AudioBuffer({ length: Math.max(1, take.samples.length), sampleRate: take.sampleRate, numberOfChannels: 1 })
-  buffer.copyToChannel(take.samples as Float32Array<ArrayBuffer>, 0)
+  // Played (and exported) with the room's hiss, and the song leaking in from the speakers, turned down between the lines; the take as kept is untouched.
+  buffer.copyToChannel(gateQuiet(take.samples, take.sampleRate) as Float32Array<ArrayBuffer>, 0)
   return buffer
+}
+
+/** A twentieth of a second at a time, each stretch's loudness, in dB. */
+function stretchesDb(samples: Float32Array, size: number) {
+  const out: number[] = []
+  for (let i = 0; i + size <= samples.length; i += size) {
+    let sum = 0
+    for (let j = i; j < i + size; j++) sum += samples[j] * samples[j]
+    out.push(10 * Math.log10(sum / size + 1e-12))
+  }
+  return out
+}
+const percentile = (sorted: number[], p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))]
+
+/** How far the gate turns down what isn't singing: well down, not out, so the take doesn't sound chopped. */
+const GATE_DOWN_DB = 26
+
+/**
+ * A copy of a take with the quiet between the lines turned down: what's
+ * barely above its quietest (the room's hiss, and the song leaking in from
+ * the speakers, heard as a beat in the hiss) drops away, while the singing is
+ * left as it was. It opens a moment before each line, so a word's start isn't
+ * clipped, holds through short breaths, and fades in and out smoothly.
+ */
+export function gateQuiet(samples: Float32Array, sampleRate: number): Float32Array {
+  const size = Math.max(1, Math.round(sampleRate * 0.01))
+  const db = stretchesDb(samples, size)
+  if (db.length < 10) return samples
+  const sorted = [...db].sort((a, b) => a - b)
+  const floor = percentile(sorted, 0.1)
+  const loud = percentile(sorted, 0.95)
+  // Singing stands well clear of the room; between the two, nearer the room, is where it closes. With nothing sung, all of it is room.
+  const threshold = Math.max(floor + 10, loud - 36)
+  const open = db.map((d) => d >= threshold)
+  // Open a little early (the start of a word) and held a while after (a breath, a word's tail).
+  const early = Math.round(0.03 / 0.01)
+  const hold = Math.round(0.2 / 0.01)
+  // For each stretch, the next one that's open (or none), to open ahead of it.
+  const nextOpen = new Int32Array(db.length)
+  for (let i = db.length - 1, next = -1; i >= 0; i--) {
+    if (open[i]) next = i
+    nextOpen[i] = next
+  }
+  const down = Math.pow(10, -GATE_DOWN_DB / 20)
+  const want = new Float32Array(db.length)
+  for (let i = 0, last = -Infinity; i < db.length; i++) {
+    if (open[i]) last = i
+    const soon = nextOpen[i] !== -1 && nextOpen[i] - i <= early
+    want[i] = open[i] || soon || i - last <= hold ? 1 : down
+  }
+  // Smoothly, sample by sample: quick to open, slower to close.
+  const attack = 1 - Math.exp(-1 / (0.005 * sampleRate))
+  const release = 1 - Math.exp(-1 / (0.12 * sampleRate))
+  const out = new Float32Array(samples.length)
+  let gain = want[0]
+  for (let i = 0; i < samples.length; i++) {
+    const target = want[Math.min(want.length - 1, Math.floor(i / size))]
+    gain += (target - gain) * (target > gain ? attack : release)
+    out[i] = samples[i] * gain
+  }
+  return out
 }
 
 /**
@@ -124,9 +187,12 @@ export function concealDropouts(samples: Float32Array) {
  * How far to raise a take so its singing sits at a steady level, in dB: from
  * how loud its loudest half is, a twentieth of a second at a time (so the
  * quiet between lines doesn't count), up to `target`. A take is never turned
- * down, nor up by more than 18 dB, which would only raise the room's hiss.
+ * down, nor up by more than 18 dB, which would only raise the room's hiss;
+ * and one with no singing in it (its loudest hardly above its quietest) isn't
+ * raised at all, so a silent take stays quiet rather than a loud hiss.
  */
 export function levelUpDb(samples: Float32Array, sampleRate: number, target = -20) {
+  if (!hasSinging(samples, sampleRate)) return 0
   const size = Math.max(1, Math.round(sampleRate * 0.05))
   const power: number[] = []
   for (let i = 0; i + size <= samples.length; i += size) {
@@ -140,6 +206,14 @@ export function levelUpDb(samples: Float32Array, sampleRate: number, target = -2
   const rms = Math.sqrt(loud.reduce((a, b) => a + b, 0) / loud.length)
   if (rms < 1e-5) return 0
   return Math.max(0, Math.min(18, target - 20 * Math.log10(rms)))
+}
+
+/** Whether a take has anything sung in it: its loud parts stand well above its quietest, as a voice does over a room. */
+export function hasSinging(samples: Float32Array, sampleRate: number) {
+  const db = stretchesDb(samples, Math.max(1, Math.round(sampleRate * 0.05)))
+  if (db.length < 4) return false
+  const sorted = [...db].sort((a, b) => a - b)
+  return percentile(sorted, 0.95) - percentile(sorted, 0.1) >= 15
 }
 
 // ---- Keeping takes between visits (too big for localStorage) ----
@@ -443,26 +517,36 @@ export async function missingAudio(ids: Iterable<string>): Promise<string[]> {
 
 /**
  * A take's audio as bytes, to keep elsewhere: a line of JSON (where it
- * starts, its tempo and sample rate), then its 16-bit samples. Null if it
+ * starts, its tempo and sample rate), then its 16-bit samples, packed
+ * smaller where the browser can (see pack.ts; the line says so). Null if it
  * isn't on this device.
  */
 export async function audioBytes(id: string): Promise<Blob | null> {
   const stored = await idb<StoredTake | undefined>(AUDIO, 'readonly', (s) => s.get(id))
   if (!stored) return null
   const { startBeat, bpm, sampleRate, pcm } = stored
-  return new Blob([JSON.stringify({ startBeat, bpm, sampleRate }) + '\n', pcm], { type: 'application/octet-stream' })
+  if (!canPack()) return new Blob([JSON.stringify({ startBeat, bpm, sampleRate }) + '\n', pcm], { type: 'application/octet-stream' })
+  const packed = await pack(pcm)
+  return new Blob([JSON.stringify({ startBeat, bpm, sampleRate, packed: PACKED, samples: pcm.length }) + '\n', packed], { type: 'application/octet-stream' })
 }
 
-/** Reads audioBytes back: the take as stored, or null if they aren't a take's. */
-export function storedFromBytes(bytes: ArrayBuffer): StoredTake | null {
+/** How audioBytes says its samples are packed. */
+const PACKED = 'delta-planes-gzip'
+
+/** Reads audioBytes back, packed or not (as the first uploads were): the take as stored, or null if they aren't a take's. */
+export async function storedFromBytes(bytes: ArrayBuffer): Promise<StoredTake | null> {
   const all = new Uint8Array(bytes)
   const line = all.indexOf(10)
   if (line < 0) return null
   try {
-    const head = JSON.parse(new TextDecoder().decode(all.subarray(0, line))) as Partial<StoredTake>
+    const head = JSON.parse(new TextDecoder().decode(all.subarray(0, line))) as Partial<StoredTake> & { packed?: string; samples?: number }
     if (typeof head.startBeat !== 'number' || typeof head.bpm !== 'number' || typeof head.sampleRate !== 'number') return null
-    const pcm = new Int16Array(bytes.slice(line + 1, line + 1 + Math.floor((bytes.byteLength - line - 1) / 2) * 2))
-    return { startBeat: head.startBeat, bpm: head.bpm, sampleRate: head.sampleRate, pcm }
+    const take = { startBeat: head.startBeat, bpm: head.bpm, sampleRate: head.sampleRate }
+    if (head.packed === undefined) return { ...take, pcm: new Int16Array(bytes.slice(line + 1, line + 1 + Math.floor((bytes.byteLength - line - 1) / 2) * 2)) }
+    if (head.packed !== PACKED) return null
+    const pcm = await unpack(all.subarray(line + 1))
+    // Every sample back, or it's been cut short on the way.
+    return pcm.length === head.samples ? { ...take, pcm } : null
   } catch {
     return null
   }
@@ -470,7 +554,7 @@ export function storedFromBytes(bytes: ArrayBuffer): StoredTake | null {
 
 /** Keeps a take's audio that came from elsewhere (audioBytes), unless it's on the device already. */
 export async function keepAudioBytes(id: string, bytes: ArrayBuffer) {
-  const stored = storedFromBytes(bytes)
+  const stored = await storedFromBytes(bytes)
   if (!stored) throw new Error('A recording came back damaged.')
   await write([AUDIO], (tx) => {
     const audio = tx.objectStore(AUDIO)
