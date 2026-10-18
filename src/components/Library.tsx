@@ -23,13 +23,15 @@ import {
 } from '../library'
 import { SONG_TEMPLATES } from '../songs'
 import { AccountSection } from './Account'
+import { useAccount } from '../cloud'
 
 /**
  * One button for the sketch file: save, start a new sketch, or open a saved
  * one. A dot on it means there are unsaved changes; ⌘S saves without opening it.
  */
 export function SketchesButton() {
-  const [open, setOpen] = useState(false)
+  // Open already when a sign-in link came back refused, to say why where they sign in.
+  const [open, setOpen] = useState(() => !!useAccount.getState().linkError)
   const close = useCallback(() => setOpen(false), [])
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(open, close, ref)

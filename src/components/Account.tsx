@@ -6,8 +6,9 @@ import { sendSignInLink, signOut, supabase, useAccount } from '../cloud'
  * (a link to tap, no password); signed in, who as, and signing out.
  */
 export function AccountSection() {
-  const { email, ready } = useAccount()
-  const [open, setOpen] = useState(false)
+  const { email, ready, linkError } = useAccount()
+  // Back from a link that was refused: the form's open, saying why.
+  const [open, setOpen] = useState(!!linkError)
   const [typed, setTyped] = useState('')
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | { error: string }>('idle')
   if (!supabase || !ready) return null
@@ -57,7 +58,7 @@ export function AccountSection() {
             setState('sending')
             sendSignInLink(typed)
               .then(() => setState('sent'))
-              .catch((error: unknown) => setState({ error: error instanceof Error ? error.message : 'Bounce couldn’t send the link. Try again in a moment.' }))
+              .catch((error: unknown) => setState({ error: error instanceof Error ? error.message : 'Bounce couldn’t send the link. Check your connection and try again.' }))
           }}
         >
           <input
@@ -74,7 +75,7 @@ export function AccountSection() {
           <button type="submit" className="account-send" disabled={state === 'sending'}>
             {state === 'sending' ? 'Sending…' : 'Send link'}
           </button>
-          {typeof state === 'object' && <p className="account-error">{state.error}</p>}
+          {typeof state === 'object' ? <p className="account-error">{state.error}</p> : linkError && <p className="account-error">{linkError}</p>}
         </form>
       )}
     </>

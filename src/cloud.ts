@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { create } from 'zustand'
+import { signInMessage } from './signInErrors'
 
 /**
  * The cloud copy of signed-in people's sketches, on Supabase (the project in
@@ -21,8 +22,25 @@ export const supabase = url && key
     })
   : null
 
-/** Who's signed in, by email; null when no one is. `ready` once that's known (a moment after load). */
-export const useAccount = create<{ email: string | null; ready: boolean }>(() => ({ email: null, ready: !supabase }))
+/**
+ * Who's signed in, by email; null when no one is. `ready` once that's known
+ * (a moment after load). `linkError` when a sign-in link came back refused
+ * (expired, or used already), to say so where they sign in.
+ */
+export const useAccount = create<{ email: string | null; ready: boolean; linkError: string | null }>(() => ({
+  email: null,
+  ready: !supabase,
+  linkError: linkRefused(),
+}))
+
+/** A sign-in link that came back refused leaves why in the address (#error=…&error_code=…): what to tell them, taking it off the address. */
+function linkRefused() {
+  if (typeof location === 'undefined' || !location.hash.includes('error')) return null
+  const params = new URLSearchParams(location.hash.slice(1))
+  if (!params.get('error')) return null
+  history.replaceState(null, '', location.pathname + location.search)
+  return signInMessage(params.get('error_code') ?? params.get('error') ?? undefined)
+}
 
 supabase?.auth.onAuthStateChange((_event, session) => {
   useAccount.setState({ email: session?.user.email ?? null, ready: true })
@@ -37,7 +55,8 @@ export async function sendSignInLink(email: string) {
     email: email.trim(),
     options: { emailRedirectTo: location.origin + location.pathname },
   })
-  if (error) throw error
+  if (error) throw new Error(signInMessage(error.code, error.status))
+  useAccount.setState({ linkError: null })
 }
 
 export async function signOut() {
