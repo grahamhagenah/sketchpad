@@ -26,28 +26,31 @@ function preview() {
 }
 
 /**
- * Which of the sound and arpeggiator settings is open: in a panel beside the
- * tracks, where the lyrics go, so they stay in view; on a phone, in the sheet
- * along the bottom (as the key finder is too).
+ * Which tool's settings are open: the sound, the arpeggiator, the key finder
+ * or the open section's. On a wider screen, in a panel beside the tracks,
+ * where the lyrics go, so they stay in view; on a phone, in the sheet along
+ * the bottom (the section's, in its own menu).
  */
-export const useToolSheet = create<{ open: 'sound' | 'arp' | 'key' | null }>(() => ({ open: null }))
-const closeSheet = () => useToolSheet.setState({ open: null })
+export type Tool = 'sound' | 'arp' | 'key' | 'section'
+export const useToolSheet = create<{ open: Tool | null }>(() => ({ open: null }))
+export const closeSheet = () => useToolSheet.setState({ open: null })
+
+/** Opens a tool's settings, in the lyrics' place, or closes them if they're open. */
+export function toggleTool(which: Tool) {
+  const open = useToolSheet.getState().open === which
+  if (!open) setLyricsOpen(false)
+  useToolSheet.setState({ open: open ? null : which })
+}
 
 // One at a time in the lyrics' place: showing the lyrics puts the settings away.
 useLyricsPanel.subscribe((s) => {
-  const open = useToolSheet.getState().open
-  if (s.open && (open === 'sound' || open === 'arp')) closeSheet()
+  if (s.open) closeSheet()
 })
 
 /** A toolbar button's panel: whether it's open, and opening or closing it. */
 function usePanel(which: 'sound' | 'arp') {
   const open = useToolSheet((s) => s.open === which)
-  const toggle = () => {
-    // The settings take the lyrics' place.
-    if (!open) setLyricsOpen(false)
-    useToolSheet.setState({ open: open ? null : which })
-  }
-  return { open, toggle }
+  return { open, toggle: () => toggleTool(which) }
 }
 
 const SOUND_ICON = (
@@ -69,16 +72,15 @@ const ARP_ICON = (
   </svg>
 )
 
-/** On a wider screen, the sound or arpeggiator settings in a column beside the tracks, as the lyrics are. */
-export function ToolPanel({ which }: { which: 'sound' | 'arp' }) {
-  const name = which === 'sound' ? 'Sound and rhythm' : 'Arpeggiator'
+/** On a wider screen, a tool's settings in a column beside the tracks, as the lyrics are, with the same header. */
+export function ToolPanel({ id, name, children }: { id: string; name: string; children: ReactNode }) {
   return (
-    <aside className="tool-panel" id={`${which}-panel`} aria-label={name}>
+    <aside className="tool-panel" id={id} aria-label={name}>
       <div className="side-panel-head">
         <span className="column-title">{name}</span>
-        <CloseButton onClick={closeSheet} title={`Close the ${which === 'sound' ? 'sound' : 'arpeggiator'} settings`} />
+        <CloseButton onClick={closeSheet} title={`Close ${name.toLowerCase()}`} />
       </div>
-      {which === 'sound' ? <SoundSettings /> : <ArpSettings titled={false} />}
+      {children}
     </aside>
   )
 }
@@ -145,7 +147,7 @@ const [PIANO, ...SYNTHS] = PRESETS
  * (the recorded piano or one of the synth's), its rhythm, the bass, and how
  * bright and roomy it is; the finer settings fold away under More.
  */
-function SoundSettings() {
+export function SoundSettings() {
   const sound = useStore((s) => s.sound)
   const setSound = useStore((s) => s.setSound)
   const rhythm = useStore((s) => s.rhythm)

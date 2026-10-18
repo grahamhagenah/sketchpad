@@ -3,14 +3,14 @@ import { useStore } from './store'
 import { deleteOneTake, deleteTake, moveTake, seek, togglePlay, toggleRecord } from './audio/engine'
 import { Toolbar } from './components/Toolbar'
 import { Timeline } from './components/Timeline'
-import { SectionBar, SongView } from './components/Sections'
+import { SectionBar, SectionPanel, SongView } from './components/Sections'
 import { StatusBar } from './components/StatusBar'
 import { redo, undo } from './history'
 import { isDirty, reportStorageError, saveSketch } from './library'
 import { colorHex, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR } from './colors'
 import { ChordPad } from './components/ChordPad'
 import { UndoNote } from './components/UndoNote'
-import { ToolPanel, ToolSheet, useToolSheet } from './components/SoundPanel'
+import { SoundSettings, ToolPanel, ToolSheet, useToolSheet, type Tool } from './components/SoundPanel'
 import { VocalPad } from './components/VocalPad'
 import { DrumPad } from './components/DrumPad'
 import { ChordsTrackPad, Inspector } from './components/Inspector'
@@ -19,7 +19,8 @@ import { RecordingSheet } from './components/RecordingSheet'
 import { useNarrow } from './hooks/useNarrow'
 import { ChordKeys, toggleChordKeys, useChordKeys } from './components/ChordKeys'
 import { LyricsPanel } from './components/Lyrics'
-import { KeyFinderSheet } from './components/KeyFinder'
+import { KeyFinder, KeyFinderSheet } from './components/KeyFinder'
+import { ArpSettings } from './components/ArpPanel'
 import { useLyricsPanel } from './lyricsPanel'
 
 function useShortcuts() {
@@ -172,7 +173,7 @@ export default function App() {
   const recording = useStore((s) => s.recording !== 'off')
   const chordPad = narrow && view === 'section' && !recording
   // The sound and arpeggiator buttons bring their settings up in the sheet, in either view.
-  const toolSheet = useToolSheet((s) => (narrow && !recording ? s.open : null))
+  const toolSheet = useToolSheet((s) => (narrow && !recording && s.open !== 'section' ? s.open : null))
   // With a vocal or the drum track selected, the sheet shows its settings instead.
   const selectedVocal = useStore((s) => s.selectedVocal)
   const drumsSelected = useStore((s) => s.drumsTrackSelected && s.drumTrack)
@@ -183,8 +184,8 @@ export default function App() {
   const inspector = !narrow && view === 'section' && hasChords && inspectorShown
   // On a wider screen, the chord keys float over everything, in either view.
   const chordKeys = useChordKeys((s) => s.open) && !narrow
-  // On a wider screen, the sound or arpeggiator settings beside whichever view is open, in the lyrics' place, so every track stays in view.
-  const toolPanel = useToolSheet((s) => (!narrow && (s.open === 'sound' || s.open === 'arp') ? s.open : null))
+  // On a wider screen, a tool's settings (the sound, the arpeggiator, the key finder, the section's) beside whichever view is open, in the lyrics' place, so every track stays in view.
+  const toolPanel = useToolSheet((s) => (narrow ? null : s.open))
   // The lyrics beside whichever view is open; on a phone, over it.
   const lyrics = useLyricsPanel((s) => s.open)
   // On a phone, the lyrics are a sheet along the bottom, in the chord pad's place; recording shows the words itself.
@@ -205,14 +206,14 @@ export default function App() {
                 <Timeline />
               </div>
             )}
-            {toolPanel ? <ToolPanel which={toolPanel} /> : lyrics && !narrow && <LyricsPanel />}
+            {toolPanel ? <SidePanel tool={toolPanel} /> : lyrics && !narrow && <LyricsPanel />}
           </div>
         </section>
       </main>
       <StatusBar />
       {toolSheet === 'key' ? (
         <KeyFinderSheet />
-      ) : toolSheet ? (
+      ) : toolSheet === 'sound' || toolSheet === 'arp' ? (
         <ToolSheet which={toolSheet} />
       ) : lyricsSheet ? (
         <LyricsPanel sheet />
@@ -234,4 +235,12 @@ export default function App() {
       {narrow && recording && <RecordingSheet />}
     </div>
   )
+}
+
+/** A tool's settings in the side panel, each under its name. */
+function SidePanel({ tool }: { tool: Tool }) {
+  if (tool === 'sound') return <ToolPanel id="sound-panel" name="Sound and rhythm"><SoundSettings /></ToolPanel>
+  if (tool === 'arp') return <ToolPanel id="arp-panel" name="Arpeggiator"><ArpSettings titled={false} /></ToolPanel>
+  if (tool === 'key') return <ToolPanel id="key-panel" name="Find the key"><KeyFinder titled={false} /></ToolPanel>
+  return <ToolPanel id="section-panel" name="Section settings"><SectionPanel /></ToolPanel>
 }

@@ -1288,7 +1288,6 @@ main > .panel {
  * The key finder: a short octave of piano to play a tune's notes on, the
  * notes so far, and the keys they're likeliest in, each to put the song in.
  */
-.menu.key-finder-menu { width: 320px; z-index: 30; padding: 14px; }
 .key-finder { display: flex; flex-direction: column; gap: 10px; }
 .key-finder-title { margin: 0; font-size: var(--fs-heading); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .key-finder-about, .key-finder-hint { margin: 0; font-size: var(--fs-small); color: var(--muted); line-height: 1.4; }
