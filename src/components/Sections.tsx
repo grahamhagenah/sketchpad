@@ -16,7 +16,7 @@ import { vocalColor } from '../colors'
 import { closeSheet, toggleTool, useToolSheet } from './SoundPanel'
 
 /** A gear, for a section's settings. */
-const GEAR =
+export const GEAR =
   'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'
 
 /** The menu of section kinds to start a new section from. */
@@ -333,6 +333,8 @@ export function SectionBar() {
       <div className="section-bar-end">
         {/* The open section's own settings, few and seldom needed, in a menu: renaming it (as double-clicking its tab does), its key, copies of it, and deleting it. */}
         {open && <SectionMenu section={open} onRename={() => setRenaming(open.id)} />}
+        {/* In the Song view, the whole song's settings, in the same place. */}
+        {view === 'song' && <SongSettingsButton />}
         {/* The tools that open panels beside the views, and the chord keys; zoom is in the status bar along the bottom. */}
         {/* The floating chord keys are for a mouse and keyboard. */}
         {!narrow && <ChordKeysButton />}
@@ -349,7 +351,10 @@ const useRenaming = create<{ id: string | null }>(() => ({ id: null }))
 
 // The open section's settings go with it: back in the Song view, or with another section open, they're put away.
 useStore.subscribe((s, prev) => {
-  if (useToolSheet.getState().open === 'section' && (s.view !== 'section' || s.activeSection !== prev.activeSection)) closeSheet()
+  const open = useToolSheet.getState().open
+  if (open === 'section' && (s.view !== 'section' || s.activeSection !== prev.activeSection)) closeSheet()
+  // And the song's, once a section is open instead.
+  if (open === 'song' && s.view !== 'song') closeSheet()
 })
 
 /** Renaming the song rather than a section. */
@@ -429,8 +434,8 @@ function TabNameField({ initial, placeholder, label, maxLength, onSave, onDone }
  * The open section's settings and actions: its key, adding it to the song,
  * copies, renaming and deleting, as items in SectionMenu.
  */
-function SectionItems({ section, close, onRename }: { section: Pick<Section, 'id' | 'name'>; close: () => void; onRename?: () => void }) {
-  const { duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useFields('duplicateSection', 'deleteSection', 'openSection', 'addToSong', 'setSectionKey', 'liftSection')
+function SectionItems({ section, close, onRename, withKey = true }: { section: Pick<Section, 'id' | 'name'>; close: () => void; onRename?: () => void; withKey?: boolean }) {
+  const { duplicateSection, deleteSection, openSection, addToSong, liftSection } = useFields('duplicateSection', 'deleteSection', 'openSection', 'addToSong', 'liftSection')
   const songKey = useStore((s) => s.key)
   const songMode = useStore((s) => s.mode)
   // The open section's own key lives with its chords, in the editor.
@@ -471,32 +476,13 @@ function SectionItems({ section, close, onRename }: { section: Pick<Section, 'id
         <span className="menu-item-about">A copy of the chords to change on their own, with no vocals yet</span>
       </button>
       <div className="menu-divider" role="separator" />
-      {/* A key change: the section's chords keep their numerals and play in its own key. */}
-      <label className="menu-item menu-item-row menu-key">
-        <span className="menu-item-title">Key</span>
-        <select
-          value={sectionKey ? `${sectionKey.key}-${sectionKey.mode}` : 'song'}
-          disabled={recording}
-          onChange={(e) => {
-            if (e.target.value === 'song') return setSectionKey(section.id, null)
-            const [pc, m] = e.target.value.split('-')
-            setSectionKey(section.id, { key: Number(pc), mode: m as Mode })
-          }}
-        >
-          <option value="song">
-            Song’s ({keyLabel(songKey, songMode)} {songMode === 'major' ? 'maj' : 'min'})
-          </option>
-          {(['major', 'minor'] as const).map((m) => (
-            <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
-              {Array.from({ length: 12 }, (_, pc) => (
-                <option key={pc} value={`${pc}-${m}`}>
-                  {keyLabel(pc, m)} {m === 'major' ? 'maj' : 'min'}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
+      {/* A key change: the section's chords keep their numerals and play in its own key. (In the side panel, it's at the top instead.) */}
+      {withKey && (
+        <label className="menu-item menu-item-row menu-key">
+          <span className="menu-item-title">Key</span>
+          <SectionKeySelect sectionId={section.id} />
+        </label>
+      )}
       {[1, 2].map((step) => (
         <button
           key={step}
@@ -1032,9 +1018,78 @@ function BlockMenu({ entryId, section, index, count, shared }: { entryId: string
   )
 }
 
-/** The open section's settings in the side panel: each action done puts them away, as the menu's do. */
+/** The open section's settings in the side panel: its key first, as the song's settings have the song's; each action done puts them away, as the menu's do. */
 export function SectionPanel() {
   const section = useStore((s) => (s.view === 'section' ? s.sections.find((sec) => sec.id === s.activeSection) : undefined))
   if (!section) return null
-  return <SectionItems section={section} close={closeSheet} onRename={() => useRenaming.setState({ id: section.id })} />
+  return (
+    <>
+      <label className="inspector-field panel-key">
+        <span>Key</span>
+        <SectionKeySelect sectionId={section.id} />
+      </label>
+      <SectionItems section={section} close={closeSheet} onRename={() => useRenaming.setState({ id: section.id })} withKey={false} />
+    </>
+  )
+}
+
+/** Every key, major then minor, as options. */
+export const KeyOptions = () => (
+  <>
+    {(['major', 'minor'] as const).map((m) => (
+      <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
+        {Array.from({ length: 12 }, (_, pc) => (
+          <option key={pc} value={`${pc}-${m}`}>
+            {keyLabel(pc, m)} {m}
+          </option>
+        ))}
+      </optgroup>
+    ))}
+  </>
+)
+
+/** The open section's key: the song's, or one of its own, its chords keeping their numerals. */
+function SectionKeySelect({ sectionId }: { sectionId: string }) {
+  const setSectionKey = useStore((s) => s.setSectionKey)
+  const songKey = useStore((s) => s.key)
+  const songMode = useStore((s) => s.mode)
+  // The open section's own key lives with its chords, in the editor.
+  const sectionKey = useStore((s) => s.sectionKey)
+  const recording = useStore((s) => s.recording !== 'off')
+  return (
+    <select
+      value={sectionKey ? `${sectionKey.key}-${sectionKey.mode}` : 'song'}
+      disabled={recording}
+      onChange={(e) => {
+        if (e.target.value === 'song') return setSectionKey(sectionId, null)
+        const [pc, m] = e.target.value.split('-')
+        setSectionKey(sectionId, { key: Number(pc), mode: m as Mode })
+      }}
+    >
+      <option value="song">
+        The song’s ({keyLabel(songKey, songMode)} {songMode})
+      </option>
+      <KeyOptions />
+    </select>
+  )
+}
+
+/** The whole song's settings, from a gear where the section's is: in the side panel, or on a phone the sheet. */
+function SongSettingsButton() {
+  const open = useToolSheet((s) => s.open === 'song')
+  return (
+    <button
+      type="button"
+      className={`section-settings ${open ? 'is-on' : ''}`}
+      data-sheet-toggle
+      aria-label="Song settings"
+      aria-expanded={open}
+      aria-controls="song-panel"
+      title="Song settings: name, a copy, delete"
+      onClick={() => toggleTool('song')}
+    >
+      <Icon d={GEAR} />
+      <span className="section-settings-label">Song</span>
+    </button>
+  )
 }

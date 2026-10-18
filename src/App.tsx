@@ -20,6 +20,8 @@ import { useNarrow } from './hooks/useNarrow'
 import { ChordKeys, toggleChordKeys, useChordKeys } from './components/ChordKeys'
 import { LyricsPanel } from './components/Lyrics'
 import { KeyFinder, KeyFinderSheet } from './components/KeyFinder'
+import { SongsPanel, SongsSheet } from './components/Library'
+import { SongSettings, SongSettingsSheet } from './components/SongSettings'
 import { ArpSettings } from './components/ArpPanel'
 import { useLyricsPanel } from './lyricsPanel'
 
@@ -213,6 +215,10 @@ export default function App() {
       <StatusBar />
       {toolSheet === 'key' ? (
         <KeyFinderSheet />
+      ) : toolSheet === 'songs' ? (
+        <SongsSheet />
+      ) : toolSheet === 'song' ? (
+        <SongSettingsSheet />
       ) : toolSheet === 'sound' || toolSheet === 'arp' ? (
         <ToolSheet which={toolSheet} />
       ) : lyricsSheet ? (
@@ -239,6 +245,8 @@ export default function App() {
 
 /** A tool's settings in the side panel, each under its name. */
 function SidePanel({ tool }: { tool: Tool }) {
+  if (tool === 'song') return <ToolPanel id="song-panel" name="Song settings"><SongSettings /></ToolPanel>
+  if (tool === 'songs') return <ToolPanel id="songs-panel" name="Songs"><SongsPanel /></ToolPanel>
   if (tool === 'sound') return <ToolPanel id="sound-panel" name="Sound and rhythm"><SoundSettings /></ToolPanel>
   if (tool === 'arp') return <ToolPanel id="arp-panel" name="Arpeggiator"><ArpSettings titled={false} /></ToolPanel>
   if (tool === 'key') return <ToolPanel id="key-panel" name="Find the key"><KeyFinder titled={false} /></ToolPanel>

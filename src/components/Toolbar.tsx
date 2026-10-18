@@ -7,6 +7,7 @@ import { redo, undo, useHistory } from '../history'
 import { ArpButton, SoundButton } from './SoundPanel'
 import { Position } from './Position'
 import { SongTitle } from './SongTitle'
+import { AccountButton } from './Account'
 
 /** The one bar for playback, song settings and editing the selected chord. */
 export function Toolbar() {
@@ -51,9 +52,6 @@ export function Toolbar() {
           </optgroup>
         ))}
       </select>
-      <span className="lcd-label" aria-hidden="true">
-        Time
-      </span>
     </label>
   )
   const keyCell = (
@@ -81,9 +79,12 @@ export function Toolbar() {
           </optgroup>
         ))}
       </select>
-      <span className="lcd-label" aria-hidden="true">
-        {ownKey ? 'Section key' : 'Key'}
-      </span>
+      {/* A section in a key of its own says so, as the tempo says bpm. */}
+      {ownKey && (
+        <span className="lcd-unit" aria-hidden="true">
+          section
+        </span>
+      )}
     </label>
   )
   const modes = (
@@ -139,6 +140,7 @@ export function Toolbar() {
           <div className="toolbar-extra-inner">
             <div className="toolbar-extra-row">
               <SongTitle />
+              <AccountButton />
               {/* On the smallest phones, undo and redo wait here, leaving the row above room for play and record. */}
               <div className="toolbar-icons toolbar-undo-extra">
                 <UndoRedo />
@@ -191,9 +193,12 @@ export function Toolbar() {
         <div className="toolbar-icons">
           <UndoRedo />
         </div>
-        {/* The sketch's file and the account, at the end with the other things done to the sketch as a whole. */}
+        {/* The song's file (save, your songs, export and backups), then the account, at the end with the other things done to the song as a whole. */}
         <div className="toolbar-icons">
           <SongTitle />
+        </div>
+        <div className="toolbar-icons">
+          <AccountButton />
         </div>
       </div>
     </div>
@@ -303,8 +308,8 @@ function TempoField() {
           if (e.key === 'Enter') e.currentTarget.blur()
         }}
       />
-      <span className="lcd-label" aria-hidden="true">
-        Tempo
+      <span className="lcd-unit" aria-hidden="true">
+        bpm
       </span>
     </label>
   )
