@@ -61,7 +61,6 @@ export function Position() {
           <small> / {total ? bars : '–'}</small>
         </span>
       </span>
-      <span className="lcd-label">Bar</span>
     </div>
   )
 }

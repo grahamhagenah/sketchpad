@@ -52,9 +52,6 @@ export function Toolbar() {
           </optgroup>
         ))}
       </select>
-      <span className="lcd-label" aria-hidden="true">
-        Time
-      </span>
     </label>
   )
   const keyCell = (
@@ -82,9 +79,12 @@ export function Toolbar() {
           </optgroup>
         ))}
       </select>
-      <span className="lcd-label" aria-hidden="true">
-        {ownKey ? 'Section key' : 'Key'}
-      </span>
+      {/* A section in a key of its own says so, as the tempo says bpm. */}
+      {ownKey && (
+        <span className="lcd-unit" aria-hidden="true">
+          section
+        </span>
+      )}
     </label>
   )
   const modes = (
@@ -308,8 +308,8 @@ function TempoField() {
           if (e.key === 'Enter') e.currentTarget.blur()
         }}
       />
-      <span className="lcd-label" aria-hidden="true">
-        Tempo
+      <span className="lcd-unit" aria-hidden="true">
+        bpm
       </span>
     </label>
   )
