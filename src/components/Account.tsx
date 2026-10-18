@@ -38,6 +38,10 @@ export function AccountButton() {
       {open && (
         <div className="menu account-menu" id="account-menu" role="dialog" aria-label="Account" style={below}>
           {email ? <SignedIn email={email} /> : <SignIn linkError={linkError} />}
+          <div className="menu-divider" role="separator" />
+          <a className="menu-footnote" href="/about/" target="_blank" rel="noopener">
+            About Bounce
+          </a>
         </div>
       )}
     </div>

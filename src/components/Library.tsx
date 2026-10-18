@@ -23,105 +23,120 @@ import {
 } from '../library'
 import { SONG_TEMPLATES } from '../songs'
 import { ExportItems, useCanExport } from './ExportItems'
+import { closeSheet, toggleTool, useToolSheet } from './SoundPanel'
+import { TrackSheet } from './TrackSheet'
+
+/** Saves the sketch (⌘S does too): a dot on it while there are unsaved changes, and nothing to do without them. */
+export function SaveButton() {
+  const dirty = useStore(isDirty)
+  return (
+    <button
+      type="button"
+      className={`icon-btn save-btn ${dirty ? 'has-changes' : ''}`}
+      aria-label={dirty ? 'Save, unsaved changes' : 'Saved'}
+      title={dirty ? 'Save (⌘S)' : 'Saved: nothing new since the last save'}
+      disabled={!dirty}
+      onClick={() => void saveSketch().catch(reportStorageError('save the sketch'))}
+    >
+      <MenuIcon d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6" />
+    </button>
+  )
+}
+
+/** Opens your songs, and songs to start from, in the side panel (on a phone, the sheet along the bottom). */
+export function SongsButton() {
+  const open = useToolSheet((s) => s.open === 'songs')
+  return (
+    <button
+      type="button"
+      className={`icon-btn songs-btn ${open ? 'is-on' : ''}`}
+      data-sheet-toggle
+      aria-label="Songs"
+      aria-expanded={open}
+      aria-controls="songs-panel"
+      title="Your songs: open one, start a new one, or start from a song you’d know"
+      onClick={() => toggleTool('songs')}
+    >
+      <MenuIcon d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" />
+    </button>
+  )
+}
 
 /**
- * One button for the sketch file: save, start a new sketch, or open a saved
- * one. A dot on it means there are unsaved changes; ⌘S saves without opening it.
+ * Your songs: a new one, those saved on this device (and, signed in, in your
+ * account), songs to start from, and those recently deleted. Opening one puts
+ * the panel away.
  */
-export function SketchesButton() {
-  const [open, setOpen] = useState(false)
-  const close = useCallback(() => setOpen(false), [])
-  const ref = useRef<HTMLDivElement>(null)
-  useDismiss(open, close, ref)
-  const below = useDropBelow(open, ref)
+export function SongsPanel() {
   const sketches = useLibrary((s) => s.sketches)
   const deleted = useLibrary((s) => s.deleted)
-  const [showDeleted, setShowDeleted] = useState(false)
-  const [showSongs, setShowSongs] = useState(false)
-  const [showExport, setShowExport] = useState(false)
-  const canExport = useCanExport()
-  const fileRef = useRef<HTMLInputElement>(null)
   const current = useStore((s) => s.sketchId)
-  const dirty = useStore(isDirty)
+  const [showStarts, setShowStarts] = useState(false)
+  const [showDeleted, setShowDeleted] = useState(false)
 
   useEffect(() => {
-    if (open) void refreshLibrary()
-  }, [open])
+    void refreshLibrary()
+  }, [])
 
   return (
-    <div className="menu-anchor" ref={ref}>
+    <div className="songs-panel">
       <button
         type="button"
-        className={`icon-btn save-btn ${dirty ? 'has-changes' : ''}`}
-        aria-label={`File${dirty ? ', unsaved changes' : ''}`}
-        title={dirty ? 'Save, open or start a sketch (unsaved changes)' : 'Save, open or start a sketch'}
-        aria-expanded={open}
-        aria-controls="sketches-menu"
-        onClick={() => setOpen(!open)}
+        className="menu-item has-icon"
+        onClick={() => {
+          void newSketch().catch(reportStorageError('start a new sketch'))
+          closeSheet()
+        }}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
-          <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" />
-        </svg>
+        <MenuIcon d="M6 3h8l4 4v14H6zM14 3v4h4M12 11v6M9 14h6" />
+        <span className="menu-item-title">New song</span>
+        <span className="menu-item-about">Your current one is saved first</span>
       </button>
-      {open && (
-        <div className="menu sketches-menu" id="sketches-menu" role="dialog" aria-label="Your sketches" style={below}>
-          <button
-            type="button"
-            className="menu-item has-icon"
-            disabled={!dirty}
-            onClick={() => {
-              void saveSketch().catch(reportStorageError('save the sketch'))
-              close()
-            }}
-          >
-            <MenuIcon d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6" />
-            <span className="menu-item-title">
-              {dirty ? 'Save' : 'Saved'}
-              <kbd>⌘S</kbd>
-            </span>
-            <span className="menu-item-about">{dirty ? 'Keep the changes to this sketch' : 'Nothing new since the last save'}</span>
-          </button>
-          <button
-            type="button"
-            className="menu-item has-icon"
-            onClick={() => {
-              void newSketch().catch(reportStorageError('start a new sketch'))
-              close()
-            }}
-          >
-            <MenuIcon d="M6 3h8l4 4v14H6zM14 3v4h4M12 11v6M9 14h6" />
-            <span className="menu-item-title">New sketch</span>
-            <span className="menu-item-about">Your current one is saved first</span>
-          </button>
+      <p className="menu-heading">Your songs</p>
+      {sketches.map((sketch) => (
+        <SketchRow
+          key={sketch.id}
+          sketch={sketch}
+          current={sketch.id === current}
+          onOpen={() => {
+            void openSketch(sketch.id).catch(reportStorageError('open that sketch'))
+            closeSheet()
+          }}
+        />
+      ))}
+      {sketches.length === 0 && <p className="menu-empty">Songs you save show up here.</p>}
+      <div className="menu-divider" role="separator" />
+      {/* Songs to start from, the demo first, folded away so they don't push your own down. */}
+      <button type="button" className="menu-item has-icon deleted-toggle" aria-expanded={showStarts} onClick={() => setShowStarts(!showStarts)}>
+        <MenuIcon d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0a3 3 0 0 1 6 0z" />
+        <span className="menu-item-title">
+          Start from a song
+          <Chevron />
+        </span>
+        <span className="menu-item-about">The demo, and {SONG_TEMPLATES.length} songs you’d know, to make your own</span>
+      </button>
+      {showStarts && (
+        <>
           <button
             type="button"
             className="menu-item has-icon"
             onClick={() => {
               void openDemo().catch(reportStorageError('open the demo song'))
-              close()
+              closeSheet()
             }}
           >
-            <MenuIcon d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM10 8.5v7l6-3.5z" />
+            <span className="menu-item-icon" aria-hidden="true" />
             <span className="menu-item-title">Demo song</span>
             <span className="menu-item-about">A short song to hear what Bounce does</span>
           </button>
-          {/* Songs to start from, folded away so they don't push your own sketches down the menu. */}
-          <button type="button" className="menu-item has-icon deleted-toggle" aria-expanded={showSongs} onClick={() => setShowSongs(!showSongs)}>
-            <MenuIcon d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0a3 3 0 0 1 6 0z" />
-            <span className="menu-item-title">
-              Start from a song
-              <Chevron />
-            </span>
-            <span className="menu-item-about">{SONG_TEMPLATES.length} songs you’d know, as a sketch to make your own</span>
-          </button>
-          {showSongs && SONG_TEMPLATES.map((song) => (
+          {SONG_TEMPLATES.map((song) => (
             <button
               key={song.name}
               type="button"
               className="menu-item has-icon"
               onClick={() => {
                 void openSong(song.build(), song.name).catch(reportStorageError('open that song'))
-                close()
+                closeSheet()
               }}
             >
               <span className="menu-item-icon" aria-hidden="true" />
@@ -129,25 +144,66 @@ export function SketchesButton() {
               <span className="menu-item-about">Think “{song.think}”</span>
             </button>
           ))}
-          <div className="menu-divider" role="separator" />
-          {/* The song out to other apps, folded away like the songs to start from. */}
-          <button
-            type="button"
-            className="menu-item has-icon deleted-toggle"
-            aria-expanded={showExport && canExport}
-            disabled={!canExport}
-            onClick={() => setShowExport(!showExport)}
-          >
-            {/* Out of Bounce, to another app: an arrow up out of a tray, where backing up has one down into it. */}
-            <MenuIcon d="M12 15V4M7 9l5-5 5 5M5 14v6h14v-6" />
+        </>
+      )}
+      {/* Deleted songs wait here a while, to be put back. */}
+      {deleted.length > 0 && (
+        <>
+          <button type="button" className="menu-item has-icon deleted-toggle" aria-expanded={showDeleted} onClick={() => setShowDeleted(!showDeleted)}>
+            <MenuIcon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
             <span className="menu-item-title">
-              Export
+              Recently deleted ({deleted.length})
               <Chevron />
             </span>
-            <span className="menu-item-about">{canExport ? 'MIDI, WAV or stems, for a DAW or to share' : 'Add some chords to export'}</span>
+            <span className="menu-item-about">Kept {DELETED_DAYS} days, to put back</span>
           </button>
-          {showExport && canExport && <ExportItems close={close} />}
-          {/* Backups: the sketch, recordings and all, as one file to keep anywhere, and back again. */}
+          {showDeleted && deleted.map((sketch) => <DeletedRow key={sketch.id} sketch={sketch} />)}
+        </>
+      )}
+    </div>
+  )
+}
+
+/** On a phone, your songs in the sheet along the bottom, as the other panels are. */
+export function SongsSheet() {
+  return (
+    <TrackSheet name="Songs" icon={<MenuIcon d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" />} onDone={closeSheet} dismiss>
+      <SongsPanel />
+    </TrackSheet>
+  )
+}
+
+/** Files in and out of Bounce: the song exported for other apps, and backups, made and opened. */
+export function ShareButton() {
+  const [open, setOpen] = useState(false)
+  const close = useCallback(() => setOpen(false), [])
+  const ref = useRef<HTMLDivElement>(null)
+  useDismiss(open, close, ref)
+  const below = useDropBelow(open, ref)
+  const canExport = useCanExport()
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="menu-anchor" ref={ref}>
+      <button
+        type="button"
+        className="icon-btn share-btn"
+        aria-label="Export and backups"
+        title="Export the song, or back it up to a file"
+        aria-expanded={open}
+        aria-controls="share-menu"
+        onClick={() => setOpen(!open)}
+      >
+        {/* Out of Bounce, to another app: an arrow up out of a tray. */}
+        <MenuIcon d="M12 15V4M7 9l5-5 5 5M5 14v6h14v-6" />
+      </button>
+      {open && (
+        <div className="menu share-menu" id="share-menu" role="dialog" aria-label="Export and backups" style={below}>
+          <p className="menu-heading">Export</p>
+          {canExport ? <ExportItems close={close} /> : <p className="menu-empty">Add some chords to export the song.</p>}
+          <div className="menu-divider" role="separator" />
+          <p className="menu-heading">Backups</p>
+          {/* The sketch, recordings and all, as one file to keep anywhere, and back again. */}
           <button
             type="button"
             className="menu-item has-icon"
@@ -161,12 +217,12 @@ export function SketchesButton() {
           >
             <MenuIcon d="M12 4v11M7 10l5 5 5-5M5 20h14" />
             <span className="menu-item-title">Back up to a file</span>
-            <span className="menu-item-about">This sketch and its recordings, in one file</span>
+            <span className="menu-item-about">This song and its recordings, in one file</span>
           </button>
           <button type="button" className="menu-item has-icon" onClick={() => fileRef.current?.click()}>
             <MenuIcon d="M12 15V4M7 9l5-5 5 5M5 20h14" />
             <span className="menu-item-title">Open a backup</span>
-            <span className="menu-item-about">A .bounce file, opened as a new sketch</span>
+            <span className="menu-item-about">A .bounce file, opened as a new song</span>
           </button>
           <input
             ref={fileRef}
@@ -181,42 +237,6 @@ export function SketchesButton() {
               void openBackup(file).catch((error) => window.alert(error instanceof Error ? error.message : 'Bounce couldn’t open that file.'))
             }}
           />
-          {sketches.length > 0 && (
-            <>
-              <div className="menu-divider" role="separator" />
-              <p className="menu-heading">Your sketches</p>
-            </>
-          )}
-          {sketches.map((sketch) => (
-            <SketchRow
-              key={sketch.id}
-              sketch={sketch}
-              current={sketch.id === current}
-              onOpen={() => {
-                void openSketch(sketch.id).catch(reportStorageError('open that sketch'))
-                close()
-              }}
-            />
-          ))}
-          {sketches.length === 0 && <p className="menu-empty">Sketches you save show up here.</p>}
-          {/* Deleted sketches wait here a while, to be put back. */}
-          {deleted.length > 0 && (
-            <>
-              <div className="menu-divider" role="separator" />
-              <button type="button" className="menu-item deleted-toggle" aria-expanded={showDeleted} onClick={() => setShowDeleted(!showDeleted)}>
-                <span className="menu-item-title">
-                  Recently deleted ({deleted.length})
-                  <Chevron />
-                </span>
-                <span className="menu-item-about">Kept {DELETED_DAYS} days, to put back</span>
-              </button>
-              {showDeleted && deleted.map((sketch) => <DeletedRow key={sketch.id} sketch={sketch} />)}
-            </>
-          )}
-          <div className="menu-divider" role="separator" />
-          <a className="menu-footnote" href="/about/" target="_blank" rel="noopener">
-            About Bounce
-          </a>
         </div>
       )}
     </div>
