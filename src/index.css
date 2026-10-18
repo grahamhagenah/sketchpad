@@ -2578,6 +2578,8 @@ main > .panel {
 /* The song's settings: its name, a line on what's in it and whether it's saved, then its actions. */
 .song-settings { display: flex; flex-direction: column; gap: 10px; }
 .song-settings .inspector-field { align-items: stretch; }
+/* The section's key, atop its settings as the song's is atop the song's. */
+.panel-key { align-items: stretch; margin-bottom: 8px; }
 /* As tall as the panels' dropdowns, and not stretched or squashed by the column it's in. */
 .song-settings-name { flex: none; width: 100%; height: 38px; padding: 0 12px; border-radius: 8px; }
 .song-settings-facts { margin: 0; font-size: var(--fs-small); line-height: 1.6; color: var(--muted); }

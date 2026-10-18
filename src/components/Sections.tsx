@@ -434,8 +434,8 @@ function TabNameField({ initial, placeholder, label, maxLength, onSave, onDone }
  * The open section's settings and actions: its key, adding it to the song,
  * copies, renaming and deleting, as items in SectionMenu.
  */
-function SectionItems({ section, close, onRename }: { section: Pick<Section, 'id' | 'name'>; close: () => void; onRename?: () => void }) {
-  const { duplicateSection, deleteSection, openSection, addToSong, setSectionKey, liftSection } = useFields('duplicateSection', 'deleteSection', 'openSection', 'addToSong', 'setSectionKey', 'liftSection')
+function SectionItems({ section, close, onRename, withKey = true }: { section: Pick<Section, 'id' | 'name'>; close: () => void; onRename?: () => void; withKey?: boolean }) {
+  const { duplicateSection, deleteSection, openSection, addToSong, liftSection } = useFields('duplicateSection', 'deleteSection', 'openSection', 'addToSong', 'liftSection')
   const songKey = useStore((s) => s.key)
   const songMode = useStore((s) => s.mode)
   // The open section's own key lives with its chords, in the editor.
@@ -476,32 +476,13 @@ function SectionItems({ section, close, onRename }: { section: Pick<Section, 'id
         <span className="menu-item-about">A copy of the chords to change on their own, with no vocals yet</span>
       </button>
       <div className="menu-divider" role="separator" />
-      {/* A key change: the section's chords keep their numerals and play in its own key. */}
-      <label className="menu-item menu-item-row menu-key">
-        <span className="menu-item-title">Key</span>
-        <select
-          value={sectionKey ? `${sectionKey.key}-${sectionKey.mode}` : 'song'}
-          disabled={recording}
-          onChange={(e) => {
-            if (e.target.value === 'song') return setSectionKey(section.id, null)
-            const [pc, m] = e.target.value.split('-')
-            setSectionKey(section.id, { key: Number(pc), mode: m as Mode })
-          }}
-        >
-          <option value="song">
-            Song’s ({keyLabel(songKey, songMode)} {songMode === 'major' ? 'maj' : 'min'})
-          </option>
-          {(['major', 'minor'] as const).map((m) => (
-            <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
-              {Array.from({ length: 12 }, (_, pc) => (
-                <option key={pc} value={`${pc}-${m}`}>
-                  {keyLabel(pc, m)} {m === 'major' ? 'maj' : 'min'}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
+      {/* A key change: the section's chords keep their numerals and play in its own key. (In the side panel, it's at the top instead.) */}
+      {withKey && (
+        <label className="menu-item menu-item-row menu-key">
+          <span className="menu-item-title">Key</span>
+          <SectionKeySelect sectionId={section.id} />
+        </label>
+      )}
       {[1, 2].map((step) => (
         <button
           key={step}
@@ -1037,11 +1018,60 @@ function BlockMenu({ entryId, section, index, count, shared }: { entryId: string
   )
 }
 
-/** The open section's settings in the side panel: each action done puts them away, as the menu's do. */
+/** The open section's settings in the side panel: its key first, as the song's settings have the song's; each action done puts them away, as the menu's do. */
 export function SectionPanel() {
   const section = useStore((s) => (s.view === 'section' ? s.sections.find((sec) => sec.id === s.activeSection) : undefined))
   if (!section) return null
-  return <SectionItems section={section} close={closeSheet} onRename={() => useRenaming.setState({ id: section.id })} />
+  return (
+    <>
+      <label className="inspector-field panel-key">
+        <span>Key</span>
+        <SectionKeySelect sectionId={section.id} />
+      </label>
+      <SectionItems section={section} close={closeSheet} onRename={() => useRenaming.setState({ id: section.id })} withKey={false} />
+    </>
+  )
+}
+
+/** Every key, major then minor, as options. */
+export const KeyOptions = () => (
+  <>
+    {(['major', 'minor'] as const).map((m) => (
+      <optgroup key={m} label={m === 'major' ? 'Major' : 'Minor'}>
+        {Array.from({ length: 12 }, (_, pc) => (
+          <option key={pc} value={`${pc}-${m}`}>
+            {keyLabel(pc, m)} {m}
+          </option>
+        ))}
+      </optgroup>
+    ))}
+  </>
+)
+
+/** The open section's key: the song's, or one of its own, its chords keeping their numerals. */
+function SectionKeySelect({ sectionId }: { sectionId: string }) {
+  const setSectionKey = useStore((s) => s.setSectionKey)
+  const songKey = useStore((s) => s.key)
+  const songMode = useStore((s) => s.mode)
+  // The open section's own key lives with its chords, in the editor.
+  const sectionKey = useStore((s) => s.sectionKey)
+  const recording = useStore((s) => s.recording !== 'off')
+  return (
+    <select
+      value={sectionKey ? `${sectionKey.key}-${sectionKey.mode}` : 'song'}
+      disabled={recording}
+      onChange={(e) => {
+        if (e.target.value === 'song') return setSectionKey(sectionId, null)
+        const [pc, m] = e.target.value.split('-')
+        setSectionKey(sectionId, { key: Number(pc), mode: m as Mode })
+      }}
+    >
+      <option value="song">
+        The song’s ({keyLabel(songKey, songMode)} {songMode})
+      </option>
+      <KeyOptions />
+    </select>
+  )
 }
 
 /** The whole song's settings, from a gear where the section's is: in the side panel, or on a phone the sheet. */
