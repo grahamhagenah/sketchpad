@@ -1921,6 +1921,8 @@ main > .panel {
 .toolbar.toolbar-compact { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0; }
 /* On a phone, it stays at the top as the song scrolls under it, so play and record are always to hand; a line under it marks where the song goes beneath. */
 .toolbar.toolbar-compact { position: sticky; top: 0; z-index: 20; box-shadow: 0 1px 0 var(--line); }
+/* Slimmer, as it stays over the song: its buttons a little shorter (still easy to tap), and less room above and below them. */
+.toolbar.toolbar-compact { --control-h: 40px; padding-top: 5px; padding-bottom: 5px; }
 .toolbar-compact-row,
 .toolbar-extra-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .toolbar-compact .lcd { flex: 1; min-width: 0; }
