@@ -327,12 +327,12 @@ main > .panel {
 /* One black screen with its readouts split by hairlines, not gaps, and the same faint edge as the buttons. */
 .lcd { display: inline-flex; height: var(--control-h); border: 1px solid var(--tile-edge); border-radius: 8px; overflow: hidden; background: #000 padding-box; }
 .lcd-cell + .lcd-cell { border-left: 1px solid var(--line); }
+/* Each reading on its own, with no label over it: what it is shows in it (1.1 / 8, 132 bpm, 4/4, G minor). */
 .lcd-cell {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   padding: 0 18px;
   border: 0;
   background: #000;
@@ -363,7 +363,8 @@ main > .panel {
 .lcd .tempo:focus-visible { outline: none; color: var(--accent); }
 .lcd .tempo::-webkit-inner-spin-button,
 .lcd .tempo::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.lcd-label { font-size: var(--fs-label); font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+/* A reading's unit, or what kind it is: small and grey after it. */
+.lcd-unit { font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); white-space: nowrap; }
 .lcd-position { min-width: 88px; cursor: default; }
 /* The reading and the widest it can be, in the same place: the cell takes the widest's width. */
 .lcd-position-value { display: grid; }
@@ -374,7 +375,7 @@ main > .panel {
 .lcd-key select { width: 9ch; text-align-last: center; }
 .lcd-meter:hover select, .lcd-key:hover select { color: var(--accent); }
 /* A section in its own key: the key and its label show in the accent, so the change is noticed. */
-.lcd-key.is-own-key select, .lcd-key.is-own-key .lcd-label { color: var(--accent); }
+.lcd-key.is-own-key select, .lcd-key.is-own-key .lcd-unit { color: var(--accent); }
 .record-count { font-family: 'DM Mono', monospace; font-size: var(--fs-title); font-weight: 500; line-height: 1; color: var(--text); }
 .toolbar :disabled { opacity: 0.4; }
 
