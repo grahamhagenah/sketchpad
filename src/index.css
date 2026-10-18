@@ -2057,6 +2057,8 @@ main > .panel {
 }
 .sketches-menu { width: 340px; max-height: min(480px, 70vh); overflow-y: auto; }
 /* The account, in the sketches menu: who's signed in, or a field to sign in by email. */
+.account-menu { width: 320px; }
+.account-btn.is-signed-in { color: var(--accent); }
 .account-row { cursor: default; }
 .account-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-link { align-self: flex-start; margin-top: 4px; padding: 0; border: 0; background: none; color: var(--accent); font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
