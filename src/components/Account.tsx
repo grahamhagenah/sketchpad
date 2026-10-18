@@ -48,6 +48,7 @@ function SignedIn({ email }: { email: string }) {
     <div className="menu-item account-row">
       <span className="menu-item-title">Signed in</span>
       <span className="menu-item-about account-email">{email}</span>
+      <span className="menu-item-about">Your songs are saved to your account and sync across your devices.</span>
       <button type="button" className="account-link" onClick={() => void signOut()}>
         Sign out
       </button>
@@ -74,8 +75,10 @@ function SignIn({ linkError }: { linkError: string | null }) {
   return (
     <>
       <div className="menu-item account-row">
-        <span className="menu-item-title">Sign in</span>
-        <span className="menu-item-about">With your email: no password, just a link to tap</span>
+        <span className="menu-item-title">Sign in to keep your songs everywhere</span>
+        <span className="menu-item-about">
+          Without an account, songs are saved only in this browser. Sign in to save them to your account and sync them across your devices. The first sign-in makes the account: no password, just a link we email you.
+        </span>
       </div>
       <form
         className="account-form"
