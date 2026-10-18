@@ -132,7 +132,7 @@ export function LyricsPanel({ sheet = false }: { sheet?: boolean }) {
   }
   return (
     <aside className="lyrics-panel" aria-label="Lyrics">
-      <div className="lyrics-head">
+      <div className="side-panel-head">
         <span className="column-title">Lyrics</span>
         <CloseButton onClick={() => setLyricsOpen(false)} title="Hide the lyrics" />
       </div>

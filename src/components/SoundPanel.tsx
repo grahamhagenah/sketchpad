@@ -74,7 +74,7 @@ export function ToolPanel({ which }: { which: 'sound' | 'arp' }) {
   const name = which === 'sound' ? 'Sound and rhythm' : 'Arpeggiator'
   return (
     <aside className="tool-panel" id={`${which}-panel`} aria-label={name}>
-      <div className="tool-panel-head">
+      <div className="side-panel-head">
         <span className="column-title">{name}</span>
         <CloseButton onClick={closeSheet} title={`Close the ${which === 'sound' ? 'sound' : 'arpeggiator'} settings`} />
       </div>

@@ -2544,8 +2544,10 @@ main > .panel {
   flex-direction: column;
   gap: 12px;
 }
-.tool-panel-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; height: 42px; margin-right: -6px; background: var(--panel); }
-.lyrics-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; height: 42px; background: var(--panel); }
+/* The side panels' header, the same in each: its title, and the × the same way in from the edge, so switching panels nothing moves. */
+.side-panel-head { position: sticky; top: 0; z-index: 1; flex: none; display: flex; align-items: center; justify-content: space-between; height: 42px; padding-right: 10px; background: var(--panel); }
+/* The settings' column has room on its right too, which its header reaches across. */
+.tool-panel .side-panel-head { margin-right: -16px; }
 .lyrics-section { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 6px 12px 12px; border-top: 1px solid var(--line); }
 .lyrics-section:first-of-type { border-top: 0; }
 /* The section that's open shows its name in the accent; the one playing has a line down its side. */
