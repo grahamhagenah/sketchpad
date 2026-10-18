@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { sendSignInLink, signOut, supabase, useAccount } from '../cloud'
+import { syncSoon, useSync } from '../sync'
 import { useDismiss } from '../hooks/useDismiss'
 import { useDropBelow } from '../hooks/useDropBelow'
 
@@ -44,12 +45,30 @@ export function AccountButton() {
 }
 
 function SignedIn({ email }: { email: string }) {
+  const sync = useSync()
   return (
     <div className="menu-item account-row">
       <span className="menu-item-title">Signed in</span>
       <span className="menu-item-about account-email">{email}</span>
       <span className="menu-item-about">Your songs are saved to your account and sync across your devices.</span>
-      <button type="button" className="account-link" onClick={() => void signOut()}>
+      {/* Whether this device's songs are in step with the account's. */}
+      <span className={`account-sync is-${sync.state}`}>
+        {sync.state === 'syncing'
+          ? 'Syncing…'
+          : sync.state === 'offline'
+            ? 'Offline: syncs when you’re back'
+            : sync.state === 'error'
+              ? 'Couldn’t sync'
+              : sync.at
+                ? 'Your songs are in sync'
+                : 'Saved songs sync to your account'}
+        {sync.state === 'error' && (
+          <button type="button" className="account-link" onClick={syncSoon} title={sync.error ?? undefined}>
+            Try again
+          </button>
+        )}
+      </span>
+      <button type="button" className="account-link" onClick={() => void signOut()} title="Your songs stay on this device too">
         Sign out
       </button>
     </div>

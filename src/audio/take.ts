@@ -422,6 +422,65 @@ export async function loadSketchTakes(sketchId: string, section: string): Promis
   return loadAudio(Array.isArray(stored) ? { [section]: stored } : (stored ?? {}))
 }
 
+// ---- For the cloud copy (see sync.ts) ----
+
+/** A saved sketch's lanes as stored: the ids of the takes its tracks use, by section. */
+export async function sketchLanes(sketchId: string): Promise<LaneIds | unknown[] | null> {
+  return (await idb<LaneIds | unknown[] | undefined>(SKETCH_TAKES, 'readonly', (s) => s.get(sketchId))) ?? null
+}
+
+/** Keeps a saved sketch's lanes as they came from elsewhere; their audio comes separately (keepAudioBytes). */
+export async function putSketchLanes(sketchId: string, lanes: unknown) {
+  await idb(SKETCH_TAKES, 'readwrite', (s) => s.put(lanes, sketchId))
+}
+
+/** Which of these takes' audio isn't on this device. */
+export async function missingAudio(ids: Iterable<string>): Promise<string[]> {
+  const list = [...ids]
+  const found = await Promise.all(list.map((id) => idb<IDBValidKey | undefined>(AUDIO, 'readonly', (s) => s.getKey(id))))
+  return list.filter((_, i) => found[i] === undefined)
+}
+
+/**
+ * A take's audio as bytes, to keep elsewhere: a line of JSON (where it
+ * starts, its tempo and sample rate), then its 16-bit samples. Null if it
+ * isn't on this device.
+ */
+export async function audioBytes(id: string): Promise<Blob | null> {
+  const stored = await idb<StoredTake | undefined>(AUDIO, 'readonly', (s) => s.get(id))
+  if (!stored) return null
+  const { startBeat, bpm, sampleRate, pcm } = stored
+  return new Blob([JSON.stringify({ startBeat, bpm, sampleRate }) + '\n', pcm], { type: 'application/octet-stream' })
+}
+
+/** Reads audioBytes back: the take as stored, or null if they aren't a take's. */
+export function storedFromBytes(bytes: ArrayBuffer): StoredTake | null {
+  const all = new Uint8Array(bytes)
+  const line = all.indexOf(10)
+  if (line < 0) return null
+  try {
+    const head = JSON.parse(new TextDecoder().decode(all.subarray(0, line))) as Partial<StoredTake>
+    if (typeof head.startBeat !== 'number' || typeof head.bpm !== 'number' || typeof head.sampleRate !== 'number') return null
+    const pcm = new Int16Array(bytes.slice(line + 1, line + 1 + Math.floor((bytes.byteLength - line - 1) / 2) * 2))
+    return { startBeat: head.startBeat, bpm: head.bpm, sampleRate: head.sampleRate, pcm }
+  } catch {
+    return null
+  }
+}
+
+/** Keeps a take's audio that came from elsewhere (audioBytes), unless it's on the device already. */
+export async function keepAudioBytes(id: string, bytes: ArrayBuffer) {
+  const stored = storedFromBytes(bytes)
+  if (!stored) throw new Error('A recording came back damaged.')
+  await write([AUDIO], (tx) => {
+    const audio = tx.objectStore(AUDIO)
+    const req = audio.getKey(id)
+    req.onsuccess = () => {
+      if (req.result === undefined) audio.put(stored, id)
+    }
+  })
+}
+
 export async function deleteSketchTakes(sketchId: string) {
   await idb(SKETCH_TAKES, 'readwrite', (s) => s.delete(sketchId))
   await deleteUnused()

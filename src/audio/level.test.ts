@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { concealDropouts, levelUpDb } from './take'
+import { concealDropouts, levelUpDb, storedFromBytes } from './take'
 
 const RATE = 48000
 
@@ -51,5 +51,18 @@ describe('smoothing over dropouts', () => {
     expect(concealDropouts(pause)).toBe(0)
     const quiet = new Float32Array(RATE / 10)
     expect(concealDropouts(quiet)).toBe(0)
+  })
+})
+
+describe('a recording as bytes, for the cloud', () => {
+  it('reads back what it was', async () => {
+    const pcm = Int16Array.from([0, 1200, -32767, 32767, 5])
+    const bytes = await new Blob([JSON.stringify({ startBeat: 4, bpm: 96, sampleRate: 48000 }) + '\n', pcm]).arrayBuffer()
+    expect(storedFromBytes(bytes)).toEqual({ startBeat: 4, bpm: 96, sampleRate: 48000, pcm })
+  })
+
+  it('turns down what isn’t a recording', () => {
+    expect(storedFromBytes(new TextEncoder().encode('not a take').buffer)).toBeNull()
+    expect(storedFromBytes(new TextEncoder().encode('{"bpm":1}\n').buffer)).toBeNull()
   })
 })
