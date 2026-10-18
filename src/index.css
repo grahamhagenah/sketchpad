@@ -1191,8 +1191,16 @@ main > .panel {
   border-bottom: 0;
   border-radius: 9px 9px 0 0;
 }
-.section-tab-wrap.is-open,
-.section-tab.is-song[aria-selected='true'] { background: var(--panel); border-color: var(--line); }
+.section-tab-wrap.is-open { background: var(--panel); border-color: var(--line); }
+/*
+ * The Song tab isn't one of the sections' tabs but the way to the whole song,
+ * so it's set apart: its icon level with the Tracks icon below, a line between
+ * it and the sections, and open, its name white and its icon the accent,
+ * rather than raised as a tab is.
+ */
+.section-tab.is-song { padding-left: 4px; margin-right: 13px; }
+.section-tab.is-song::after { content: ''; position: absolute; right: -8px; top: 10px; bottom: 10px; width: 1px; background: var(--line-strong); }
+.section-tab.is-song[aria-selected='true'] svg { color: var(--accent); }
 .section-tab {
   flex: none;
   height: 35px;
@@ -1286,7 +1294,7 @@ main > .panel {
 .section-tab.is-song.is-untitled .section-tab-name { color: var(--muted); font-weight: 500; }
 @media (hover: hover) {
   .section-tab-wrap:not(.is-open):hover,
-  .section-tab.is-song:not([aria-selected='true']):hover { background: rgb(255 255 255 / 0.04); }
+  .section-tab.is-song:not([aria-selected='true']):hover { color: var(--text); }
   .section-tab:not(:disabled):not([aria-selected='true']):hover { color: var(--text); }
   .section-add:not(:disabled):hover { color: var(--text); background: var(--raised); }
 }
