@@ -84,6 +84,17 @@ export async function saveSketch() {
   syncHooks.changed(id)
 }
 
+/**
+ * Saves the song as it is now as a new one, named "… copy", and carries on
+ * with the copy: the one it came from stays as it was last saved, to go back to.
+ */
+export async function saveCopy() {
+  const s = useStore.getState()
+  s.setTitle(`${s.title || 'Untitled sketch'} copy`.slice(0, 40))
+  s.setSaved(null, null)
+  await saveSketch()
+}
+
 /** Before switching away, keeps unsaved work by saving it; false if that failed. */
 async function keepCurrent() {
   if (!isDirty()) return true
