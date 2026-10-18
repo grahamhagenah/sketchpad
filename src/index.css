@@ -2687,7 +2687,8 @@ main > .panel {
 .record-options-switch span { display: flex; flex-direction: column; gap: 2px; }
 .menu.record-options-menu { width: 320px; padding: 16px; }
 /* The arrow: narrow, at the end of the transport. */
-.transport > .record-options-btn { width: 22px; color: var(--muted); }
+/* No padding of its own: the button's default padding left the icon less room than it takes, so it sat off to one side. */
+.transport > .record-options-btn { width: 24px; padding: 0; color: var(--muted); }
 .transport > .record-options-btn svg { width: 14px; height: 14px; }
 .transport > .record-options-btn[aria-expanded='true'] { color: var(--text); background: var(--tile-hover); }
 .record-options-fold summary { font-size: var(--fs-small); color: var(--muted); cursor: pointer; }
