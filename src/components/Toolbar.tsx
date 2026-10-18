@@ -164,12 +164,8 @@ export function Toolbar() {
 
   return (
     <div className="toolbar" role="toolbar" aria-label="Song">
+      {/* The transport first, at the left, as in a DAW's control bar; then in the middle a display of where you are and the song's settings, and the modes. */}
       <div className="toolbar-zone">
-        <SongTitle />
-      </div>
-
-      {/* In the middle, as in a DAW's control bar: the transport, then a display of where you are and the song's settings, then modes. */}
-      <div className="toolbar-zone toolbar-center">
         <div className="transport" role="group" aria-label="Transport">
           <button type="button" className="to-start" onClick={() => void seek(0)} aria-label="Go to the start" title="Go to the start (↵)">
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -180,7 +176,9 @@ export function Toolbar() {
           {playButton}
           <RecordButton />
         </div>
+      </div>
 
+      <div className="toolbar-zone toolbar-center">
         <div className="lcd" role="group" aria-label="Position and song settings">
           <Position />
           <TempoField />
@@ -199,6 +197,10 @@ export function Toolbar() {
         </div>
         <div className="toolbar-icons">
           <ExportButton />
+        </div>
+        {/* The sketch's file and the account, at the end with the other things done to the sketch as a whole. */}
+        <div className="toolbar-icons">
+          <SongTitle />
         </div>
       </div>
     </div>
