@@ -188,6 +188,9 @@ export async function micSettled() {
   if (left > 0) await new Promise((r) => setTimeout(r, left))
 }
 
+/** Whether the microphone is open (kept on between takes while a vocal track is picked). */
+export const micOpen = () => open !== null
+
 /** Whether the microphone is still settling (see micSettled): Record waits, and says so. */
 export const micSettling = () => !!open && performance.now() - openedAt < SETTLE_MS
 
