@@ -2069,6 +2069,17 @@ main > .panel {
   background: var(--accent);
 }
 .sketches-menu { width: 340px; max-height: min(480px, 70vh); overflow-y: auto; }
+/* The account, in the sketches menu: who's signed in, or a field to sign in by email. */
+.account-row { cursor: default; }
+.account-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-link { align-self: flex-start; margin-top: 4px; padding: 0; border: 0; background: none; color: var(--accent); font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
+.account-link:hover { text-decoration: underline; }
+.account-form { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 12px 10px; }
+.account-input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-body); }
+.account-input:focus { outline: none; border-color: var(--accent); }
+.account-send { flex: none; height: 34px; padding: 0 12px; border: 0; border-radius: 7px; background: var(--accent); color: var(--on-accent); font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
+.account-send:disabled { opacity: 0.6; cursor: default; }
+.account-error { flex-basis: 100%; margin: 0; font-size: var(--fs-small); color: var(--danger); }
 .sketch-row { display: flex; align-items: center; gap: 4px; }
 .sketch-row .menu-item { flex: 1; min-width: 0; }
 .sketch-row .menu-item-title, .sketch-row .menu-item-about { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
