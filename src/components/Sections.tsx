@@ -256,7 +256,7 @@ export function SectionBar() {
       <div className={`section-tabs ${more.before ? 'has-before' : ''} ${more.after ? 'has-more' : ''}`} role="tablist" ref={tabsRef}>
         {/* The whole song, by its name: double-click it, or tap it again once it's open, to rename it. */}
         {renaming === SONG ? (
-          <SongNameField onDone={() => setRenaming(null)} />
+          <SongNameField selected={view === 'song'} onDone={() => setRenaming(null)} />
         ) : (
           <button
             type="button"
@@ -283,7 +283,7 @@ export function SectionBar() {
               onPointerDown={(e) => startPress(sec.id, e)}
             >
               {renaming === sec.id ? (
-                <RenameField section={sec} onDone={() => setRenaming(null)} />
+                <RenameField section={sec} selected={isOpen} unused={!inSong.has(sec.id)} onDone={() => setRenaming(null)} />
               ) : (
                 <button
                   type="button"
@@ -357,69 +357,72 @@ useStore.subscribe((s, prev) => {
 const SONG = 'song'
 const UNTITLED = 'Untitled sketch'
 
-/** The song's name, typed in place of its tab; it names the sketch and exported files too. */
-function SongNameField({ onDone }: { onDone: () => void }) {
+/** The song's name, typed straight into its tab, which stays as it is around it; it names the sketch and exported files too. */
+function SongNameField({ selected, onDone }: { selected: boolean; onDone: () => void }) {
   const setTitle = useStore((s) => s.setTitle)
-  const [name, setName] = useState(useStore.getState().title)
-  const done = useRef(false)
-  const finish = (save: boolean) => {
-    if (done.current) return
-    done.current = true
-    if (save) setTitle(name.trim())
-    onDone()
-  }
   return (
-    <input
-      className="section-rename is-song"
-      aria-label="Name this sketch"
-      placeholder={UNTITLED}
-      value={name}
-      maxLength={40}
-      spellCheck={false}
-      autoFocus
-      onFocus={(e) => e.currentTarget.select()}
-      onChange={(e) => setName(e.target.value)}
-      onBlur={() => finish(true)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') finish(true)
-        if (e.key === 'Escape') {
-          e.stopPropagation()
-          finish(false)
-        }
-      }}
-      size={Math.max(8, (name || UNTITLED).length)}
-    />
+    <div role="tab" aria-selected={selected} className="section-tab is-song is-renaming">
+      <Icon d="M4 6h10M4 12h16M4 18h7" />
+      <TabNameField
+        initial={useStore.getState().title}
+        placeholder={UNTITLED}
+        label="Name this sketch"
+        maxLength={40}
+        onSave={(name) => setTitle(name.trim())}
+        onDone={onDone}
+      />
+    </div>
   )
 }
 
-function RenameField({ section, onDone }: { section: Section; onDone: () => void }) {
+/** A section's name, typed straight into its tab, which stays as it is around it. */
+function RenameField({ section, selected, unused, onDone }: { section: Section; selected: boolean; unused: boolean; onDone: () => void }) {
   const renameSection = useStore((s) => s.renameSection)
-  const [name, setName] = useState(section.name)
+  return (
+    <div role="tab" aria-selected={selected} className={`section-tab is-renaming ${unused ? 'is-unused' : ''}`}>
+      <TabNameField initial={section.name} label={`Rename ${section.name}`} onSave={(name) => renameSection(section.id, name)} onDone={onDone} />
+    </div>
+  )
+}
+
+/**
+ * A tab's name as a text field, the same size as the name it replaces (and
+ * growing with what's typed), so neither the tab nor those after it move.
+ * Enter or clicking away keeps it; Escape doesn't.
+ */
+function TabNameField({ initial, placeholder, label, maxLength, onSave, onDone }: { initial: string; placeholder?: string; label: string; maxLength?: number; onSave: (name: string) => void; onDone: () => void }) {
+  const [name, setName] = useState(initial)
   const done = useRef(false)
   const finish = (save: boolean) => {
     if (done.current) return
     done.current = true
-    if (save) renameSection(section.id, name)
+    if (save) onSave(name)
     onDone()
   }
   return (
-    <input
-      className="section-rename"
-      aria-label={`Rename ${section.name}`}
-      value={name}
-      autoFocus
-      onFocus={(e) => e.currentTarget.select()}
-      onChange={(e) => setName(e.target.value)}
-      onBlur={() => finish(true)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') finish(true)
-        if (e.key === 'Escape') {
-          e.stopPropagation()
-          finish(false)
-        }
-      }}
-      size={Math.max(4, name.length)}
-    />
+    // Sized by an invisible copy of the text (see .tab-name-edit::after), as a field can't size itself to what's in it.
+    <span className="section-tab-name tab-name-edit" data-value={name || placeholder || ''}>
+      <input
+        aria-label={label}
+        placeholder={placeholder}
+        value={name}
+        maxLength={maxLength}
+        // As narrow as a field goes, so the copy of the text alone sets the width.
+        size={1}
+        spellCheck={false}
+        autoFocus
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => finish(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') finish(true)
+          if (e.key === 'Escape') {
+            e.stopPropagation()
+            finish(false)
+          }
+        }}
+      />
+    </span>
   )
 }
 
