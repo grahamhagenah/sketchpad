@@ -755,9 +755,6 @@ export function SongView() {
     const seconds = Math.round(beats * beatSeconds)
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
   }
-  // A letter for each section, in the order they first play: its shape at a glance, as A B A B C B.
-  const letters = new Map<string, string>()
-  for (const entry of arrangement) if (!letters.has(entry.section)) letters.set(entry.section, String.fromCharCode(65 + (letters.size % 26)))
   // From a row's start: there and on, or on from there if it's already playing.
   const playFrom = (beat: number) => {
     if (useStore.getState().playing) return void seek(beat)
@@ -769,15 +766,12 @@ export function SongView() {
       className={`song-view ${narrow ? 'is-narrow' : ''}`}
       style={{ ['--song-head' as string]: `${headPx}px`, ['--song-track-top' as string]: narrow ? `${NARROW_HEAD_H}px` : '0px', ['--song-view-w' as string]: `${sheetWidth}px` }}
     >
-      {/* How long the song is, and its shape. */}
+      {/* How long the song is. */}
       {total > 0 && (
         <p className="song-summary">
           <span>{clock(total)}</span>
           <span>
             {bars(total)} {bars(total) === 1 ? 'bar' : 'bars'}
-          </span>
-          <span className="song-summary-shape" aria-label={`Shape: ${arrangement.map((e) => letters.get(e.section)).join(' ')}`}>
-            {arrangement.map((e) => letters.get(e.section)).join(' ')}
           </span>
         </p>
       )}
@@ -833,9 +827,6 @@ export function SongView() {
                     <svg className="song-row-grip" width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
                       {[2, 8, 14].flatMap((y) => [2, 8].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.5" fill="currentColor" />))}
                     </svg>
-                    <span className="song-row-letter" aria-hidden="true">
-                      {letters.get(section.id)}
-                    </span>
                     <span className="song-row-title">{section.name}</span>
                     {/* When it starts; on a phone, how long it is and its key too. */}
                     {!narrow && beats > 0 && <span className="song-row-time">{clock(start)}</span>}
