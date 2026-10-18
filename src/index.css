@@ -1271,22 +1271,19 @@ main > .panel {
 .section-tabs { --fade-start: 0px; --fade-end: 0px; mask-image: linear-gradient(to right, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent); }
 .section-tabs.has-before { --fade-start: 28px; }
 .section-tabs.has-more { --fade-end: 28px; }
-.section-rename {
-  width: auto;
-  height: 30px;
-  margin: 0 2px;
-  padding: 0 10px;
-  border: 1px solid var(--accent);
-  border-radius: 7px;
-  background: var(--bg);
-  font-size: var(--fs-body);
-  font-weight: 600;
-}
-.section-rename:focus-visible { outline: none; }
+/*
+ * A tab's name being typed: in the tab, in its place and its type, sized by
+ * an invisible copy of the text, so nothing moves; underlined in the accent.
+ */
+.tab-name-edit { display: inline-grid; box-shadow: inset 0 -1.5px var(--accent); }
+.tab-name-edit::after { content: attr(data-value); grid-area: 1 / 1; visibility: hidden; white-space: pre; }
+.tab-name-edit input { grid-area: 1 / 1; width: 100%; min-width: 1ch; padding: 0; border: 0; background: none; color: var(--text); font: inherit; outline: none; }
+.tab-name-edit input::placeholder { color: var(--muted); }
+/* No name yet: the placeholder, and its copy, in the lighter weight the tab shows it in. */
+.tab-name-edit:has(input:placeholder-shown) { font-weight: 500; }
 /* The song's name, on its tab: long ones end in an ellipsis; none yet, in grey. */
 .section-tab.is-song .section-tab-name { max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .section-tab.is-song.is-untitled .section-tab-name { color: var(--muted); font-weight: 500; }
-.section-rename.is-song { flex: none; }
 @media (hover: hover) {
   .section-tab-wrap:not(.is-open):hover,
   .section-tab.is-song:not([aria-selected='true']):hover { background: rgb(255 255 255 / 0.04); }
