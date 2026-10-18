@@ -118,6 +118,11 @@ main > .panel {
 .toolbar-end { margin-left: auto; gap: 8px; }
 .toolbar-icons { display: flex; align-items: center; gap: 2px; }
 .toolbar-end .toolbar-icons + .toolbar-icons { padding-left: 8px; border-left: 1px solid var(--line); }
+/* Too narrow for one row: the transport and the end share the first, the display and modes take the second. */
+@media (min-width: 641px) and (max-width: 979px) {
+  .toolbar:not(.toolbar-compact) .toolbar-center { order: 1; }
+  .toolbar:not(.toolbar-compact) .toolbar-end { margin-left: auto; }
+}
 /* With room, the transport and display sit in the middle of the bar, whatever is either side of them. */
 /* If a side needs more than half what's left, it takes it, and the middle moves over. */
 @media (min-width: 1200px) {
@@ -841,6 +846,8 @@ main > .panel {
 /* The sketch menu, leading the toolbar. */
 .song-bar { display: flex; align-items: center; gap: 2px; }
 .song-bar .menu { left: 0; right: auto; }
+/* At the right end of the bar, their menus open leftwards, inside the screen. */
+.toolbar-end .song-bar .menu { left: auto; right: 0; }
 .song-bar .save-btn.has-changes::after { top: 4px; right: 4px; }
 .track-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; color: var(--muted); }
 /* Selected, like everything selected: in white. */
