@@ -76,9 +76,10 @@ export async function saveSketch() {
   keepStorage()
   const s = useStore.getState()
   const id = s.sketchId ?? newId()
-  await idb(SKETCHES, 'readwrite', (store) => store.put({ id, updated: Date.now(), song: songOf(s) } satisfies SketchRecord, id))
+  const updated = Date.now()
+  await idb(SKETCHES, 'readwrite', (store) => store.put({ id, updated, song: songOf(s) } satisfies SketchRecord, id))
   await saveSketchTakes(id, takeIdsBySection(s), (take) => engine.takeAudio(take))
-  s.setSaved(id, sketchSignature(useStore.getState()))
+  s.setSaved(id, sketchSignature(useStore.getState()), updated)
   await refreshLibrary()
   syncHooks.changed(id)
 }
@@ -116,20 +117,30 @@ async function showSketch(record: SketchRecord) {
   const takes = await loadSketchTakes(record.id, songState(record.song).activeSection)
   stopEverything()
   putSong(record.song, takes)
-  useStore.getState().setSaved(record.id, sketchSignature(useStore.getState()))
+  useStore.getState().setSaved(record.id, sketchSignature(useStore.getState()), record.updated)
   clearHistory()
 }
 
+/** Whether the editor can be changed under the person now: nothing unsaved, playing or recording. */
+const settled = (s = useStore.getState()) => !isDirty(s) && s.recording === 'off' && !s.playing
+
 /**
- * Shows a saved sketch again as it now is, after it changed elsewhere (on
- * another device), if it's the one open and has no unsaved changes; with
- * changes, they're kept, and saving them wins.
+ * The open sketch's saved copy, when it has changed since the editor showed
+ * it (on another device, then synced here) and the editor can show it again
+ * (see `settled`); otherwise null. With unsaved changes, they're kept, and
+ * saving them wins.
  */
-export async function reshowIfOpen(id: string) {
+export async function openIsBehind(): Promise<SketchRecord | null> {
   const s = useStore.getState()
-  if (s.sketchId !== id || isDirty(s) || s.recording !== 'off' || s.playing) return
-  const record = await idb<SketchRecord | undefined>(SKETCHES, 'readonly', (store) => store.get(id))
-  if (!record || record.deleted) return
+  if (!s.sketchId || !settled(s)) return null
+  const record = await idb<SketchRecord | undefined>(SKETCHES, 'readonly', (store) => store.get(s.sketchId!))
+  return record && !record.deleted && record.updated !== s.savedAt ? record : null
+}
+
+/** Shows the open sketch's saved copy again (from openIsBehind), if it's still the one open and nothing changed meanwhile. */
+export async function reshow(record: SketchRecord) {
+  const s = useStore.getState()
+  if (s.sketchId !== record.id || !settled(s)) return
   await showSketch(record)
 }
 
