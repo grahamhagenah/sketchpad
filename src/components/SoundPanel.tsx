@@ -31,7 +31,7 @@ function preview() {
  * where the lyrics go, so they stay in view; on a phone, in the sheet along
  * the bottom (the section's, in its own menu).
  */
-export type Tool = 'sound' | 'arp' | 'key' | 'section'
+export type Tool = 'sound' | 'arp' | 'key' | 'section' | 'songs'
 export const useToolSheet = create<{ open: Tool | null }>(() => ({ open: null }))
 export const closeSheet = () => useToolSheet.setState({ open: null })
 
