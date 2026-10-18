@@ -53,11 +53,9 @@ export function KeyFinderSheet() {
   )
 }
 
-/** Puts a note in the tune, sounding it, or takes it out if it's already in. */
-const toggle = (pc: number) => {
-  const { notes } = useKeyFinder.getState()
-  if (notes.includes(pc)) return useKeyFinder.setState({ notes: notes.filter((n) => n !== pc) })
-  useKeyFinder.setState({ notes: [...notes, pc] })
+/** Adds a note to the end of the tune, sounding it: again and again for a note the tune repeats, since how often each comes counts. */
+const add = (pc: number) => {
+  useKeyFinder.setState((s) => ({ notes: [...s.notes, pc] }))
   // In the octave picked, to sound where the tune's sung; which octave doesn't change the key.
   void playNote(12 * (useKeyFinder.getState().octave + 1) + pc)
 }
@@ -102,7 +100,7 @@ export function KeyFinder({ titled = true }: { titled?: boolean }) {
       e.preventDefault()
       e.stopPropagation()
       if (shift) shiftOctave(shift)
-      else if (pc !== -1) toggle(pc)
+      else if (pc !== -1) add(pc)
       else useKeyFinder.setState((st) => ({ notes: st.notes.slice(0, -1) }))
     }
     window.addEventListener('keydown', onKey, true)
@@ -147,7 +145,7 @@ export function KeyFinder({ titled = true }: { titled?: boolean }) {
       {/* In the sheet, its header names it. */}
       {titled && <p className="key-finder-title">Find the key</p>}
       <p className="key-finder-about">
-        Pick the notes in your tune, in the order they come<span className="key-finder-typed">, here or on your keyboard</span>; pick one again to take it out. The first and last count as likelier home notes.
+        Pick the notes in your tune, in the order they come<span className="key-finder-typed">, here or on your keyboard</span>; repeat notes as the tune does. Tap one below to take it out. The first and last count as likelier home notes.
       </p>
 
       {/* Which octave the pads sound in, to match a low or high voice: it only changes what you hear. */}
@@ -172,10 +170,9 @@ export function KeyFinder({ titled = true }: { titled?: boolean }) {
             type="button"
             key={pc}
             className={`chord-pad-pad ${played.has(pc) ? 'is-picked' : ''}`}
-            onClick={() => toggle(pc)}
-            aria-pressed={played.has(pc)}
+            onClick={() => add(pc)}
             aria-label={name(pc)}
-            title={played.has(pc) ? `Take ${name(pc)} out` : `Add ${name(pc)}`}
+            title={`Add ${name(pc)}${played.has(pc) ? ' again' : ''}`}
           >
             <span className="chord-pad-name">{name(pc)}</span>
             <span className="chord-pad-roman key-finder-typed">{TYPED[pc].slice(3)}</span>
