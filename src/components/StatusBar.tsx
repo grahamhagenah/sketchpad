@@ -7,6 +7,7 @@ import { InputMeter } from './InputMeter'
 import { chordOf } from '../music/theory'
 import { isDirty } from '../library'
 import { ShortcutsButton } from './Shortcuts'
+import { ZoomButtons } from './Toolbar'
 
 /**
  * A strip along the bottom of the window: what's selected, with the keys that
@@ -32,6 +33,10 @@ export function StatusBar() {
           ''
         )}
       </p>
+      {/* Zoom, in the corner, as in most editors: it changes the view, not the song. */}
+      <div className="status-zoom" role="group" aria-label="Zoom">
+        <ZoomButtons />
+      </div>
       <ShortcutsButton />
     </footer>
   )

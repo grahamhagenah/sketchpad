@@ -1,18 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { useDismiss } from '../hooks/useDismiss'
-import { useDropBelow } from '../hooks/useDropBelow'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNarrow } from '../hooks/useNarrow'
-import { chordsTrackName, drumsTrackName, MAX_BPM, MIN_BPM, recordLane, sectionsNow, TIME_SIG_GROUPS, TIME_SIGS, useFields, useStore, vocalTrackName, ZOOMS } from '../store'
+import { MAX_BPM, MIN_BPM, recordLane, TIME_SIG_GROUPS, TIME_SIGS, useFields, useStore, ZOOMS } from '../store'
 import { keyLabel, type Mode } from '../music/theory'
-import { engine, seek, togglePlay, toggleRecord } from '../audio/engine'
+import { seek, togglePlay, toggleRecord } from '../audio/engine'
 import { redo, undo, useHistory } from '../history'
 import { ArpButton, SoundButton } from './SoundPanel'
 import { Position } from './Position'
 import { SongTitle } from './SongTitle'
-import { tally } from '../analytics'
-import { download, exportName, placedTakes, songToMidi, songToStems, songToWav, takeToWav } from '../audio/export'
-import { LANES } from '../audio/take'
-import { playbackOf } from '../song'
 
 /** The one bar for playback, song settings and editing the selected chord. */
 export function Toolbar() {
@@ -93,16 +87,21 @@ export function Toolbar() {
     </label>
   )
   const modes = (
-    <div className="toolbar-icons toolbar-modes">
-      <IconToggle label="Cycle (L)" pressed={loopOn} onClick={toggleLoop}>
-        <Icon d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4" />
-      </IconToggle>
-      <IconToggle label="Metronome (M)" pressed={metronome} onClick={toggleMetronome}>
-        <Icon d="M9 3h6l4 18H5zM12 15l5-8" />
-      </IconToggle>
-      <ArpButton />
-      <SoundButton />
-    </div>
+    <>
+      {/* Switches, on or off at a click; then, apart from them, the buttons that open settings in the side panel. */}
+      <div className="toolbar-icons toolbar-modes">
+        <IconToggle label="Cycle (L)" pressed={loopOn} onClick={toggleLoop}>
+          <Icon d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4" />
+        </IconToggle>
+        <IconToggle label="Metronome (M)" pressed={metronome} onClick={toggleMetronome}>
+          <Icon d="M9 3h6l4 18H5zM12 15l5-8" />
+        </IconToggle>
+      </div>
+      <div className="toolbar-icons toolbar-modes toolbar-panels">
+        <ArpButton />
+        <SoundButton />
+      </div>
+    </>
   )
   const playButton = (
     <button type="button" className={`play ${playing ? 'is-playing' : ''}`} onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'} title="Play / pause (Space)">
@@ -143,9 +142,6 @@ export function Toolbar() {
               {/* On the smallest phones, undo and redo wait here, leaving the row above room for play and record. */}
               <div className="toolbar-icons toolbar-undo-extra">
                 <UndoRedo />
-              </div>
-              <div className="toolbar-icons">
-                <ExportButton />
               </div>
             </div>
             <div className="toolbar-extra-row">
@@ -195,9 +191,6 @@ export function Toolbar() {
         <div className="toolbar-icons">
           <UndoRedo />
         </div>
-        <div className="toolbar-icons">
-          <ExportButton />
-        </div>
         {/* The sketch's file and the account, at the end with the other things done to the sketch as a whole. */}
         <div className="toolbar-icons">
           <SongTitle />
@@ -235,132 +228,6 @@ function UndoRedo() {
         <Icon d="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
       </button>
     </>
-  )
-}
-
-/** What exports: the whole song, or the open section while the song has nothing in it. */
-function exported(s = useStore.getState()) {
-  const song = playbackOf(s, 'song')
-  return song.chords.length ? song : playbackOf(s, 'section')
-}
-
-/** The song with every track playing, muted or not, for exports a DAW can mute tracks in itself. */
-function unmuted(s: ReturnType<typeof useStore.getState>) {
-  const quiet = Array(LANES).fill(false)
-  return {
-    ...s,
-    chordsMuted: false,
-    chordsSolo: false,
-    drumsMuted: false,
-    drumsSolo: false,
-    vocalMuted: quiet,
-    vocalSolo: quiet,
-    sections: s.sections.map((sec) => ({ ...sec, vocalMuted: quiet, vocalSolo: quiet })),
-  }
-}
-
-/** One Export button with a small menu to pick MIDI, WAV or stems. */
-function ExportButton() {
-  const hasChords = useStore((s) => s.chords.length > 0 || playbackOf(s, 'song').chords.length > 0)
-  const takes = useStore((s) => s.takes)
-  const vocalNames = useStore((s) => s.vocalNames)
-  const sectionName = useStore((s) => s.sections.find((sec) => sec.id === s.activeSection)?.name ?? 'the section')
-  const hasTake = useStore((s) => sectionsNow(s).some((sec) => sec.takes.some(Boolean)))
-  const [open, setOpen] = useState(false)
-  const close = useCallback(() => setOpen(false), [])
-  const [rendering, setRendering] = useState<'wav' | 'stems' | null>(null)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useDismiss(open, close, ref)
-  const below = useDropBelow(open, ref)
-
-  const exportMidi = () => {
-    const s = useStore.getState()
-    // Every chord and drum hit, muted or not: in a DAW each track can be muted there.
-    const song = exported(unmuted(s))
-    download(songToMidi({ ...song, chords: song.chords.map((c) => ({ ...c, silent: false })) }), `${exportName(s)}.mid`)
-    tally('export/midi')
-    setOpen(false)
-  }
-  const exportWav = async () => {
-    const s = useStore.getState()
-    setRendering('wav')
-    try {
-      // The mix is what you hear: muted and un-soloed tracks are left out.
-      const song = exported()
-      download(await songToWav(song, placedTakes(song, (id) => engine.takeAudio(id))), `${exportName(s)}.wav`)
-      tally('export/wav')
-      setOpen(false)
-    } finally {
-      setRendering(null)
-    }
-  }
-  const exportStems = async () => {
-    const s = useStore.getState()
-    setRendering('stems')
-    try {
-      // Every track, muted or not, as with MIDI.
-      const song = exported(unmuted(s))
-      const takes = placedTakes(song, (id) => engine.takeAudio(id))
-      const names = { chords: chordsTrackName(s), drums: drumsTrackName(s), vocal: (track: number) => vocalTrackName(s, track) }
-      download(await songToStems(song, takes, names), `${exportName(s)}-stems.zip`)
-      tally('export/stems')
-      setOpen(false)
-    } finally {
-      setRendering(null)
-    }
-  }
-  const exportVocal = (lane: number) => {
-    const s = useStore.getState()
-    const info = s.takes[lane]
-    const take = info && engine.takeAudio(info.id)
-    if (!take) return
-    const slug = vocalTrackName(s, lane).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `vocal-${lane + 1}`
-    download(takeToWav(s, take), `${exportName(s)}-${slug}.wav`)
-    tally('export/vocal')
-    setOpen(false)
-  }
-
-  return (
-    <div className="menu-anchor" ref={ref}>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label="Export"
-        disabled={!hasChords}
-        aria-expanded={open}
-        aria-controls="export-menu"
-        onClick={() => setOpen(!open)}
-        title="Download the progression"
-      >
-        <Icon d="M12 4v11M7 10l5 5 5-5M5 20h14" />
-      </button>
-      {open && (
-        <div className="menu" id="export-menu" aria-label="Export as" style={below}>
-          <button type="button" className="menu-item" onClick={exportMidi} disabled={rendering !== null}>
-            <span className="menu-item-title">MIDI</span>
-            <span className="menu-item-about">The whole song’s chords, bass and drums on separate tracks, for a DAW</span>
-          </button>
-          <button type="button" className="menu-item" onClick={exportWav} disabled={rendering !== null} aria-live="polite">
-            <span className="menu-item-title">{rendering === 'wav' ? 'Rendering…' : 'WAV'}</span>
-            <span className="menu-item-about">The whole song as 24-bit audio{hasTake ? ', with the vocals' : ''}</span>
-          </button>
-          <button type="button" className="menu-item" onClick={exportStems} disabled={rendering !== null} aria-live="polite">
-            <span className="menu-item-title">{rendering === 'stems' ? 'Rendering stems…' : 'Stems'}</span>
-            <span className="menu-item-about">Each track as its own WAV, all from bar 1, in a zip for Logic</span>
-          </button>
-          {takes.map(
-            (t, lane) =>
-              t && (
-                <button type="button" key={lane} className="menu-item" onClick={() => exportVocal(lane)} disabled={rendering !== null}>
-                  <span className="menu-item-title">{vocalTrackName({ vocalNames }, lane)}</span>
-                  <span className="menu-item-about">This take alone, lined up to the start of {sectionName}</span>
-                </button>
-              ),
-          )}
-        </div>
-      )}
-    </div>
   )
 }
 

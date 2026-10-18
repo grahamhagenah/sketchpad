@@ -22,6 +22,7 @@ import {
   type SketchRecord,
 } from '../library'
 import { SONG_TEMPLATES } from '../songs'
+import { ExportItems, useCanExport } from './ExportItems'
 
 /**
  * One button for the sketch file: save, start a new sketch, or open a saved
@@ -37,6 +38,8 @@ export function SketchesButton() {
   const deleted = useLibrary((s) => s.deleted)
   const [showDeleted, setShowDeleted] = useState(false)
   const [showSongs, setShowSongs] = useState(false)
+  const [showExport, setShowExport] = useState(false)
+  const canExport = useCanExport()
   const fileRef = useRef<HTMLInputElement>(null)
   const current = useStore((s) => s.sketchId)
   const dirty = useStore(isDirty)
@@ -127,6 +130,23 @@ export function SketchesButton() {
             </button>
           ))}
           <div className="menu-divider" role="separator" />
+          {/* The song out to other apps, folded away like the songs to start from. */}
+          <button
+            type="button"
+            className="menu-item has-icon deleted-toggle"
+            aria-expanded={showExport && canExport}
+            disabled={!canExport}
+            onClick={() => setShowExport(!showExport)}
+          >
+            {/* Out of Bounce, to another app: an arrow up out of a tray, where backing up has one down into it. */}
+            <MenuIcon d="M12 15V4M7 9l5-5 5 5M5 14v6h14v-6" />
+            <span className="menu-item-title">
+              Export
+              <Chevron />
+            </span>
+            <span className="menu-item-about">{canExport ? 'MIDI, WAV or stems, for a DAW or to share' : 'Add some chords to export'}</span>
+          </button>
+          {showExport && canExport && <ExportItems close={close} />}
           {/* Backups: the sketch, recordings and all, as one file to keep anywhere, and back again. */}
           <button
             type="button"

@@ -6,7 +6,7 @@ import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { engine, seek, togglePlay } from '../audio/engine'
 import { songBeatOf, songSpans } from '../song'
 import { grooveHits } from '../audio/drums'
-import { Icon, ZoomButtons } from './Toolbar'
+import { Icon } from './Toolbar'
 import { useNarrow } from '../hooks/useNarrow'
 import { ChordKeysButton } from './ChordKeys'
 import { SongCards } from './SongCards'
@@ -333,13 +333,12 @@ export function SectionBar() {
       <div className="section-bar-end">
         {/* The open section's own settings, few and seldom needed, in a menu: renaming it (as double-clicking its tab does), its key, copies of it, and deleting it. */}
         {open && <SectionMenu section={open} onRename={() => setRenaming(open.id)} />}
-        {/* The lyrics, and zoom: they work on whichever view is showing, so they sit with the views. */}
+        {/* The tools that open panels beside the views, and the chord keys; zoom is in the status bar along the bottom. */}
         {/* The floating chord keys are for a mouse and keyboard. */}
         {!narrow && <ChordKeysButton />}
         {/* Which key a tune's in, from its notes. */}
         <KeyFinderButton />
         <LyricsButton />
-        <ZoomButtons />
       </div>
     </nav>
   )
