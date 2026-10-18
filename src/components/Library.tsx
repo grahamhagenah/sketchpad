@@ -22,16 +22,13 @@ import {
   type SketchRecord,
 } from '../library'
 import { SONG_TEMPLATES } from '../songs'
-import { AccountSection } from './Account'
-import { useAccount } from '../cloud'
 
 /**
  * One button for the sketch file: save, start a new sketch, or open a saved
  * one. A dot on it means there are unsaved changes; ⌘S saves without opening it.
  */
 export function SketchesButton() {
-  // Open already when a sign-in link came back refused, to say why where they sign in.
-  const [open, setOpen] = useState(() => !!useAccount.getState().linkError)
+  const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(open, close, ref)
@@ -196,9 +193,6 @@ export function SketchesButton() {
               {showDeleted && deleted.map((sketch) => <DeletedRow key={sketch.id} sketch={sketch} />)}
             </>
           )}
-          {/* Signing in, to keep sketches in an account as well as on this device. */}
-          <div className="menu-divider" role="separator" />
-          <AccountSection />
           <div className="menu-divider" role="separator" />
           <a className="menu-footnote" href="/about/" target="_blank" rel="noopener">
             About Bounce

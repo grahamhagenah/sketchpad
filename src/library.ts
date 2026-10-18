@@ -25,6 +25,18 @@ export interface SketchRecord {
 /** The saved sketches, newest first, for the library menu; and those recently deleted, most recently first. */
 export const useLibrary = create<{ sketches: SketchRecord[]; deleted: SketchRecord[] }>(() => ({ sketches: [], deleted: [] }))
 
+/**
+ * Where the cloud copy (sync.ts, when someone's signed in) hears of what
+ * happens here: a saved sketch changed (saved, deleted, put back or deleted
+ * for good), and a sketch about to be opened, whose recordings it fetches
+ * first if they aren't on this device (throwing, so it isn't opened, if it
+ * can't).
+ */
+export const syncHooks = {
+  changed: (id: string): void => void id,
+  beforeOpen: async (id: string): Promise<void> => void id,
+}
+
 /** How long a deleted sketch can still be put back. */
 export const DELETED_DAYS = 30
 const DAY = 24 * 60 * 60 * 1000
@@ -47,9 +59,13 @@ export function isDirty(s = useStore.getState()) {
   return sketchSignature(s) !== s.savedSignature
 }
 
+/** Thrown when a sketch isn't opened after all, the person having been told why (its recordings couldn't be fetched, say). */
+export class NotOpened extends Error {}
+
 /** Tells the person that something they did wasn't stored, e.g. "save the sketch". */
 export function reportStorageError(doing: string) {
   return (error: unknown) => {
+    if (error instanceof NotOpened) return
     console.error(error)
     window.alert(`Bounce couldn’t ${doing}. ${storageErrorMessage(error)}`)
   }
@@ -60,10 +76,12 @@ export async function saveSketch() {
   keepStorage()
   const s = useStore.getState()
   const id = s.sketchId ?? newId()
-  await idb(SKETCHES, 'readwrite', (store) => store.put({ id, updated: Date.now(), song: songOf(s) } satisfies SketchRecord, id))
+  const updated = Date.now()
+  await idb(SKETCHES, 'readwrite', (store) => store.put({ id, updated, song: songOf(s) } satisfies SketchRecord, id))
   await saveSketchTakes(id, takeIdsBySection(s), (take) => engine.takeAudio(take))
-  s.setSaved(id, sketchSignature(useStore.getState()))
+  s.setSaved(id, sketchSignature(useStore.getState()), updated)
   await refreshLibrary()
+  syncHooks.changed(id)
 }
 
 /** Before switching away, keeps unsaved work by saving it; false if that failed. */
@@ -90,11 +108,40 @@ export async function openSketch(id: string) {
   if (!(await keepCurrent())) return
   const record = await idb<SketchRecord | undefined>(SKETCHES, 'readonly', (store) => store.get(id))
   if (!record) return
-  const takes = await loadSketchTakes(id, songState(record.song).activeSection)
+  await syncHooks.beforeOpen(id)
+  await showSketch(record)
+}
+
+/** Puts a saved sketch in the editor, as saved. */
+async function showSketch(record: SketchRecord) {
+  const takes = await loadSketchTakes(record.id, songState(record.song).activeSection)
   stopEverything()
   putSong(record.song, takes)
-  useStore.getState().setSaved(id, sketchSignature(useStore.getState()))
+  useStore.getState().setSaved(record.id, sketchSignature(useStore.getState()), record.updated)
   clearHistory()
+}
+
+/** Whether the editor can be changed under the person now: nothing unsaved, playing or recording. */
+const settled = (s = useStore.getState()) => !isDirty(s) && s.recording === 'off' && !s.playing
+
+/**
+ * The open sketch's saved copy, when it has changed since the editor showed
+ * it (on another device, then synced here) and the editor can show it again
+ * (see `settled`); otherwise null. With unsaved changes, they're kept, and
+ * saving them wins.
+ */
+export async function openIsBehind(): Promise<SketchRecord | null> {
+  const s = useStore.getState()
+  if (!s.sketchId || !settled(s)) return null
+  const record = await idb<SketchRecord | undefined>(SKETCHES, 'readonly', (store) => store.get(s.sketchId!))
+  return record && !record.deleted && record.updated !== s.savedAt ? record : null
+}
+
+/** Shows the open sketch's saved copy again (from openIsBehind), if it's still the one open and nothing changed meanwhile. */
+export async function reshow(record: SketchRecord) {
+  const s = useStore.getState()
+  if (s.sketchId !== record.id || !settled(s)) return
+  await showSketch(record)
 }
 
 /** Puts a saved song (from the device or a backup file) and its takes in the editor. */
@@ -171,6 +218,7 @@ export async function deleteSketch(id: string) {
   // The open sketch stays on screen, as unsaved work.
   if (useStore.getState().sketchId === id) useStore.getState().setSaved(null, null)
   await refreshLibrary()
+  syncHooks.changed(id)
   showUndoNote(`Deleted ${record.song.title || 'Untitled sketch'}`, () => void restoreSketch(id).catch(reportStorageError('put that sketch back')))
 }
 
@@ -180,8 +228,10 @@ export async function restoreSketch(id: string) {
   if (!record) return
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { deleted, ...kept } = record
-  await idb(SKETCHES, 'readwrite', (store) => store.put(kept satisfies SketchRecord, id))
+  // Put back now, which counts as a change, so it's put back on other devices too.
+  await idb(SKETCHES, 'readwrite', (store) => store.put({ ...kept, updated: Date.now() } satisfies SketchRecord, id))
   await refreshLibrary()
+  syncHooks.changed(id)
 }
 
 /** Deletes a sketch and its takes for good. */
@@ -189,4 +239,5 @@ export async function deleteForever(id: string, refresh = true) {
   await idb(SKETCHES, 'readwrite', (store) => store.delete(id))
   await deleteSketchTakes(id)
   if (refresh) await refreshLibrary()
+  syncHooks.changed(id)
 }

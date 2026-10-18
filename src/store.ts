@@ -143,6 +143,8 @@ interface State extends SectionParts {
   sketchId: string | null
   /** The sketch as last saved (see sketchSignature), to tell whether it has changed since. */
   savedSignature: string | null
+  /** When the saved copy shown was saved (its `updated`), to tell when it has changed on another device since. */
+  savedAt: number | null
   /** The name given to the chords track; null keeps the usual one. */
   chordsName: string | null
   drumsName: string | null
@@ -196,7 +198,7 @@ interface State extends SectionParts {
   /** Makes sure at least `count` vocal tracks show. */
   showVocalTracks: (count: number) => void
   setTitle: (title: string) => void
-  setSaved: (sketchId: string | null, signature: string | null) => void
+  setSaved: (sketchId: string | null, signature: string | null, savedAt?: number | null) => void
   renameChords: (name: string) => void
   renameVocal: (lane: number, name: string) => void
   toggleVocalMute: (lane: number) => void
@@ -582,6 +584,7 @@ export const useStore = create<State>()(
       title: '',
       sketchId: null,
       savedSignature: null,
+      savedAt: null,
       chordsName: null,
       drumsName: null,
       armedLane: 0,
@@ -673,7 +676,7 @@ export const useStore = create<State>()(
         set({ vocalTracks: lane + 1, vocalColors, vocalReverb, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false, drumsTrackSelected: false })
       },
       setTitle: (title) => set({ title }),
-      setSaved: (sketchId, savedSignature) => set({ sketchId, savedSignature }),
+      setSaved: (sketchId, savedSignature, savedAt = null) => set({ sketchId, savedSignature, savedAt }),
       renameChords: (name) => set({ chordsName: name.trim() || null }),
       renameVocal: (lane, name) => set({ vocalNames: get().vocalNames.map((n, i) => (i === lane ? name.trim() || null : n)) }),
       showVocalTracks: (count) => {
@@ -943,7 +946,7 @@ export const useStore = create<State>()(
         if (!p.sections && !p.chords) return current
         return { ...current, ...p, ...songState(p), sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp }, rhythm: { ...DEFAULT_RHYTHM, ...p.rhythm } }
       },
-      partialize: (s) => ({ ...songOf(s), view: s.view, zoom: s.zoom, sketchId: s.sketchId, savedSignature: s.savedSignature }),
+      partialize: (s) => ({ ...songOf(s), view: s.view, zoom: s.zoom, sketchId: s.sketchId, savedSignature: s.savedSignature, savedAt: s.savedAt }),
     },
   ),
 )

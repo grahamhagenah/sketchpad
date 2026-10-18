@@ -2057,10 +2057,15 @@ main > .panel {
 }
 .sketches-menu { width: 340px; max-height: min(480px, 70vh); overflow-y: auto; }
 /* The account, in the sketches menu: who's signed in, or a field to sign in by email. */
+.account-menu { width: 320px; }
+.account-btn.is-signed-in { color: var(--accent); }
 .account-row { cursor: default; }
 .account-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-link { align-self: flex-start; margin-top: 4px; padding: 0; border: 0; background: none; color: var(--accent); font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
 .account-link:hover { text-decoration: underline; }
+.account-sync { display: flex; align-items: center; gap: 8px; margin-top: 2px; font-size: var(--fs-small); color: var(--muted); }
+.account-sync .account-link { margin-top: 0; }
+.account-sync.is-error { color: var(--danger); }
 .account-form { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 12px 10px; }
 .account-input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-body); }
 .account-input:focus { outline: none; border-color: var(--accent); }
