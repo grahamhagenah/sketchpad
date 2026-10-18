@@ -852,6 +852,8 @@ main > .panel {
 /* At the right end of the bar, their menus open leftwards, inside the screen. */
 .toolbar-end .song-bar .menu { left: auto; right: 0; }
 .song-bar .save-btn.has-changes::after { top: 4px; right: 4px; }
+/* The songs button with its panel open: lifted, as the other panels' buttons are. */
+.song-bar .songs-btn[aria-expanded='true'] { color: var(--text); background: var(--raised); }
 .track-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; color: var(--muted); }
 /* Selected, like everything selected: in white. */
 .track-header.is-selected .track-title { color: var(--text); }
@@ -2572,6 +2574,14 @@ main > .panel {
   flex-direction: column;
   gap: 12px;
 }
+/* The song's settings: its name, a line on what's in it and whether it's saved, then its actions. */
+.song-settings { display: flex; flex-direction: column; gap: 10px; }
+.song-settings .inspector-field { align-items: stretch; }
+/* As tall as the panels' dropdowns, and not stretched or squashed by the column it's in. */
+.song-settings-name { flex: none; width: 100%; height: 38px; padding: 0 12px; border-radius: 8px; }
+.song-settings-facts { margin: 0; font-size: var(--fs-small); line-height: 1.6; color: var(--muted); }
+.song-settings-facts .is-unsaved { color: var(--text); }
+
 /* The side panels' header, the same in each: its title, and the × the same way in from the edge, so switching panels nothing moves. */
 .side-panel-head { position: sticky; top: 0; z-index: 1; flex: none; display: flex; align-items: center; justify-content: space-between; height: 42px; padding-right: 10px; background: var(--panel); }
 /* The settings' column has room on its right too, which its header reaches across. */

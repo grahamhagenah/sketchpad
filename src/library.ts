@@ -84,6 +84,17 @@ export async function saveSketch() {
   syncHooks.changed(id)
 }
 
+/**
+ * Saves the song as it is now as a new one, named "… copy", and carries on
+ * with the copy: the one it came from stays as it was last saved, to go back to.
+ */
+export async function saveCopy() {
+  const s = useStore.getState()
+  s.setTitle(`${s.title || 'Untitled sketch'} copy`.slice(0, 40))
+  s.setSaved(null, null)
+  await saveSketch()
+}
+
 /** Before switching away, keeps unsaved work by saving it; false if that failed. */
 async function keepCurrent() {
   if (!isDirty()) return true
@@ -182,13 +193,23 @@ export async function openBackup(file: File) {
 export async function newSketch() {
   if (useStore.getState().recording !== 'off') return false
   if (!(await keepCurrent())) return false
+  startBlank()
+  tally('new')
+  return true
+}
+
+/** Throws away the song being worked on, never saved, and starts an empty one: for a song that isn't in your songs to delete. */
+export function discardSketch() {
+  if (useStore.getState().recording !== 'off') return
+  startBlank()
+}
+
+function startBlank() {
   stopEverything()
   // One empty section, called Verse, to start from, on a standard sound (the electric piano, its bass held to the kick, no arpeggiator) rather than whatever the last sketch was set to.
   quietly(() => useStore.setState({ ...songState({}), sound: newSketchSound(), arp: DEFAULT_ARP, rhythm: DEFAULT_RHYTHM, title: '', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumTrack: false, drumsMuted: false, drumsSolo: false, chordsVolume: 0, drumsVolume: 0, chordsColor: null, drumsColor: null }))
   useStore.getState().setSaved(null, null)
   clearHistory()
-  tally('new')
-  return true
 }
 
 /** A new sketch, opened on its one empty section, ready for its first chords. */
