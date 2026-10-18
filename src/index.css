@@ -376,6 +376,7 @@ main > .panel {
 .lcd-meter:hover select, .lcd-key:hover select { color: var(--accent); }
 /* A section in its own key: the key and its label show in the accent, so the change is noticed. */
 .lcd-key.is-own-key select, .lcd-key.is-own-key .lcd-unit { color: var(--accent); }
+.record-spinner.is-still { animation: record-pulse 1.2s ease-in-out infinite; }
 .record-count { font-family: 'DM Mono', monospace; font-size: var(--fs-title); font-weight: 500; line-height: 1; color: var(--text); }
 .toolbar :disabled { opacity: 0.4; }
 
