@@ -489,7 +489,6 @@ main > .panel {
 /* Buttons at a panel's edge keep their focus ring inside them too, so it isn't cut off there. */
 .inspector button:focus-visible,
 .chord-pad button:focus-visible,
-.sound-panel button:focus-visible { outline-offset: -2px; }
 .timeline-scroll { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-x: auto; padding-bottom: 6px; }
 .timeline {
   position: relative;
@@ -2090,7 +2089,6 @@ main > .panel {
 .menu-item-about { font-size: var(--fs-small); color: var(--muted); }
 
 /* Sound */
-.sound-panel { left: 0; right: auto; width: min(360px, calc(100vw - 32px)); padding: 16px; gap: 16px; }
 .panel-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 9px; background: var(--bg); }
 .panel-tabs button {
   flex: 1;
@@ -2109,28 +2107,13 @@ main > .panel {
 .panel-tabs button[aria-selected='true'] { background: var(--raised); color: var(--text); }
 /* Lit like the other modes while the arpeggiator is on; the button itself opens its settings. */
 .toolbar-modes .arp-btn.is-lit { color: var(--accent); }
-/* The modes sit right of the middle, so their panels open leftwards, inside the screen. */
-@media (min-width: 641px) {
-  .toolbar-modes .sound-panel { left: auto; right: 0; }
-}
 .sound-section { display: flex; flex-direction: column; gap: 6px; }
 /* The sound panel: one list, top to bottom, with room between its parts. */
 .sound-body { display: flex; flex-direction: column; gap: 18px; }
-/*
- * Its two columns, what plays and how, then the shape of its sound, are only
- * that on a wider screen; otherwise their parts make one list, in that order.
- */
+/* Its two groups, what plays and how, then the shape of its sound, make one list, in that order. */
 .sound-col { display: contents; }
 /* The shape's heading, with a way back to the sound as it started beside it. */
 .sound-shape-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-/* Floating from the top bar, it never runs past the foot of the window: what doesn't fit scrolls. */
-.toolbar-modes .sound-panel { max-height: calc(100dvh - 72px); overflow-y: auto; }
-/* With room, the panel widens to two columns side by side, half as tall. */
-@media (min-width: 1000px) {
-  .toolbar-modes .sound-panel:has(.sound-col) { width: min(660px, calc(100vw - 32px)); }
-  .sound-panel .sound-body:has(> .sound-col) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
-  .sound-panel .sound-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-}
 .sound-body .sound-section { gap: 8px; }
 .sound-body .sound-heading:not(:first-child) { margin-top: 6px; }
 /* The recorded piano, a wide card saying what it is; then the synth's sounds, an even grid. */
@@ -2331,8 +2314,7 @@ main > .panel {
   .section-settings-label { display: none; }
   .section-settings { padding: 0 7px; margin-right: 0; }
   /* Menus and panels open as a sheet along the bottom, inside the screen, over the chord pad there. */
-  .menu,
-  .sound-panel {
+  .menu {
     position: fixed;
     z-index: 30;
     /* A deep shadow, to lift it clear of the pad behind. */
