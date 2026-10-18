@@ -7,7 +7,8 @@ import { useSync } from '../sync'
 import { closeSheet } from './SoundPanel'
 import { TrackSheet } from './TrackSheet'
 import { Icon } from './Toolbar'
-import { GEAR } from './Sections'
+import { GEAR, KeyOptions } from './Sections'
+import type { Mode } from '../music/theory'
 
 
 /**
@@ -19,6 +20,10 @@ import { GEAR } from './Sections'
 export function SongSettings() {
   const title = useStore((s) => s.title)
   const setTitle = useStore((s) => s.setTitle)
+  const key = useStore((s) => s.key)
+  const mode = useStore((s) => s.mode)
+  const setKey = useStore((s) => s.setKey)
+  const setMode = useStore((s) => s.setMode)
   const summary = useStore(useShallow((s) => songSummary(songOf(s))))
   const sketchId = useStore((s) => s.sketchId)
   const dirty = useStore(isDirty)
@@ -49,6 +54,21 @@ export function SongSettings() {
           onBlur={(e) => setTitle(e.target.value.trim())}
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         />
+      </label>
+      {/* The song's key: its chords keep their numerals and move with it. Sections in a key of their own keep theirs. */}
+      <label className="inspector-field">
+        <span>Key</span>
+        <select
+          value={`${key}-${mode}`}
+          disabled={recording}
+          onChange={(e) => {
+            const [pc, m] = e.target.value.split('-')
+            setKey(Number(pc))
+            setMode(m as Mode)
+          }}
+        >
+          <KeyOptions />
+        </select>
       </label>
       <p className="song-settings-facts">
         {facts}
