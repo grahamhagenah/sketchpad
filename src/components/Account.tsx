@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
-import { sendSignInLink, signOut, supabase, useAccount } from '../cloud'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { MIN_PASSWORD, sendPasswordReset, sendSignInLink, setPassword, signInWithPassword, signOut, signUpWithPassword, supabase, useAccount } from '../cloud'
 import { syncSoon, useSync } from '../sync'
 import { useDismiss } from '../hooks/useDismiss'
 import { useDropBelow } from '../hooks/useDropBelow'
@@ -10,9 +10,13 @@ import { useDropBelow } from '../hooks/useDropBelow'
  * accent colour while signed in.
  */
 export function AccountButton() {
-  const { email, ready, linkError } = useAccount()
+  const { email, ready, linkError, recovering } = useAccount()
   // Open already when a sign-in link came back refused, to say why.
   const [open, setOpen] = useState(() => !!useAccount.getState().linkError)
+  // And when a "reset your password" link signs them in, to choose the new one.
+  useEffect(() => {
+    if (recovering) setOpen(true)
+  }, [recovering])
   const close = useCallback(() => setOpen(false), [])
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(open, close, ref)
@@ -37,7 +41,7 @@ export function AccountButton() {
       </button>
       {open && (
         <div className="menu account-menu" id="account-menu" role="dialog" aria-label="Account" style={below}>
-          {email ? <SignedIn email={email} /> : <SignIn linkError={linkError} />}
+          {email && recovering ? <NewPassword email={email} reset /> : email ? <SignedIn email={email} /> : <SignIn linkError={linkError} />}
           <div className="menu-divider" role="separator" />
           <a className="menu-footnote" href="/about/" target="_blank" rel="noopener">
             About Bounce
@@ -50,6 +54,9 @@ export function AccountButton() {
 
 function SignedIn({ email }: { email: string }) {
   const sync = useSync()
+  const [changing, setChanging] = useState(false)
+  // Whether the account has a password yet, or only signs in by email link.
+  const hasPassword = useHasPassword()
   return (
     <div className="menu-item account-row">
       <span className="menu-item-title">Signed in</span>
@@ -71,62 +78,206 @@ function SignedIn({ email }: { email: string }) {
           </button>
         )}
       </span>
-      <button type="button" className="account-link" onClick={() => void signOut()} title="Your songs stay on this device too">
-        Sign out
-      </button>
+      <span className="account-actions">
+        <button type="button" className="account-link" onClick={() => setChanging(!changing)} aria-expanded={changing}>
+          {hasPassword ? 'Change password' : 'Set a password'}
+        </button>
+        <button type="button" className="account-link" onClick={() => void signOut()} title="Your songs stay on this device too">
+          Sign out
+        </button>
+      </span>
+      {changing && <NewPassword email={email} onDone={() => setChanging(false)} />}
     </div>
   )
 }
 
-function SignIn({ linkError }: { linkError: string | null }) {
-  const [typed, setTyped] = useState('')
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | { error: string }>('idle')
+/**
+ * Choosing a password for the signed-in account: a first one (signed up by
+ * email link), a new one, or after a reset link. The email rides along,
+ * hidden, so the browser saves the two together.
+ */
+function NewPassword({ email, reset = false, onDone }: { email: string; reset?: boolean; onDone?: () => void }) {
+  const [password, setPasswordTyped] = useState('')
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | { error: string }>('idle')
+  if (state === 'saved') return <p className="account-note">{reset ? 'Password changed. You’re signed in.' : 'Password saved. Your browser can fill it in next time.'}</p>
+  return (
+    <form
+      className="account-form"
+      onSubmit={(e) => {
+        e.preventDefault()
+        setState('saving')
+        setPassword(password)
+          .then(() => {
+            setState('saved')
+            if (onDone) setTimeout(onDone, 1500)
+          })
+          .catch((error: unknown) => setState({ error: error instanceof Error ? error.message : 'Bounce couldn’t save the password. Try again.' }))
+      }}
+    >
+      {reset && <p className="account-heading">Choose a new password for {email}</p>}
+      <input type="email" name="email" autoComplete="username" value={email} readOnly hidden />
+      <input
+        type="password"
+        name="new-password"
+        className="account-input"
+        placeholder={`New password (${MIN_PASSWORD}+ characters)`}
+        aria-label="New password"
+        autoComplete="new-password"
+        minLength={MIN_PASSWORD}
+        required
+        autoFocus
+        value={password}
+        onChange={(e) => setPasswordTyped(e.target.value)}
+      />
+      <button type="submit" className="account-send" disabled={state === 'saving'}>
+        {state === 'saving' ? 'Saving…' : 'Save'}
+      </button>
+      {typeof state === 'object' && <p className="account-error">{state.error}</p>}
+    </form>
+  )
+}
 
-  if (state === 'sent') {
+/** Whether the signed-in account has a password: one made by email link alone has none until it's set. */
+function useHasPassword() {
+  const email = useAccount((s) => s.email)
+  const [has, setHas] = useState(false)
+  useEffect(() => {
+    // Supabase doesn't say whether an account has a password, so Bounce notes it on the account when one's chosen (see setPassword, signUpWithPassword).
+    void supabase?.auth.getUser().then(({ data }) => setHas(data.user?.user_metadata?.has_password === true))
+  }, [email])
+  return has
+}
+
+type Mode = 'sign-in' | 'sign-up' | 'reset' | 'link'
+
+/**
+ * Signed out: an email and password, which the browser can save and fill
+ * in, to sign in, or to make an account; a reset for a forgotten password;
+ * or, with no password at all, a link by email.
+ */
+function SignIn({ linkError }: { linkError: string | null }) {
+  const [mode, setMode] = useState<Mode>(linkError ? 'link' : 'sign-in')
+  const [email, setEmail] = useState('')
+  const [password, setPasswordTyped] = useState('')
+  const [state, setState] = useState<'idle' | 'busy' | { sent: string } | { error: string }>('idle')
+  const go = (next: Mode) => {
+    setMode(next)
+    setState('idle')
+  }
+
+  if (typeof state === 'object' && 'sent' in state) {
     return (
       <div className="menu-item account-row">
         <span className="menu-item-title">Check your email</span>
-        <span className="menu-item-about">Tap the link we sent to {typed.trim()} to sign in. It can take a minute to arrive.</span>
-        <button type="button" className="account-link" onClick={() => setState('idle')}>
-          Use another email
+        <span className="menu-item-about">{state.sent}</span>
+        <button type="button" className="account-link" onClick={() => go('sign-in')}>
+          Back to sign in
         </button>
       </div>
     )
   }
 
+  const submit = async () => {
+    setState('busy')
+    try {
+      if (mode === 'sign-in') {
+        await signInWithPassword(email, password)
+        return
+      }
+      if (mode === 'sign-up') {
+        const confirming = await signUpWithPassword(email, password)
+        if (confirming) setState({ sent: `Tap the link we sent to ${email.trim()} to confirm it’s yours, then you’re signed in. It can take a minute to arrive.` })
+        return
+      }
+      if (mode === 'reset') {
+        await sendPasswordReset(email)
+        setState({ sent: `We sent a link to ${email.trim()} to choose a new password. It can take a minute to arrive.` })
+        return
+      }
+      await sendSignInLink(email)
+      setState({ sent: `Tap the link we sent to ${email.trim()} to sign in. It can take a minute to arrive.` })
+    } catch (error) {
+      setState({ error: error instanceof Error ? error.message : 'Bounce couldn’t reach your account. Check your connection and try again.' })
+    }
+  }
+
+  const title = { 'sign-in': 'Sign in to sync your songs', 'sign-up': 'Make an account', reset: 'Reset your password', link: 'Sign in with an email link' }[mode]
+  const about = {
+    'sign-in': 'Keep them on all your devices.',
+    'sign-up': 'Your songs sync across your devices. We’ll email you once, to confirm the address.',
+    reset: 'We’ll email you a link to choose a new one.',
+    link: 'No password: we email you a link to tap.',
+  }[mode]
+  const action = { 'sign-in': 'Sign in', 'sign-up': 'Make account', reset: 'Send link', link: 'Send link' }[mode]
+  const withPassword = mode === 'sign-in' || mode === 'sign-up'
+
   return (
     <>
       <div className="menu-item account-row">
-        <span className="menu-item-title">Sign in to sync your songs</span>
-        <span className="menu-item-about">Keep them on all your devices. No password: we email you a link.</span>
+        <span className="menu-item-title">{title}</span>
+        <span className="menu-item-about">{about}</span>
       </div>
+      {/* A real form, its fields named as browsers expect, so the password is offered to be saved and is filled in next time. */}
       <form
-        className="account-form"
+        className="account-form account-form-stacked"
         onSubmit={(e) => {
           e.preventDefault()
-          if (!typed.trim()) return
-          setState('sending')
-          sendSignInLink(typed)
-            .then(() => setState('sent'))
-            .catch((error: unknown) => setState({ error: error instanceof Error ? error.message : 'Bounce couldn’t send the link. Check your connection and try again.' }))
+          void submit()
         }}
       >
         <input
           type="email"
+          name="email"
           className="account-input"
           placeholder="you@example.com"
           aria-label="Your email"
-          autoComplete="email"
+          autoComplete={withPassword ? 'username' : 'email'}
           required
           autoFocus
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
-        <button type="submit" className="account-send" disabled={state === 'sending'}>
-          {state === 'sending' ? 'Sending…' : 'Send link'}
+        {withPassword && (
+          <input
+            type="password"
+            name="password"
+            className="account-input"
+            placeholder={mode === 'sign-up' ? `Password (${MIN_PASSWORD}+ characters)` : 'Password'}
+            aria-label="Password"
+            autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+            minLength={mode === 'sign-up' ? MIN_PASSWORD : undefined}
+            required
+            value={password}
+            onChange={(e) => setPasswordTyped(e.target.value)}
+          />
+        )}
+        <button type="submit" className="account-send" disabled={state === 'busy'}>
+          {state === 'busy' ? 'One moment…' : action}
         </button>
-        {typeof state === 'object' ? <p className="account-error">{state.error}</p> : linkError && <p className="account-error">{linkError}</p>}
+        {typeof state === 'object' && 'error' in state ? <p className="account-error">{state.error}</p> : mode === 'link' && linkError && <p className="account-error">{linkError}</p>}
       </form>
+      <div className="account-switches">
+        {mode === 'sign-in' && (
+          <>
+            <button type="button" className="account-link" onClick={() => go('sign-up')}>
+              Make an account
+            </button>
+            <button type="button" className="account-link" onClick={() => go('reset')}>
+              Forgot password?
+            </button>
+          </>
+        )}
+        {mode !== 'sign-in' && (
+          <button type="button" className="account-link" onClick={() => go('sign-in')}>
+            {mode === 'sign-up' ? 'Have an account? Sign in' : 'Sign in with a password'}
+          </button>
+        )}
+        {mode !== 'link' && (
+          <button type="button" className="account-link" onClick={() => go('link')}>
+            Email me a link instead
+          </button>
+        )}
+      </div>
     </>
   )
 }
