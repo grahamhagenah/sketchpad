@@ -2102,6 +2102,14 @@ main > .panel {
 .account-input:focus { outline: none; border-color: var(--accent); }
 .account-send { flex: none; height: 34px; padding: 0 12px; border: 0; border-radius: 7px; background: var(--accent); color: var(--on-accent); font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
 .account-send:disabled { opacity: 0.6; cursor: default; }
+/* Email and password, one under the other, with the button under them. */
+.account-form-stacked { flex-direction: column; flex-wrap: nowrap; }
+.account-form-stacked .account-input { flex: none; }
+.account-switches { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 0 12px 8px; }
+.account-switches .account-link, .account-actions .account-link { margin-top: 0; }
+.account-actions { display: flex; gap: 14px; margin-top: 4px; }
+.account-heading { flex-basis: 100%; margin: 0 0 2px; font-size: var(--fs-body); font-weight: 600; }
+.account-note { margin: 4px 12px 8px; font-size: var(--fs-small); color: var(--accent); }
 .account-error { flex-basis: 100%; margin: 0; font-size: var(--fs-small); color: var(--danger); }
 .sketch-row { display: flex; align-items: center; gap: 4px; }
 .sketch-row .menu-item { flex: 1; min-width: 0; }
