@@ -201,6 +201,10 @@ main > .panel {
 .toolbar-modes .toggle-btn[aria-pressed='true'],
 .toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover { color: var(--accent); }
 .toolbar-modes .icon-btn[aria-expanded='true'] { background: var(--tile-hover); }
+/* A panel button with its panel open: the icon white on a lighter fill, held as if pressed; on (the arpeggiator) is still the accent. */
+.toolbar-panels .icon-btn[aria-expanded='true'],
+.toolbar-panels .icon-btn[aria-expanded='true']:not(:disabled):hover { color: var(--text); background: color-mix(in srgb, var(--text) 14%, var(--tile)); }
+.toolbar-panels .arp-btn.is-lit[aria-expanded='true'] { color: var(--accent); }
 /* As the transport: a mode that's on glows in the accent, like the loop strip; pointed at, an icon grows and brightens. */
 .toolbar-modes .toggle-btn[aria-pressed='true'] svg,
 .toolbar-modes .arp-btn.is-lit svg { filter: drop-shadow(0 0 5px rgb(90 216 200 / 0.45)); }
@@ -1902,6 +1906,9 @@ main > .panel {
 .toolbar-compact-row .toolbar-undo { margin-left: auto; }
 /* Play and record never give up their room. */
 .toolbar-compact-row .transport { flex: none; }
+/* Closer together, and the modes a little narrower (still full height to tap), so play to the button for the rest fit a phone's width. */
+.toolbar-compact-row { gap: 6px; }
+.toolbar-compact-row .toolbar-modes .icon-btn { width: 34px; }
 .toolbar-undo-extra { display: none; }
 /* On the smallest phones, undo and redo move into the panel below, so the row fits. */
 @media (max-width: 360px) {
@@ -1996,6 +2003,8 @@ main > .panel {
 .status-bar .status-save { flex: none; margin-left: auto; }
 /* All the keyboard shortcuts, from the corner of the status bar; the list opens upwards. */
 .status-bar .icon-btn { width: 26px; height: 26px; margin-right: -6px; }
+.status-zoom { flex: none; display: flex; gap: 2px; padding-left: 12px; border-left: 1px solid var(--line); }
+.status-zoom .icon-btn { margin-right: 0; }
 .status-bar .icon-btn svg { width: 16px; height: 16px; }
 .status-bar .shortcuts-menu { top: auto; bottom: calc(100% + 8px); right: 0; }
 
