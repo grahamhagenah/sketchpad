@@ -120,13 +120,16 @@ async function run() {
         case 'down': {
           const { data: row, error: get } = await supabase.from('sketches').select('id, song, lanes, updated, deleted').eq('id', id).single<Row>()
           if (get) throw get
+          // The open one is shown again as it now is (below), so its new recordings come first: if they can't, it's left as it was, for the next sync to try again.
+          const open = useStore.getState().sketchId === id
+          if (open) await download(user, await missingAudio(idsIn(row.lanes ?? {}) as Set<string>), known)
           // The lanes before the sketch, so it never lists recordings its lanes don't know.
           await putSketchLanes(id, row.lanes ?? {})
           const record: SketchRecord = { id, updated: row.updated, song: row.song, ...(row.deleted ? { deleted: row.deleted } : {}) }
           await idb(SKETCHES, 'readwrite', (s) => s.put(record, id))
           known.sketches.add(id)
           changedHere = true
-          await reshowIfOpen(id)
+          if (open) await reshowIfOpen(id)
           break
         }
         case 'drop-here': {
@@ -156,6 +159,16 @@ async function run() {
   }
 }
 
+/** Fetches these recordings from the account and keeps them on this device. */
+async function download(user: string, takes: string[], known: { audio: Set<string> }) {
+  for (const take of takes) {
+    const { data, error } = await supabase!.storage.from('takes').download(audioPath(user, take))
+    if (error) throw error
+    await keepAudioBytes(take, await data.arrayBuffer())
+    known.audio.add(take)
+  }
+}
+
 /**
  * Before a saved sketch opens, fetches any of its recordings this device
  * doesn't have. If they can't be, it isn't opened (saving it without them
@@ -172,12 +185,7 @@ async function fetchRecordings(id: string) {
   }
   const known = loadKnown(user)
   try {
-    for (const take of missing) {
-      const { data, error } = await supabase.storage.from('takes').download(audioPath(user, take))
-      if (error) throw error
-      await keepAudioBytes(take, await data.arrayBuffer())
-      known.audio.add(take)
-    }
+    await download(user, missing, known)
   } catch (error) {
     console.warn('Couldn’t fetch recordings:', error)
     window.alert('Bounce couldn’t fetch this sketch’s recordings from your account. Check your connection and try again.')
