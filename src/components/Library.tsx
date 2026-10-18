@@ -22,6 +22,7 @@ import {
   type SketchRecord,
 } from '../library'
 import { SONG_TEMPLATES } from '../songs'
+import { AccountSection } from './Account'
 
 /**
  * One button for the sketch file: save, start a new sketch, or open a saved
@@ -193,6 +194,9 @@ export function SketchesButton() {
               {showDeleted && deleted.map((sketch) => <DeletedRow key={sketch.id} sketch={sketch} />)}
             </>
           )}
+          {/* Signing in, to keep sketches in an account as well as on this device. */}
+          <div className="menu-divider" role="separator" />
+          <AccountSection />
           <div className="menu-divider" role="separator" />
           <a className="menu-footnote" href="/about/" target="_blank" rel="noopener">
             About Bounce
