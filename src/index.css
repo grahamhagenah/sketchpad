@@ -201,8 +201,9 @@ main > .panel {
 .toolbar-modes .toggle-btn[aria-pressed='true'],
 .toolbar-modes .toggle-btn[aria-pressed='true']:not(:disabled):hover { color: var(--accent); }
 .toolbar-modes .icon-btn[aria-expanded='true'] { background: var(--tile-hover); }
-/* A panel button with its panel open: lifted, and underlined, as an open tab is marked; on (the arpeggiator) is still the accent. */
-.toolbar-panels .icon-btn[aria-expanded='true'] { color: var(--text); box-shadow: inset 0 -2px color-mix(in srgb, var(--text) 55%, transparent); }
+/* A panel button with its panel open: the icon white on a lighter fill, held as if pressed; on (the arpeggiator) is still the accent. */
+.toolbar-panels .icon-btn[aria-expanded='true'],
+.toolbar-panels .icon-btn[aria-expanded='true']:not(:disabled):hover { color: var(--text); background: color-mix(in srgb, var(--text) 14%, var(--tile)); }
 .toolbar-panels .arp-btn.is-lit[aria-expanded='true'] { color: var(--accent); }
 /* As the transport: a mode that's on glows in the accent, like the loop strip; pointed at, an icon grows and brightens. */
 .toolbar-modes .toggle-btn[aria-pressed='true'] svg,
