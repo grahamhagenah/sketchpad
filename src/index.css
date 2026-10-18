@@ -2549,6 +2549,20 @@ main > .panel {
   flex-direction: column;
   gap: 8px;
 }
+/* The sound or arpeggiator settings, in the lyrics' place: a column of its own, so every track stays in view. */
+.tool-panel {
+  flex: none;
+  width: 340px;
+  align-self: stretch;
+  contain: size;
+  overflow-y: auto;
+  padding: 0 16px 24px;
+  border-left: 1px solid var(--line-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tool-panel-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; height: 42px; margin-right: -6px; background: var(--panel); }
 .lyrics-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; height: 42px; background: var(--panel); }
 .lyrics-section { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 6px 12px 12px; border-top: 1px solid var(--line); }
 .lyrics-section:first-of-type { border-top: 0; }

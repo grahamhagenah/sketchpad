@@ -10,7 +10,7 @@ import { isDirty, reportStorageError, saveSketch } from './library'
 import { colorHex, DEFAULT_CHORDS_COLOR, DEFAULT_DRUMS_COLOR } from './colors'
 import { ChordPad } from './components/ChordPad'
 import { UndoNote } from './components/UndoNote'
-import { ToolSheet, useToolSheet } from './components/SoundPanel'
+import { ToolPanel, ToolSheet, useToolSheet } from './components/SoundPanel'
 import { VocalPad } from './components/VocalPad'
 import { DrumPad } from './components/DrumPad'
 import { ChordsTrackPad, Inspector } from './components/Inspector'
@@ -183,6 +183,8 @@ export default function App() {
   const inspector = !narrow && view === 'section' && hasChords && inspectorShown
   // On a wider screen, the chord keys float over everything, in either view.
   const chordKeys = useChordKeys((s) => s.open) && !narrow
+  // On a wider screen, the sound or arpeggiator settings beside whichever view is open, in the lyrics' place, so every track stays in view.
+  const toolPanel = useToolSheet((s) => (!narrow && (s.open === 'sound' || s.open === 'arp') ? s.open : null))
   // The lyrics beside whichever view is open; on a phone, over it.
   const lyrics = useLyricsPanel((s) => s.open)
   // On a phone, the lyrics are a sheet along the bottom, in the chord pad's place; recording shows the words itself.
@@ -203,7 +205,7 @@ export default function App() {
                 <Timeline />
               </div>
             )}
-            {lyrics && !narrow && <LyricsPanel />}
+            {toolPanel ? <ToolPanel which={toolPanel} /> : lyrics && !narrow && <LyricsPanel />}
           </div>
         </section>
       </main>

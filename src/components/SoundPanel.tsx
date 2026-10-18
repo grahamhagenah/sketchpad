@@ -1,15 +1,13 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { create } from 'zustand'
-import { useDismiss } from '../hooks/useDismiss'
-import { useNarrow } from '../hooks/useNarrow'
 import { useStore } from '../store'
 import { BASS_KINDS, CONTROLS, PRESETS, WAVES, bassVoiceOf, changedFrom, extrasOf, hasTone, instrumentOf, presetFor, type BassVoice, type Sound } from '../audio/sound'
 import { CHORD_RHYTHMS } from '../audio/arrange'
 import { audition } from '../audio/engine'
 import { loadPiano } from '../audio/instruments'
 import { ArpSettings } from './ArpPanel'
-import { SheetSlider, TrackSheet } from './TrackSheet'
-import { setLyricsOpen } from '../lyricsPanel'
+import { CloseButton, SheetSlider, TrackSheet } from './TrackSheet'
+import { setLyricsOpen, useLyricsPanel } from '../lyricsPanel'
 
 // Brightness runs on a log scale, so the slider's travel matches what you hear.
 const MIN_HZ = 300
@@ -27,26 +25,29 @@ function preview() {
   audition(chord)
 }
 
-/** On a phone, which of the sound and arpeggiator settings (or the key finder) is up in the sheet along the bottom, in place of a floating panel. */
+/**
+ * Which of the sound and arpeggiator settings is open: in a panel beside the
+ * tracks, where the lyrics go, so they stay in view; on a phone, in the sheet
+ * along the bottom (as the key finder is too).
+ */
 export const useToolSheet = create<{ open: 'sound' | 'arp' | 'key' | null }>(() => ({ open: null }))
 const closeSheet = () => useToolSheet.setState({ open: null })
 
-/** A toolbar panel's open state: its own on a wider screen, the sheet's on a phone. */
+// One at a time in the lyrics' place: showing the lyrics puts the settings away.
+useLyricsPanel.subscribe((s) => {
+  const open = useToolSheet.getState().open
+  if (s.open && (open === 'sound' || open === 'arp')) closeSheet()
+})
+
+/** A toolbar button's panel: whether it's open, and opening or closing it. */
 function usePanel(which: 'sound' | 'arp') {
-  const narrow = useNarrow()
-  const [floating, setFloating] = useState(false)
-  const sheet = useToolSheet((s) => s.open === which)
-  const close = useCallback(() => setFloating(false), [])
-  const ref = useRef<HTMLDivElement>(null)
-  useDismiss(floating && !narrow, close, ref)
-  const open = narrow ? sheet : floating
+  const open = useToolSheet((s) => s.open === which)
   const toggle = () => {
-    if (!narrow) return setFloating(!floating)
-    // One sheet at a time along the bottom: the sound or arpeggiator takes the lyrics' place.
-    if (!sheet) setLyricsOpen(false)
-    useToolSheet.setState({ open: sheet ? null : which })
+    // The settings take the lyrics' place.
+    if (!open) setLyricsOpen(false)
+    useToolSheet.setState({ open: open ? null : which })
   }
-  return { ref, open, toggle, floating: open && !narrow }
+  return { open, toggle }
 }
 
 const SOUND_ICON = (
@@ -68,6 +69,20 @@ const ARP_ICON = (
   </svg>
 )
 
+/** On a wider screen, the sound or arpeggiator settings in a column beside the tracks, as the lyrics are. */
+export function ToolPanel({ which }: { which: 'sound' | 'arp' }) {
+  const name = which === 'sound' ? 'Sound and rhythm' : 'Arpeggiator'
+  return (
+    <aside className="tool-panel" id={`${which}-panel`} aria-label={name}>
+      <div className="tool-panel-head">
+        <span className="column-title">{name}</span>
+        <CloseButton onClick={closeSheet} title={`Close the ${which === 'sound' ? 'sound' : 'arpeggiator'} settings`} />
+      </div>
+      {which === 'sound' ? <SoundSettings /> : <ArpSettings titled={false} />}
+    </aside>
+  )
+}
+
 /** On a phone, the sound and arpeggiator settings as a sheet along the bottom, styled as the tracks' are. */
 export function ToolSheet({ which }: { which: 'sound' | 'arp' }) {
   return which === 'sound' ? (
@@ -81,59 +96,45 @@ export function ToolSheet({ which }: { which: 'sound' | 'arp' }) {
   )
 }
 
-/** The chords' sound and rhythm: a panel from the button, or the sheet on a phone. */
+/** The chords' sound and rhythm: in a panel beside the tracks, or the sheet on a phone. */
 export function SoundButton() {
-  const { ref, open, toggle, floating } = usePanel('sound')
+  const { open, toggle } = usePanel('sound')
 
-  return (
-    <div className="menu-anchor" ref={ref}>
-      <button
-        type="button"
-        className="icon-btn toggle-btn sound-btn"
-        data-sheet-toggle
-        aria-label="Sound and rhythm"
-        aria-expanded={open}
-        aria-controls="sound-panel"
-        onClick={toggle}
-        title="Sound and rhythm"
-      >
-        {SOUND_ICON}
-      </button>
-      {floating && (
-        <div className="menu sound-panel" id="sound-panel" role="group" aria-label="Sound and rhythm">
-          <SoundSettings />
-        </div>
-      )}
-    </div>
+return (
+    <button
+      type="button"
+      className="icon-btn toggle-btn sound-btn"
+      data-sheet-toggle
+      aria-label="Sound and rhythm"
+      aria-expanded={open}
+      aria-controls="sound-panel"
+      onClick={toggle}
+      title="Sound and rhythm"
+    >
+      {SOUND_ICON}
+    </button>
   )
 }
 
 /** The arpeggiator's own button: lit while it's on, and opening its switch and settings. */
 export function ArpButton() {
-  const { ref, open, toggle, floating } = usePanel('arp')
+  const { open, toggle } = usePanel('arp')
   const arpOn = useStore((s) => s.arp.on)
   const label = `Arpeggiator (A)${arpOn ? ', on' : ''}`
 
-  return (
-    <div className="menu-anchor" ref={ref}>
-      <button
-        type="button"
-        className={`icon-btn toggle-btn arp-btn ${arpOn ? 'is-lit' : ''}`}
-        data-sheet-toggle
-        aria-label={label}
-        aria-expanded={open}
-        aria-controls="arp-panel"
-        onClick={toggle}
-        title={label}
-      >
-        {ARP_ICON}
+return (
+    <button
+      type="button"
+      className={`icon-btn toggle-btn arp-btn ${arpOn ? 'is-lit' : ''}`}
+      data-sheet-toggle
+      aria-label={label}
+      aria-expanded={open}
+      aria-controls="arp-panel"
+      onClick={toggle}
+      title={label}
+    >
+      {ARP_ICON}
       </button>
-      {floating && (
-        <div className="menu sound-panel" id="arp-panel" role="group" aria-label="Arpeggiator">
-          <ArpSettings />
-        </div>
-      )}
-    </div>
   )
 }
 
