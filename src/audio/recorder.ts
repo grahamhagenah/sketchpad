@@ -143,8 +143,32 @@ async function openCapture(): Promise<Mic> {
   // Unplugged, or taken away in the browser's settings: opened afresh next time.
   stream.getAudioTracks()[0]?.addEventListener('ended', () => shut(m))
   open = m
+  openedAt = performance.now()
   return m
 }
+
+/** When the microphone last started running, by the page's clock. */
+let openedAt = 0
+
+/**
+ * Safari stops all its audio twice when the microphone starts, at once and
+ * about three seconds later. Opened when a vocal track is picked, that's
+ * usually over by the time Record is pressed; pressed sooner (as just after
+ * a reload, picking the track and recording at once), the first click of the
+ * count-in went missing and the take stuttered as it began. Other browsers
+ * need only a moment.
+ */
+const SETTLE_MS = /^((?!chrome|chromium|android|crios|fxios|edg).)*safari/i.test(typeof navigator === 'undefined' ? '' : navigator.userAgent) ? 3600 : 300
+
+/** Waits until the microphone has been open long enough that starting it won't interrupt the take; at once if it has. */
+export async function micSettled() {
+  if (!open) return
+  const left = openedAt + SETTLE_MS - performance.now()
+  if (left > 0) await new Promise((r) => setTimeout(r, left))
+}
+
+/** Whether the microphone is still settling (see micSettled): Record waits, and says so. */
+export const micSettling = () => !!open && performance.now() - openedAt < SETTLE_MS
 
 /** The microphone, opening it if it isn't open; asked for afresh next time if it can't be (refused, say). */
 function micNow() {

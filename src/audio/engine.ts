@@ -5,7 +5,7 @@ import { arrange, playedSound, type Hit } from './arrange'
 import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Bass, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
-import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
+import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, micSettled, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
 import { concealDropouts, keepStorage, levelUpDb, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { earliestMove, playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
@@ -103,6 +103,8 @@ class Engine {
   private quartersPerBeat = 1
   private secondsPerQuarter = 0.5
   private endEvent: number | null = null
+  /** Takes asked for so far, so one called off and asked for again while the microphone settled doesn't start twice. */
+  private attempts = 0
   /** Called when a play-through without looping reaches the end. */
   onEnd: (() => void) | null = null
 
@@ -359,6 +361,11 @@ class Engine {
   async record(song: Playback, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void; pass: (pass: number) => void }) {
     await Tone.start()
     this.setup()
+    // A microphone only just opened (Safari stops its audio as one starts) is given its moment first, so the count-in starts clean.
+    const attempt = ++this.attempts
+    await micSettled()
+    // Called off while it waited, or called off and started again: only the latest goes ahead.
+    if (attempt !== this.attempts || useStore.getState().recording !== 'count-in') return
     const t = Tone.getTransport()
     t.stop()
     this.players.forEach((player) => player.stop())
