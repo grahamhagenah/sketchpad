@@ -46,14 +46,15 @@ export function StatusBar() {
 export const useHoverHint = create<{ hint: ReactNode }>(() => ({ hint: null }))
 
 function Status() {
-  const s = useFields('arrangement', 'chords', 'chordsName', 'chordsTrackSelected', 'clipboard', 'drumTrack', 'drums', 'drumsName', 'drumsTrackSelected', 'key', 'mode', 'recording', 'recordPass', 'sectionKey', 'selectedId', 'selectedVocal', 'takes', 'trims', 'view', 'vocalNames', 'sections', 'activeSection')
+  const s = useFields('arrangement', 'chords', 'chordsName', 'chordsTrackSelected', 'clipboard', 'countIn', 'drumTrack', 'drums', 'drumsName', 'drumsTrackSelected', 'key', 'mode', 'recording', 'recordPass', 'sectionKey', 'selectedId', 'selectedVocal', 'takes', 'trims', 'view', 'vocalNames', 'sections', 'activeSection')
   const sel = s.chords.find((c) => c.id === s.selectedId)
   const hint = useHoverHint((h) => h.hint)
 
   if (s.recording === 'count-in')
     return (
       <>
-        Counting in… <InputMeter />
+        {/* Before the first beat: the microphone settling (see micSettled). */}
+        {s.countIn === null ? 'Getting the microphone ready…' : 'Counting in…'} <InputMeter />
       </>
     )
   if (s.recording === 'on')

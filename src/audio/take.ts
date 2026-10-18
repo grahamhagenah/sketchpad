@@ -1,4 +1,5 @@
 import { newId } from '../id'
+import { canPack, pack, unpack } from './pack'
 
 /** A recorded vocal: mono samples that start at a beat of the song. */
 export interface Take {
@@ -516,26 +517,36 @@ export async function missingAudio(ids: Iterable<string>): Promise<string[]> {
 
 /**
  * A take's audio as bytes, to keep elsewhere: a line of JSON (where it
- * starts, its tempo and sample rate), then its 16-bit samples. Null if it
+ * starts, its tempo and sample rate), then its 16-bit samples, packed
+ * smaller where the browser can (see pack.ts; the line says so). Null if it
  * isn't on this device.
  */
 export async function audioBytes(id: string): Promise<Blob | null> {
   const stored = await idb<StoredTake | undefined>(AUDIO, 'readonly', (s) => s.get(id))
   if (!stored) return null
   const { startBeat, bpm, sampleRate, pcm } = stored
-  return new Blob([JSON.stringify({ startBeat, bpm, sampleRate }) + '\n', pcm], { type: 'application/octet-stream' })
+  if (!canPack()) return new Blob([JSON.stringify({ startBeat, bpm, sampleRate }) + '\n', pcm], { type: 'application/octet-stream' })
+  const packed = await pack(pcm)
+  return new Blob([JSON.stringify({ startBeat, bpm, sampleRate, packed: PACKED, samples: pcm.length }) + '\n', packed], { type: 'application/octet-stream' })
 }
 
-/** Reads audioBytes back: the take as stored, or null if they aren't a take's. */
-export function storedFromBytes(bytes: ArrayBuffer): StoredTake | null {
+/** How audioBytes says its samples are packed. */
+const PACKED = 'delta-planes-gzip'
+
+/** Reads audioBytes back, packed or not (as the first uploads were): the take as stored, or null if they aren't a take's. */
+export async function storedFromBytes(bytes: ArrayBuffer): Promise<StoredTake | null> {
   const all = new Uint8Array(bytes)
   const line = all.indexOf(10)
   if (line < 0) return null
   try {
-    const head = JSON.parse(new TextDecoder().decode(all.subarray(0, line))) as Partial<StoredTake>
+    const head = JSON.parse(new TextDecoder().decode(all.subarray(0, line))) as Partial<StoredTake> & { packed?: string; samples?: number }
     if (typeof head.startBeat !== 'number' || typeof head.bpm !== 'number' || typeof head.sampleRate !== 'number') return null
-    const pcm = new Int16Array(bytes.slice(line + 1, line + 1 + Math.floor((bytes.byteLength - line - 1) / 2) * 2))
-    return { startBeat: head.startBeat, bpm: head.bpm, sampleRate: head.sampleRate, pcm }
+    const take = { startBeat: head.startBeat, bpm: head.bpm, sampleRate: head.sampleRate }
+    if (head.packed === undefined) return { ...take, pcm: new Int16Array(bytes.slice(line + 1, line + 1 + Math.floor((bytes.byteLength - line - 1) / 2) * 2)) }
+    if (head.packed !== PACKED) return null
+    const pcm = await unpack(all.subarray(line + 1))
+    // Every sample back, or it's been cut short on the way.
+    return pcm.length === head.samples ? { ...take, pcm } : null
   } catch {
     return null
   }
@@ -543,7 +554,7 @@ export function storedFromBytes(bytes: ArrayBuffer): StoredTake | null {
 
 /** Keeps a take's audio that came from elsewhere (audioBytes), unless it's on the device already. */
 export async function keepAudioBytes(id: string, bytes: ArrayBuffer) {
-  const stored = storedFromBytes(bytes)
+  const stored = await storedFromBytes(bytes)
   if (!stored) throw new Error('A recording came back damaged.')
   await write([AUDIO], (tx) => {
     const audio = tx.objectStore(AUDIO)

@@ -376,6 +376,7 @@ main > .panel {
 .lcd-meter:hover select, .lcd-key:hover select { color: var(--accent); }
 /* A section in its own key: the key and its label show in the accent, so the change is noticed. */
 .lcd-key.is-own-key select, .lcd-key.is-own-key .lcd-unit { color: var(--accent); }
+.record-spinner.is-still { animation: record-pulse 1.2s ease-in-out infinite; }
 .record-count { font-family: 'DM Mono', monospace; font-size: var(--fs-title); font-weight: 500; line-height: 1; color: var(--text); }
 .toolbar :disabled { opacity: 0.4; }
 
@@ -2676,3 +2677,20 @@ main > .panel {
 }
 /* The playhead passes under them, as the chords do. */
 .song-view:not(.is-narrow) .song-playhead { z-index: 2; }
+
+/* Recording options: from the arrow by the record button, and folded in a vocal track's settings. */
+.record-options { display: flex; flex-direction: column; gap: 14px; }
+.record-options .inspector-field { align-items: stretch; }
+.record-options .chord-pad-seg { width: 100%; }
+.record-options-note { font-size: var(--fs-small); color: var(--muted); line-height: 1.4; }
+.record-options-switch { display: flex; align-items: flex-start; gap: 10px; font-size: var(--fs-body); cursor: pointer; }
+.record-options-switch input { margin-top: 2px; accent-color: var(--accent); }
+.record-options-switch span { display: flex; flex-direction: column; gap: 2px; }
+.menu.record-options-menu { width: 320px; padding: 16px; }
+/* The arrow: narrow, at the end of the transport. */
+/* No padding of its own: the button's default padding left the icon less room than it takes, so it sat off to one side. */
+.transport > .record-options-btn { width: 24px; padding: 0; color: var(--muted); }
+.transport > .record-options-btn svg { width: 14px; height: 14px; }
+.transport > .record-options-btn[aria-expanded='true'] { color: var(--text); background: var(--tile-hover); }
+.record-options-fold summary { font-size: var(--fs-small); color: var(--muted); cursor: pointer; }
+.record-options-fold[open] summary { margin-bottom: 12px; color: var(--text); }

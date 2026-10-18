@@ -5,7 +5,8 @@ import { arrange, playedSound, type Hit } from './arrange'
 import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Bass, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
-import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
+import { useRecordPrefs } from '../recordPrefs'
+import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, micSettled, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
 import { concealDropouts, keepStorage, levelUpDb, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { earliestMove, playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
@@ -103,6 +104,8 @@ class Engine {
   private quartersPerBeat = 1
   private secondsPerQuarter = 0.5
   private endEvent: number | null = null
+  /** Takes asked for so far, so one called off and asked for again while the microphone settled doesn't start twice. */
+  private attempts = 0
   /** Called when a play-through without looping reaches the end. */
   onEnd: (() => void) | null = null
 
@@ -359,6 +362,11 @@ class Engine {
   async record(song: Playback, lane: number, on: { count: (beatsLeft: number) => void; rolling: () => void; pass: (pass: number) => void }) {
     await Tone.start()
     this.setup()
+    // A microphone only just opened (Safari stops its audio as one starts) is given its moment first, so the count-in starts clean.
+    const attempt = ++this.attempts
+    await micSettled()
+    // Called off while it waited, or called off and started again: only the latest goes ahead.
+    if (attempt !== this.attempts || useStore.getState().recording !== 'count-in') return
     const t = Tone.getTransport()
     t.stop()
     this.players.forEach((player) => player.stop())
@@ -396,15 +404,17 @@ class Engine {
     }
 
     const countIn = Tone.now() + 0.1
-    for (let b = 0; b < num; b++) {
+    // As many bars counted in as asked for (one, two, or none to start straight away); with none, takes line up by the last measured timing.
+    const beats = num * useRecordPrefs.getState().countIn
+    for (let b = 0; b < beats; b++) {
       const time = countIn + b * beatSeconds
       rec.clicks.push(time)
-      // A bar counted in out loud on the metronome's click, the first beat higher, so the tempo is in your head before the take starts;
+      // Counted in out loud on the metronome's click, each bar's first beat higher, so the tempo is in your head before the take starts;
       // each handed over a moment ahead, so cancelling the count-in stops the clicks still to come. The button counts down the beats too.
-      at(time - 0.08, () => this.click.triggerAttackRelease(b === 0 ? 'C6' : 'G5', 0.03, monoStart(this.click, time), b === 0 ? 1 : 0.6))
-      at(time, () => on.count(num - b))
+      at(time - 0.08, () => this.click.triggerAttackRelease(b % num === 0 ? 'C6' : 'G5', 0.03, monoStart(this.click, time), b % num === 0 ? 1 : 0.6))
+      at(time, () => on.count(beats - b))
     }
-    const startAt = countIn + num * beatSeconds
+    const startAt = countIn + beats * beatSeconds
     // What the singer hears at startAt leaves the speakers a little later,
     // and their voice reaches us a little later again: measured, if it has been, or else the browser's estimate.
     rec.startAt = startAt
