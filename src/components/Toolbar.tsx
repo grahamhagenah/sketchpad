@@ -269,9 +269,12 @@ function RecordButton() {
       disabled={!hasChords || (recording === 'off' && (inSong || !canRecord))}
       onClick={() => void toggleRecord()}
     >
-      {recording === 'count-in' ? (
+      {recording === 'count-in' && countIn === null ? (
+        // Before the first beat, while the microphone gets ready: a spinner, not a blank button.
+        <RecordSpinner />
+      ) : recording === 'count-in' ? (
         <span className="record-count" aria-live="assertive">
-          {countIn ?? ''}
+          {countIn}
         </span>
       ) : (
         <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
@@ -279,6 +282,16 @@ function RecordButton() {
         </svg>
       )}
     </button>
+  )
+}
+
+/** Turning, in the record red, while the microphone gets ready for a take. */
+export function RecordSpinner({ size = 16 }: { size?: number }) {
+  return (
+    <svg className="record-spinner" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" role="img" aria-label="Getting the microphone ready">
+      <circle cx="12" cy="12" r="9" opacity="0.25" />
+      <path d="M12 3a9 9 0 0 1 9 9" />
+    </svg>
   )
 }
 

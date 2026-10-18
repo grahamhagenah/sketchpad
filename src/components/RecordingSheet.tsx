@@ -1,4 +1,5 @@
 import { useStore, vocalTrackName } from '../store'
+import { RecordSpinner } from './Toolbar'
 import { toggleRecord } from '../audio/engine'
 import { Position } from './Position'
 import { InputMeter } from './InputMeter'
@@ -24,8 +25,8 @@ export function RecordingSheet() {
     <div className={`record-sheet ${counting ? 'is-counting' : 'is-recording'}`} role="status" aria-live="polite">
       {counting ? (
         <>
-          <span className="record-sheet-count" aria-label={countIn ? `${countIn} beats to go` : 'Starting'}>
-            {countIn ?? ''}
+          <span className="record-sheet-count" aria-label={countIn ? `${countIn} beats to go` : 'Getting the microphone ready'}>
+            {countIn ?? <RecordSpinner size={48} />}
           </span>
           <p className="record-sheet-title">Get ready to sing into {name}</p>
           <p className="record-sheet-tip">
