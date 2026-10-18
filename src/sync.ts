@@ -241,13 +241,16 @@ useAccount.subscribe(({ email }) => {
 useStore.subscribe((now, before) => {
   if ((before.playing && !now.playing) || (before.recording !== 'off' && now.recording === 'off')) syncSoon()
 })
+// Coming back to Bounce (its tab shown again, or its window clicked into, as with two side by side), and every half minute while it's showing.
 let lastLook = 0
 const lookAgain = () => {
-  if (document.visibilityState !== 'visible' || Date.now() - lastLook < 20_000) return
+  if (document.visibilityState !== 'visible' || Date.now() - lastLook < 5_000) return
   lastLook = Date.now()
   syncSoon()
 }
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', lookAgain)
+  window.addEventListener('focus', lookAgain)
   window.addEventListener('online', () => syncSoon())
+  setInterval(lookAgain, 30_000)
 }
