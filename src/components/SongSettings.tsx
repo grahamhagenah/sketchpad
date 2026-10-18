@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { songOf, songSummary, useStore } from '../store'
-import { deleteSketch, isDirty, reportStorageError, saveCopy } from '../library'
+import { deleteSketch, discardSketch, isDirty, reportStorageError, saveCopy } from '../library'
 import { useAccount } from '../cloud'
 import { useSync } from '../sync'
 import { closeSheet } from './SoundPanel'
@@ -69,6 +69,25 @@ export function SongSettings() {
         <span className="menu-item-title">Save a copy</span>
         <span className="menu-item-about">Carry on in a copy to try another version; this one stays as it was last saved</span>
       </button>
+      {/* Never saved, it isn't in your songs to delete: it can be thrown away instead, for a fresh start. */}
+      {!sketchId && (
+        <button
+          type="button"
+          className={`menu-item ${confirming ? 'is-danger' : ''}`}
+          disabled={recording}
+          onBlur={() => setConfirming(false)}
+          onClick={() => {
+            if (!confirming) return setConfirming(true)
+            discardSketch()
+            closeSheet()
+          }}
+        >
+          <span className="menu-item-title">{confirming ? `Discard ${title || 'this song'}` : 'Discard song'}</span>
+          <span className="menu-item-about">
+            {confirming ? 'Click again to discard it. It was never saved, so this can’t be undone' : 'It was never saved: clear it and start a new one'}
+          </span>
+        </button>
+      )}
       {sketchId && (
         <button
           type="button"
