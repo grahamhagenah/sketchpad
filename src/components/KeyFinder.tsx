@@ -3,7 +3,7 @@ import { keyOf, useFields } from '../store'
 import { findKeys, type KeyGuess } from '../music/findKey'
 import { keyLabel, noteName, type Mode } from '../music/theory'
 import { playNote } from '../audio/engine'
-import { useKeyFinder } from '../keyFinder'
+import { HIGHEST_OCTAVE, LOWEST_OCTAVE, shiftOctave, useKeyFinder } from '../keyFinder'
 import { Icon } from './Toolbar'
 import { TrackSheet } from './TrackSheet'
 import { toggleTool, useToolSheet } from './SoundPanel'
@@ -58,7 +58,8 @@ const toggle = (pc: number) => {
   const { notes } = useKeyFinder.getState()
   if (notes.includes(pc)) return useKeyFinder.setState({ notes: notes.filter((n) => n !== pc) })
   useKeyFinder.setState({ notes: [...notes, pc] })
-  void playNote(60 + pc)
+  // In the octave picked, to sound where the tune's sung; which octave doesn't change the key.
+  void playNote(12 * (useKeyFinder.getState().octave + 1) + pc)
 }
 const removeAt = (i: number) => useKeyFinder.setState((s) => ({ notes: s.notes.filter((_, j) => j !== i) }))
 
@@ -69,6 +70,7 @@ const removeAt = (i: number) => useKeyFinder.setState((s) => ({ notes: s.notes.f
  */
 export function KeyFinder({ titled = true }: { titled?: boolean }) {
   const notes = useKeyFinder((s) => s.notes)
+  const octave = useKeyFinder((s) => s.octave)
   const s = useFields('key', 'mode', 'sectionKey', 'view', 'activeSection', 'setKey', 'setMode', 'setSectionKey')
   const current = keyOf(s)
   const ownKey = s.view === 'section' && s.sectionKey !== null
@@ -94,10 +96,13 @@ export function KeyFinder({ titled = true }: { titled?: boolean }) {
       if (e.target instanceof Element && e.target.closest('input, select, textarea, [contenteditable]')) return
       const pc = TYPED.indexOf(e.code)
       const back = e.key === 'Backspace' || e.key === 'Delete'
-      if (pc === -1 && !back) return
+      // Z and X an octave down and up, as in most music apps.
+      const shift = e.code === 'KeyZ' ? -1 : e.code === 'KeyX' ? 1 : 0
+      if (pc === -1 && !back && !shift) return
       e.preventDefault()
       e.stopPropagation()
-      if (pc !== -1) toggle(pc)
+      if (shift) shiftOctave(shift)
+      else if (pc !== -1) toggle(pc)
       else useKeyFinder.setState((st) => ({ notes: st.notes.slice(0, -1) }))
     }
     window.addEventListener('keydown', onKey, true)
@@ -144,6 +149,21 @@ export function KeyFinder({ titled = true }: { titled?: boolean }) {
       <p className="key-finder-about">
         Pick the notes in your tune, in the order they come<span className="key-finder-typed">, here or on your keyboard</span>; pick one again to take it out. The first and last count as likelier home notes.
       </p>
+
+      {/* Which octave the pads sound in, to match a low or high voice: it only changes what you hear. */}
+      <div className="key-finder-octave" role="group" aria-label="Octave">
+        <span className="key-finder-label">Octave</span>
+        <button type="button" onClick={() => shiftOctave(-1)} disabled={octave <= LOWEST_OCTAVE} aria-label="An octave lower" title="An octave lower (Z)">
+          −
+        </button>
+        <span className="key-finder-octave-value" aria-live="polite">
+          C{octave}
+          <small>{octave === 4 ? 'middle' : octave < 4 ? 'lower' : 'higher'}</small>
+        </span>
+        <button type="button" onClick={() => shiftOctave(1)} disabled={octave >= HIGHEST_OCTAVE} aria-label="An octave higher" title="An octave higher (X)">
+          +
+        </button>
+      </div>
 
       {/* The twelve notes as pads, as the chords are in the chord pad; those in the tune outlined. */}
       <div className="chord-pad-grid key-finder-notes-grid" role="group" aria-label="Notes">

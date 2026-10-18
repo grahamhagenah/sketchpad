@@ -1301,6 +1301,14 @@ main > .panel {
 .key-finder-about, .key-finder-hint { margin: 0; font-size: var(--fs-small); color: var(--muted); line-height: 1.4; }
 /* Four across, as the chord pad's are in a phone's width. */
 .chord-pad-grid.key-finder-notes-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* The octave the pads sound in: − and + either side of it, at the right, over the pads. */
+.key-finder-octave { display: flex; align-items: center; gap: 4px; }
+.key-finder-octave .key-finder-label { margin: 0 auto 0 0; }
+.key-finder-octave button { width: 28px; height: 26px; padding: 0; border: 1px solid var(--line-strong); border-radius: 6px; background: none; color: var(--text); font-size: var(--fs-body); cursor: pointer; }
+.key-finder-octave button:not(:disabled):hover { border-color: var(--muted); }
+.key-finder-octave button:disabled { opacity: 0.4; cursor: default; }
+.key-finder-octave-value { min-width: 64px; display: inline-flex; align-items: baseline; justify-content: center; gap: 5px; font-size: var(--fs-body); font-weight: 600; }
+.key-finder-octave-value small { font-size: var(--fs-small); font-weight: 400; color: var(--muted); }
 .key-finder-notes { display: flex; align-items: flex-start; gap: 8px; min-height: 28px; }
 /* One line, scrolling sideways as the tune grows, so adding a note never makes the finder taller. */
 .key-finder-tune { flex: 1; min-width: 0; display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; overflow-x: auto; scrollbar-width: none; }
