@@ -5,6 +5,7 @@ import { arrange, playedSound, type Hit } from './arrange'
 import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, type Bass, type Instruments, type Pad } from './instruments'
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
+import { useRecordPrefs } from '../recordPrefs'
 import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
 import { concealDropouts, keepStorage, levelUpDb, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
@@ -396,15 +397,17 @@ class Engine {
     }
 
     const countIn = Tone.now() + 0.1
-    for (let b = 0; b < num; b++) {
+    // As many bars counted in as asked for (one, two, or none to start straight away); with none, takes line up by the last measured timing.
+    const beats = num * useRecordPrefs.getState().countIn
+    for (let b = 0; b < beats; b++) {
       const time = countIn + b * beatSeconds
       rec.clicks.push(time)
-      // A bar counted in out loud on the metronome's click, the first beat higher, so the tempo is in your head before the take starts;
+      // Counted in out loud on the metronome's click, each bar's first beat higher, so the tempo is in your head before the take starts;
       // each handed over a moment ahead, so cancelling the count-in stops the clicks still to come. The button counts down the beats too.
-      at(time - 0.08, () => this.click.triggerAttackRelease(b === 0 ? 'C6' : 'G5', 0.03, monoStart(this.click, time), b === 0 ? 1 : 0.6))
-      at(time, () => on.count(num - b))
+      at(time - 0.08, () => this.click.triggerAttackRelease(b % num === 0 ? 'C6' : 'G5', 0.03, monoStart(this.click, time), b % num === 0 ? 1 : 0.6))
+      at(time, () => on.count(beats - b))
     }
-    const startAt = countIn + num * beatSeconds
+    const startAt = countIn + beats * beatSeconds
     // What the singer hears at startAt leaves the speakers a little later,
     // and their voice reaches us a little later again: measured, if it has been, or else the browser's estimate.
     rec.startAt = startAt
