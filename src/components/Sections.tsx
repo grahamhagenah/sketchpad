@@ -165,6 +165,7 @@ export function SectionBar() {
   const sections = useStore((s) => s.sections)
   const activeSection = useStore((s) => s.activeSection)
   const arrangement = useStore((s) => s.arrangement)
+  const title = useStore((s) => s.title)
   const recording = useStore((s) => s.recording !== 'off')
   const { openSection, setView, addSection, addToSong, moveSection } = useFields('openSection', 'setView', 'addSection', 'addToSong', 'moveSection')
   const inSong = new Set(arrangement.map((entry) => entry.section))
@@ -250,19 +251,25 @@ export function SectionBar() {
   return (
     <nav className="section-bar" aria-label="Song sections">
       <div className={`section-tabs ${more.before ? 'has-before' : ''} ${more.after ? 'has-more' : ''}`} role="tablist" ref={tabsRef}>
-        <button
-          type="button"
-          role="tab"
-          className="section-tab is-song"
-          aria-selected={view === 'song'}
-          disabled={recording}
-          onClick={() => setView('song')}
-          title="The whole song, section by section"
-        >
-          {/* The song as the Song view shows it: its sections in rows, each as long as it is. */}
-          <Icon d="M4 6h10M4 12h16M4 18h7" />
-          Song
-        </button>
+        {/* The whole song, by its name: double-click it, or tap it again once it's open, to rename it. */}
+        {renaming === SONG ? (
+          <SongNameField onDone={() => setRenaming(null)} />
+        ) : (
+          <button
+            type="button"
+            role="tab"
+            className={`section-tab is-song ${title ? '' : 'is-untitled'}`}
+            aria-selected={view === 'song'}
+            disabled={recording}
+            onClick={() => (view === 'song' ? setRenaming(SONG) : setView('song'))}
+            onDoubleClick={() => setRenaming(SONG)}
+            title={`The whole song, section by section (${view === 'song' ? 'click' : 'double-click'} to rename it)`}
+          >
+            {/* The song as the Song view shows it: its sections in rows, each as long as it is. */}
+            <Icon d="M4 6h10M4 12h16M4 18h7" />
+            <span className="section-tab-name">{title || UNTITLED}</span>
+          </button>
+        )}
         {ordered.map((sec, index) => {
           const isOpen = view === 'section' && sec.id === activeSection
           return (
@@ -332,6 +339,45 @@ export function SectionBar() {
         <ZoomButtons />
       </div>
     </nav>
+  )
+}
+
+/** Renaming the song rather than a section. */
+const SONG = 'song'
+const UNTITLED = 'Untitled sketch'
+
+/** The song's name, typed in place of its tab; it names the sketch and exported files too. */
+function SongNameField({ onDone }: { onDone: () => void }) {
+  const setTitle = useStore((s) => s.setTitle)
+  const [name, setName] = useState(useStore.getState().title)
+  const done = useRef(false)
+  const finish = (save: boolean) => {
+    if (done.current) return
+    done.current = true
+    if (save) setTitle(name.trim())
+    onDone()
+  }
+  return (
+    <input
+      className="section-rename is-song"
+      aria-label="Name this sketch"
+      placeholder={UNTITLED}
+      value={name}
+      maxLength={40}
+      spellCheck={false}
+      autoFocus
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setName(e.target.value)}
+      onBlur={() => finish(true)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') finish(true)
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          finish(false)
+        }
+      }}
+      size={Math.max(8, (name || UNTITLED).length)}
+    />
   )
 }
 

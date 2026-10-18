@@ -130,7 +130,7 @@ export function Toolbar() {
             aria-expanded={expanded}
             aria-controls="toolbar-extra"
             onClick={() => setExpanded(!expanded)}
-            title="Title, save, export, where you are, tempo, meter and key"
+            title="Save, export, where you are, tempo, meter and key"
           >
             <Icon d="M6 9l6 6 6-6" />
           </button>
