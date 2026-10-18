@@ -24,9 +24,12 @@ export function Toolbar() {
   const [expanded, setExpanded] = useState(false)
   useEffect(() => {
     if (!narrow || !expanded) return
-    // Opened up, it folds back as soon as you scroll on to work, but not for a scroll inside its own menus.
+    // Opened up, it folds back as soon as you scroll on to work, but not for a scroll inside its own menus,
+    // nor while something in it or its menus has the focus: typing in one (an email, a password), the phone
+    // scrolls the page to keep the field above the keyboard, which folded the bar away with the field in it.
     const onScroll = (e: Event) => {
       if (e.target instanceof Element && e.target.closest('.toolbar, .menu')) return
+      if (document.activeElement instanceof Element && document.activeElement.closest('.toolbar, .menu')) return
       setExpanded(false)
     }
     window.addEventListener('scroll', onScroll, true)
