@@ -6,7 +6,7 @@ import { applySound, createInstruments, createVocalRoom, midiToHz, routeVocal, t
 import { createKit, disposeKit, KIT_VOLUME, playDrum, type DrumHit, type Kit } from './drums'
 import type { Sound } from './sound'
 import { useRecordPrefs } from '../recordPrefs'
-import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, micSettled, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
+import { expectedRoundTrip, findClicks, keepLatency, measuredLatency, measureLatency, micProblem, micSettled, micOpen, closeMic, openMicEarly, roundTrip, startCapture, type Capture } from './recorder'
 import { newId } from '../id'
 import { concealDropouts, keepStorage, levelUpDb, loadLanes, passesOf, quantize, storageErrorMessage, storeLanes, takeInfo, toAudioBuffer, type SectionTakes, type Take, type Trim } from './take'
 import { earliestMove, playbackOf, sectionBeatOf, songBeatOf, takeIdsBySection, type Playback } from '../song'
@@ -784,7 +784,7 @@ export async function checkLatency() {
     return
   } finally {
     // Back to playback, unless the mic stays open for a picked vocal track.
-    setAudioSession(wantsMic(useStore.getState()) ? 'play-and-record' : 'playback')
+    setAudioSession(wantsMic(useStore.getState()) && micOpen() ? 'play-and-record' : 'playback')
   }
   useStore.getState().setLatency(latency ?? useStore.getState().latency)
   window.alert(
@@ -985,10 +985,10 @@ const unsubscribeMic = useStore.subscribe((s, prev) => {
   if (want === wantsMic(prev)) return
   if (want) {
     // Picking the track is a click, which lets the audio start too, so it doesn't start (and pause again) on Record.
+    // The microphone waits for Record, though: turning it on here switched a phone into play-and-record and
+    // started its input, each heard as a click in earphones, just for opening the track. Record gives it its
+    // moment to settle instead (see micSettled), and it stays on between takes while the track is picked.
     void Tone.start()
-    setAudioSession('play-and-record')
-    // Refused, say: asked for again on Record, which says what's wrong.
-    openMicEarly().catch(() => setAudioSession('playback'))
   } else {
     closeMic()
     setAudioSession('playback')
