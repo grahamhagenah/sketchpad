@@ -4,12 +4,9 @@ import { findKeys, type KeyGuess } from '../music/findKey'
 import { keyLabel, noteName, type Mode } from '../music/theory'
 import { playNote } from '../audio/engine'
 import { useKeyFinder } from '../keyFinder'
-import { MenuButton } from './Sections'
 import { Icon } from './Toolbar'
 import { TrackSheet } from './TrackSheet'
-import { useToolSheet } from './SoundPanel'
-import { setLyricsOpen } from '../lyricsPanel'
-import { useNarrow } from '../hooks/useNarrow'
+import { toggleTool, useToolSheet } from './SoundPanel'
 
 /** The notes it takes before it says what key they're in. */
 const ENOUGH = 3
@@ -24,45 +21,26 @@ const TYPED = ['KeyA', 'KeyW', 'KeyS', 'KeyE', 'KeyD', 'KeyF', 'KeyT', 'KeyG', '
 
 const SEARCH = 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM15.5 15.5 20 20'
 
-/** Beside the lyrics: finds the key of a tune from its notes, in a panel under it, or on a phone in the sheet along the bottom. */
+/** Beside the lyrics: finds the key of a tune from its notes, in the side panel, or on a phone in the sheet along the bottom. */
 export function KeyFinderButton() {
-  const narrow = useNarrow()
-  const sheet = useToolSheet((s) => s.open === 'key')
-  if (narrow) {
-    return (
-      <button
-        type="button"
-        className={`icon-btn tab-tool-btn key-finder-btn ${sheet ? 'is-on' : ''}`}
-        // It opens and closes the sheet itself, so a tap on it isn't a tap outside the sheet.
-        data-sheet-toggle
-        aria-label="Find the key"
-        aria-expanded={sheet}
-        title="Find the key of a tune from its notes"
-        onClick={() => {
-          // One sheet at a time along the bottom: the key finder takes the lyrics' (or the sound's) place.
-          if (!sheet) setLyricsOpen(false)
-          useToolSheet.setState({ open: sheet ? null : 'key' })
-        }}
-      >
-        <Icon d={SEARCH} />
-      </button>
-    )
-  }
+  const open = useToolSheet((s) => s.open === 'key')
   return (
-    <MenuButton
-      label="Find the key"
+    <button
+      type="button"
+      className={`icon-btn tab-tool-btn key-finder-btn ${open ? 'is-on' : ''}`}
+      // It opens and closes the sheet itself, so a tap on it isn't a tap outside the sheet.
+      data-sheet-toggle
+      aria-label="Find the key"
+      aria-expanded={open}
+      aria-controls="key-panel"
       title="Find the key of a tune from its notes"
-      className="icon-btn tab-tool-btn key-finder-btn"
-      align="right"
-      role="dialog"
-      panelClassName="key-finder-menu"
-      menu={() => <KeyFinder />}
+      onClick={() => toggleTool('key')}
     >
       <Icon d={SEARCH} />
       <span className="tab-tool-label" aria-hidden="true">
         Find key
       </span>
-    </MenuButton>
+    </button>
   )
 }
 
@@ -89,7 +67,7 @@ const removeAt = (i: number) => useKeyFinder.setState((s) => ({ notes: s.notes.f
  * says which key they're likeliest in, and which others they'd fit, with a
  * button to put the song (or a section with a key of its own) in that key.
  */
-function KeyFinder({ titled = true }: { titled?: boolean }) {
+export function KeyFinder({ titled = true }: { titled?: boolean }) {
   const notes = useKeyFinder((s) => s.notes)
   const s = useFields('key', 'mode', 'sectionKey', 'view', 'activeSection', 'setKey', 'setMode', 'setSectionKey')
   const current = keyOf(s)

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { create } from 'zustand'
 import { PART_KEYS, SECTION_KINDS, sectionsNow, totalBeats, useFields, useStore, type Section } from '../store'
 import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { engine, seek, togglePlay } from '../audio/engine'
@@ -12,6 +13,7 @@ import { SongCards } from './SongCards'
 import { LyricsButton } from './Lyrics'
 import { KeyFinderButton } from './KeyFinder'
 import { vocalColor } from '../colors'
+import { closeSheet, toggleTool, useToolSheet } from './SoundPanel'
 
 /** A gear, for a section's settings. */
 const GEAR =
@@ -171,7 +173,8 @@ export function SectionBar() {
   const inSong = new Set(arrangement.map((entry) => entry.section))
   // In the order they were made, or dragged into; not the song's, which has its own.
   const ordered = sections
-  const [renaming, setRenaming] = useState<string | null>(null)
+  const renaming = useRenaming((s) => s.id)
+  const setRenaming = (id: string | null) => useRenaming.setState({ id })
   const open = view === 'section' ? sections.find((sec) => sec.id === activeSection) : undefined
   const narrow = useNarrow()
   const tabsRef = useRef<HTMLDivElement>(null)
@@ -341,6 +344,14 @@ export function SectionBar() {
     </nav>
   )
 }
+
+/** Which tab is being renamed, if one is: a section's id, or SONG. Here, so the section's settings in the side panel can start it too. */
+const useRenaming = create<{ id: string | null }>(() => ({ id: null }))
+
+// The open section's settings go with it: back in the Song view, or with another section open, they're put away.
+useStore.subscribe((s, prev) => {
+  if (useToolSheet.getState().open === 'section' && (s.view !== 'section' || s.activeSection !== prev.activeSection)) closeSheet()
+})
 
 /** Renaming the song rather than a section. */
 const SONG = 'song'
@@ -523,8 +534,26 @@ function SectionItems({ section, close, onRename }: { section: Pick<Section, 'id
   )
 }
 
-/** An empty section's settings on a wider screen, from a gear at the end of the tab strip, since it has no column beside its tracks yet. */
+/** The open section's settings: in the side panel on a wider screen, from the gear at the end of the tab strip; on a phone, in a menu under it. */
 function SectionMenu({ section, onRename }: { section: Section; onRename: () => void }) {
+  const narrow = useNarrow()
+  const open = useToolSheet((s) => s.open === 'section')
+  if (!narrow) {
+    return (
+      <button
+        type="button"
+        className={`section-settings ${open ? 'is-on' : ''}`}
+        aria-label={`${section.name} settings`}
+        aria-expanded={open}
+        aria-controls="section-panel"
+        title={`${section.name} settings: key, copies, rename, delete`}
+        onClick={() => toggleTool('section')}
+      >
+        <Icon d={GEAR} />
+        <span className="section-settings-label">Section</span>
+      </button>
+    )
+  }
   return (
     <MenuButton label={`${section.name} settings`} title={`${section.name} settings: key, copies, rename, delete`} className="section-settings" align="right" menu={(close) => (
       <SectionItems section={section} close={close} onRename={onRename} />
@@ -999,4 +1028,11 @@ function BlockMenu({ entryId, section, index, count, shared }: { entryId: string
       <Icon d="M6 12h.01M12 12h.01M18 12h.01" />
     </MenuButton>
   )
+}
+
+/** The open section's settings in the side panel: each action done puts them away, as the menu's do. */
+export function SectionPanel() {
+  const section = useStore((s) => (s.view === 'section' ? s.sections.find((sec) => sec.id === s.activeSection) : undefined))
+  if (!section) return null
+  return <SectionItems section={section} close={closeSheet} onRename={() => useRenaming.setState({ id: section.id })} />
 }

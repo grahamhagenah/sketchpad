@@ -30,7 +30,7 @@ export function Toolbar() {
     if (!narrow || !expanded) return
     // Opened up, it folds back as soon as you scroll on to work, but not for a scroll inside its own menus.
     const onScroll = (e: Event) => {
-      if (e.target instanceof Element && e.target.closest('.toolbar, .menu, .sound-panel')) return
+      if (e.target instanceof Element && e.target.closest('.toolbar, .menu')) return
       setExpanded(false)
     }
     window.addEventListener('scroll', onScroll, true)
