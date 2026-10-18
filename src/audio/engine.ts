@@ -323,7 +323,9 @@ class Engine {
 
   stop() {
     if (!this.ready) return
-    Tone.getTransport().stop()
+    // Only if it's going: stopping a stopped transport again sounds whatever's on its first beat (a drum hit, say), as when a song is shown again after it changed on another device.
+    const t = Tone.getTransport()
+    if (t.state !== 'stopped') t.stop()
     this.pad.releaseAll()
     this.bass.release()
     this.players.forEach((player) => player.stop())
