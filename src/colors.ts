@@ -29,6 +29,13 @@ export const DEFAULT_DRUMS_COLOR: ColorId = 'yellow'
 /** Vocal tracks take these in turn, until given their own. */
 const DEFAULT_VOCAL_COLORS: ColorId[] = ['violet', 'teal', 'orange', 'pink', 'green', 'red', 'blue', 'yellow']
 
+/** A colour picked at random for a new track or section, one not in `taken` while any are left. */
+export function randomColor(taken: readonly (ColorId | null | undefined)[] = []): ColorId {
+  const free = PALETTE.filter((c) => !taken.includes(c.id))
+  const from = free.length ? free : PALETTE
+  return from[Math.floor(Math.random() * from.length)].id
+}
+
 export const colorHex = (id: ColorId) => PALETTE.find((c) => c.id === id)?.hex ?? PALETTE[0].hex
 
 /** A vocal track's colour id: its own, or the one its lane takes by default. */
