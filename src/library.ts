@@ -163,7 +163,7 @@ function putSong(saved: SketchRecord['song'], takes: SectionTakes) {
   const { sections, arrangement, activeSection, chords, loop, takes: _, vocalMuted, vocalSolo, vocalNames, vocalVolume, vocalColors, vocalTracks, drums, ...settings } = saved
   // Settings a sketch was saved before having start as they would in a new one.
   quietly(() => {
-    useStore.setState({ drumTrack: false, drumsMuted: false, drumsSolo: false, drumsName: null, chordsVolume: 0, drumsVolume: 0, chordsColor: null, drumsColor: null, ...settings, rhythm: { ...DEFAULT_RHYTHM, ...settings.rhythm }, ...song })
+    useStore.setState({ drumTrack: false, drumsMuted: false, drumsSolo: false, drumsName: null, chordsVolume: 0, drumsVolume: 0, drumsColor: null, ...settings, rhythm: { ...DEFAULT_RHYTHM, ...settings.rhythm }, ...song })
     loadSongTakes(takes)
   })
 }
@@ -207,7 +207,7 @@ export function discardSketch() {
 function startBlank() {
   stopEverything()
   // One empty section, called Verse, to start from, on a standard sound (the electric piano, its bass held to the kick, no arpeggiator) rather than whatever the last sketch was set to.
-  quietly(() => useStore.setState({ ...songState({}), sound: newSketchSound(), arp: DEFAULT_ARP, rhythm: DEFAULT_RHYTHM, title: '', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumTrack: false, drumsMuted: false, drumsSolo: false, chordsVolume: 0, drumsVolume: 0, chordsColor: null, drumsColor: null }))
+  quietly(() => useStore.setState({ ...songState({}), sound: newSketchSound(), arp: DEFAULT_ARP, rhythm: DEFAULT_RHYTHM, title: '', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumTrack: false, drumsMuted: false, drumsSolo: false, chordsVolume: 0, drumsVolume: 0, drumsColor: null }))
   useStore.getState().setSaved(null, null)
   clearHistory()
 }
@@ -222,7 +222,7 @@ export async function openSong(start: SongStart, title: string) {
   if (useStore.getState().recording !== 'off') return
   if (!(await keepCurrent())) return
   stopEverything()
-  quietly(() => useStore.setState({ title, chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumsMuted: false, drumsSolo: false, chordsColor: null, drumsColor: null, ...start }))
+  quietly(() => useStore.setState({ title, chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumsMuted: false, drumsSolo: false, drumsColor: null, ...start }))
   useStore.getState().setSaved(null, null)
   clearHistory()
   // Which ready-made songs get opened, by name.

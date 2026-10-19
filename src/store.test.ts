@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { vocalColorId } from './colors'
+import { DEFAULT_CHORDS_COLOR } from './colors'
 import { LANES } from './audio/take'
 import { audibleTracks, loopRange, DEFAULT_VOCAL_REVERB, recordLane, sectionsNow, sketchSignature, songOf, songState, songSummary, totalBeats, useStore } from './store'
 
@@ -306,20 +306,24 @@ describe('track colours', () => {
     useStore.getState().loadProgression([0, 4], false)
   })
 
-  it('gives each new track the colour of its place, the same every time', () => {
+  it('gives each new track a colour of its own, none the same as another’s', () => {
     const s = () => useStore.getState()
     s().addDrumTrack()
     for (let i = 0; i < 3; i++) s().addVocalTrack()
-    expect(s().drumsColor).toBeNull()
-    expect([0, 1, 2].map((lane) => vocalColorId(s().vocalColors, lane))).toEqual(['violet', 'teal', 'orange'])
+    const vocals = [0, 1, 2].map((lane) => s().vocalColors[lane])
+    expect(vocals.every(Boolean)).toBe(true)
+    expect(s().drumsColor).not.toBeNull()
+    expect(new Set([DEFAULT_CHORDS_COLOR, ...vocals]).size).toBe(4)
+    expect(s().drumsColor).not.toBe(DEFAULT_CHORDS_COLOR)
   })
 
-  it('gives a track added where one was deleted its place’s colour, not the old one’s', () => {
+  it('gives a new section chords in a colour no other section has, which can be changed', () => {
     const s = () => useStore.getState()
-    s().addVocalTrack()
-    s().setVocalColor(0, 'red')
-    s().renumberVocals([])
-    s().addVocalTrack()
-    expect(vocalColorId(s().vocalColors, 0)).toBe('violet')
+    for (let i = 0; i < 3; i++) s().addSection('Verse')
+    const colors = sectionsNow(s()).map((sec) => sec.chordsColor ?? DEFAULT_CHORDS_COLOR)
+    expect(new Set(colors).size).toBe(colors.length)
+    s().setChordsColor('red')
+    expect(sectionsNow(s())[colors.length - 1].chordsColor).toBe('red')
+    expect(sectionsNow(s()).slice(0, -1).map((sec) => sec.chordsColor ?? DEFAULT_CHORDS_COLOR)).toEqual(colors.slice(0, -1))
   })
 })
