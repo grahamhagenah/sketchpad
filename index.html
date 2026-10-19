@@ -12,7 +12,10 @@
     <meta name="color-scheme" content="dark" />
     <link rel="canonical" href="https://bounce.grahamhagenah.com/" />
 
+    <!-- Icons: the SVG for browsers, PNGs in multiples of 48px for search results, and /favicon.ico for anything that only looks there. -->
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-48.png" type="image/png" sizes="48x48" />
     <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
@@ -29,6 +32,16 @@
     <meta property="og:image:alt" content="Bounce, with a row of chords: Am, F, C, G" />
     <meta name="twitter:card" content="summary_large_image" />
 
+    <!-- The site's name for search results, which otherwise fall back to the domain's owner. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Bounce",
+        "alternateName": "Bounce song sketchpad",
+        "url": "https://bounce.grahamhagenah.com/"
+      }
+    </script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",

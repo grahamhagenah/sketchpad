@@ -10,7 +10,10 @@
     <meta name="theme-color" content="#07080a" />
     <meta name="color-scheme" content="dark" />
     <link rel="canonical" href="https://bounce.grahamhagenah.com/about/" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-48.png" type="image/png" sizes="48x48" />
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <meta property="og:type" content="website" />
@@ -53,10 +56,12 @@
         "Chord progressions in any major or minor key",
         "Drum grooves from four-on-the-floor to drum & bass",
         "Multitrack vocal recording with every take kept",
-        "Lyrics with syllable counts, synced to song sections",
-        "Song arrangement with per-section key changes",
+        "Lyrics for every section, following the playhead",
+        "Song arrangement with per-section key changes and colors",
+        "Find the key from the notes you play",
         "Export MIDI, WAV mix and stems",
         "Works on phones, tablets and computers",
+        "Optional free account that syncs songs and recordings across devices",
         "No account needed"
       ],
       "screenshot": [
@@ -119,7 +124,15 @@
           "name": "Where are my songs saved?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "In your browser, on your device. Save sketches to your library to come back to, and back any of them up, recordings included, to a single .bounce file you can open on another device."
+            "text": "On your device, in your browser, so Bounce works offline and without an account. Sign in with a free account and your saved songs, recordings included, sync to every device you use: start a song on your phone and finish it at your desk. You can also back any song up to a single .bounce file."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need an account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Everything works without one. An account is free and only adds syncing: sign in with an email link or a password, and your songs follow you between your phone, tablet and computer, catching up whenever you're back online."
           }
         },
         {
@@ -135,7 +148,7 @@
           "name": "Can it help me find a chord progression?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. The chords that fit your key are laid out to pick from, with 7ths, sus and borrowed chords a click away, and you can start a section from a common progression or open one of 13 song templates built on progressions everyone knows."
+            "text": "Yes. The chords that fit your key are laid out to pick from, with 7ths, sus and borrowed chords a click away, and you can start a section from a common progression or open one of 9 song templates built on progressions everyone knows."
           }
         },
         {
@@ -143,7 +156,7 @@
           "name": "Does Bounce track me?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Only anonymously. It counts visits and a few actions, like exports, with GoatCounter, which uses no cookies and keeps nothing personal. Your songs and recordings never leave your device unless you export them."
+            "text": "Only anonymously. It counts visits and a few actions, like exports, with GoatCounter, which uses no cookies and keeps nothing personal. Your songs and recordings never leave your device unless you export them, or sign in to sync them to your account."
           }
         }
       ]
@@ -279,7 +292,7 @@
         <a class="cta" href="/">Start a song</a>
         <p class="free"><span>Free</span><span>No account</span><span>Nothing to install</span></p>
         <figure class="shot hero-shot">
-          <img src="editor.jpg" width="1600" height="1000" fetchpriority="high" alt="The Bounce song sketchpad with a song open: a chord progression, a drum groove, two vocal takes, and the lyrics beside them" />
+          <img src="editor.jpg" width="1600" height="1000" fetchpriority="high" alt="The Bounce song sketchpad with a song open: a chord progression, a drum groove, lead and harmony vocals, and the lyrics beside them" />
         </figure>
       </section>
     </div>
@@ -289,27 +302,27 @@
         <div class="text">
           <span class="step">Track it</span>
           <h2>Scratch vocals, as many takes as you need</h2>
-          <p>Hit record and sing over the loop, with a count-in to get you in. Every take is kept, so you can pick the best one, trim its ends on the timeline, and stack harmonies on tracks of their own. A quick timing check keeps your takes in time with the track.</p>
+          <p>Hit record and sing over the loop, with a count-in to get you in. Every take is kept, so you can pick the best one, trim its ends on the timeline, and stack harmonies on tracks of their own. If a take lands a touch early or late, nudge it back into the pocket.</p>
         </div>
-        <figure class="shot"><img src="vocals.jpg" width="1420" height="1080" alt="A lead vocal track selected, with three takes to choose from, take 2 playing, and a harmony track below" loading="lazy" decoding="async" /></figure>
+        <figure class="shot"><img src="vocals.jpg" width="1420" height="1080" alt="A lead vocal track selected, with three takes to choose from, take 2 playing, its timing and level beside it, and a harmony track below" loading="lazy" decoding="async" /></figure>
       </section>
 
       <section class="feature is-tall-shot">
         <div class="text">
           <span class="step">Write it down</span>
-          <h2>Lyrics, synced to the sections</h2>
-          <p>Each section gets its own lyrics, with its chords above them and a syllable count on every line to help with phrasing. The lyric sheet follows the playhead, so you always see the section you’re in.</p>
+          <h2>Lyrics, written beside the song</h2>
+          <p>Each section gets its own lyrics, typed straight onto the sheet beside your tracks. Write a chorus once and it’s there every time the chorus comes round. The sheet follows the playhead, so you always see the words you’re singing.</p>
         </div>
-        <figure class="shot is-tall"><img src="lyrics.jpg" width="715" height="1110" alt="The lyrics panel: verse and chorus, each with its chords and syllable counts" loading="lazy" decoding="async" /></figure>
+        <figure class="shot is-tall"><img src="lyrics.jpg" width="680" height="1110" alt="The lyrics panel: the verse, chorus and last chorus, each with its words, the verse playing" loading="lazy" decoding="async" /></figure>
       </section>
 
       <section class="feature">
         <div class="text">
           <span class="step">Shape it</span>
           <h2>Arrange the whole song</h2>
-          <p>Lay out verses, choruses and a bridge, reorder them by dragging, and reuse a section wherever it repeats. Modulate any section, like a key change into the last chorus, and see the form and length at a glance.</p>
+          <p>Lay out verses, choruses and a bridge, reorder them by dragging, and reuse a section wherever it repeats. Give each section its own color, modulate any of them, like a key change into the last chorus, and see the form, the length and where the vocals sit at a glance.</p>
         </div>
-        <figure class="shot"><picture><source media="(max-width: 640px)" srcset="song-narrow.jpg" width="1000" height="914" /><img src="song.jpg" width="1600" height="916" alt="The arrangement: verse, chorus, verse, chorus and a last chorus, with their chords" loading="lazy" decoding="async" /></picture></figure>
+        <figure class="shot"><picture><source media="(max-width: 640px)" srcset="song-narrow.jpg" width="1000" height="914" /><img src="song.jpg" width="1600" height="916" alt="The arrangement: verse, chorus, verse, chorus and a last chorus in a new key, each section in its own color, with the vocals marked over the verses" loading="lazy" decoding="async" /></picture></figure>
       </section>
     </main>
 
@@ -317,7 +330,7 @@
       <section class="facts">
         <div class="fact">
           <h3>Chords that fit your key</h3>
-          <p>Build progressions from the diatonic chords, with 7ths, sus and borrowed chords a click away. Pick a sound, voicing and arpeggiator pattern.</p>
+          <p>Build progressions from the diatonic chords, with 7ths, sus and borrowed chords a click away. Pick a sound and an arpeggiator pattern, and if you’re not sure of the key, play the notes you have and Bounce finds it.</p>
         </div>
         <div class="fact">
           <h3>Grooves to write over</h3>
@@ -328,16 +341,16 @@
           <p>Open a template built on a progression everyone knows, from “Creep” to “I Feel Love”, and change it until it’s yours. Or start blank.</p>
         </div>
         <div class="fact">
-          <h3>On your phone, too</h3>
-          <p>The full app works on a phone, with a chord pad and one-tap recording. Catch the idea when it turns up, then pick it up at your desk.</p>
+          <h3>Every device, in sync</h3>
+          <p>The full app works on a phone, with a chord pad and one-tap recording. Sign in and your songs, recordings included, follow you from your phone to your desk.</p>
         </div>
         <div class="fact">
           <h3>Export to your DAW</h3>
           <p>Bounce a WAV mix to share, or export stems and MIDI for Logic, Ableton, FL Studio or any DAW. Tempo and key come along, so everything lines up.</p>
         </div>
         <div class="fact">
-          <h3>Free, with no account</h3>
-          <p>Nothing to sign up for or install. Sessions save in your browser, and you can back one up, recordings included, to a single file.</p>
+          <h3>Free, no account needed</h3>
+          <p>Nothing to sign up for or install: songs save in your browser and work offline. Back one up to a single file, or add a free account to sync.</p>
         </div>
       </section>
 
@@ -357,7 +370,11 @@
         </div>
         <div class="faq-item">
           <h3>Where are my songs saved?</h3>
-          <p>In your browser, on your device. Save sketches to your library to come back to, and back any of them up, recordings included, to a single .bounce file you can open on another device.</p>
+          <p>On your device, in your browser, so Bounce works offline and without an account. Sign in with a free account and your saved songs, recordings included, sync to every device you use: start a song on your phone and finish it at your desk. You can also back any song up to a single .bounce file.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Do I need an account?</h3>
+          <p>No. Everything works without one. An account is free and only adds syncing: sign in with an email link or a password, and your songs follow you between your phone, tablet and computer, catching up whenever you’re back online.</p>
         </div>
         <div class="faq-item">
           <h3>Which keys, tempos and time signatures can I use?</h3>
@@ -365,11 +382,11 @@
         </div>
         <div class="faq-item">
           <h3>Can it help me find a chord progression?</h3>
-          <p>Yes. The chords that fit your key are laid out to pick from, with 7ths, sus and borrowed chords a click away, and you can start a section from a common progression or open one of 13 song templates built on progressions everyone knows.</p>
+          <p>Yes. The chords that fit your key are laid out to pick from, with 7ths, sus and borrowed chords a click away, and you can start a section from a common progression or open one of 9 song templates built on progressions everyone knows.</p>
         </div>
         <div class="faq-item">
           <h3>Does Bounce track me?</h3>
-          <p>Only anonymously. It counts visits and a few actions, like exports, with GoatCounter, which uses no cookies and keeps nothing personal. Your songs and recordings never leave your device unless you export them.</p>
+          <p>Only anonymously. It counts visits and a few actions, like exports, with GoatCounter, which uses no cookies and keeps nothing personal. Your songs and recordings never leave your device unless you export them, or sign in to sync them to your account.</p>
         </div>
       </section>
 
