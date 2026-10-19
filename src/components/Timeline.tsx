@@ -3,7 +3,7 @@ import { AUDIBLE_FIELDS, audibleTracks, chordsTrackName, drumsTrackName, keyOf, 
 import { chordOf } from '../music/theory'
 import { audition, engine, moveTake, seek, trimTake } from '../audio/engine'
 import { earliestMove, sectionBeatOf } from '../song'
-import { cuts, LANES, MIN_TRIM, trimOf, type Trim } from '../audio/take'
+import { cuts, LANES, MIN_TRIM, trimOf, waveHeights, type Trim } from '../audio/take'
 import { LoopLane } from './LoopLane'
 import { AddChordMenu } from './AddChordMenu'
 import { SectionStarter } from './SectionStarter'
@@ -714,16 +714,6 @@ function UnmuteAllButton() {
       <span className="unmute-all-label">Unmute all</span>
     </button>
   )
-}
-
-/** `peaks` gathered into `count` bars, each the loudest of the peaks it covers. */
-function waveHeights(peaks: number[], count: number) {
-  const per = peaks.length / count
-  return Array.from({ length: count }, (_, i) => {
-    let max = 0
-    for (let j = Math.floor(i * per), end = Math.ceil((i + 1) * per); j < end && j < peaks.length; j++) max = Math.max(max, peaks[j])
-    return max
-  })
 }
 
 /** A phone's zoom, fixed: about four bars of 4/4 across its width. */
