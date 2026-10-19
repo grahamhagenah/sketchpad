@@ -18,15 +18,6 @@ describe('songs to start from', () => {
       ['Verse', 'Bm F♯ A E G D Em F♯'],
       ['Chorus', 'G D F♯ Bm G D Em F♯'],
     ])
-    expect(names('Despacito')).toEqual([
-      ['Verse', 'Bm G D A Bm G D A'],
-      ['Chorus', 'Bm G D A Bm G D A'],
-    ])
-    expect(names('Mad World')).toEqual([
-      ['Verse', 'Fm A♭ E♭ B♭ Fm A♭ E♭ B♭'],
-      ['Chorus', 'Fm B♭ Fm B♭ Fm B♭ Fm B♭'],
-    ])
-    expect(names('Every Breath You Take')).toEqual([['Verse', 'A♭ Fm D♭ E♭ A♭ Fm D♭ E♭']])
     expect(names('Clocks')).toEqual([
       ['Intro', 'E♭ B♭m B♭m Fm E♭ B♭m B♭m Fm'],
       ['Verse', 'E♭ B♭m B♭m Fm E♭ B♭m B♭m Fm'],
@@ -38,14 +29,6 @@ describe('songs to start from', () => {
     expect(names('Hey Jude')).toEqual([
       ['Verse', 'F C C7 F B♭ F C7 F'],
       ['Outro', 'F E♭ B♭ F F E♭ B♭ F'],
-    ])
-    expect(names('With or Without You')).toEqual([
-      ['Verse', 'D A Bm G D A Bm G'],
-      ['Chorus', 'D A Bm G D A Bm G'],
-    ])
-    expect(names('Purple Rain')).toEqual([
-      ['Verse', 'B♭add9 Gm7 F E♭maj7 B♭add9 Gm7 F E♭maj7'],
-      ['Chorus', 'B♭add9 Gm7 F E♭maj7 B♭add9 Gm7 F E♭maj7'],
     ])
     expect(names('Creep')).toEqual([
       ['Verse', 'G B C Cm G B C Cm'],

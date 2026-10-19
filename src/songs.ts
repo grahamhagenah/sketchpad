@@ -9,6 +9,8 @@ import { DEFAULT_ARP, DEFAULT_RHYTHM } from './audio/arrange'
 export interface SongTemplate {
   name: string
   think: string
+  /** A small drawing of its style for the Songs panel: an SVG path on a 24×24 grid, drawn as a line. */
+  icon: string
   build: () => SongStart
 }
 
@@ -19,6 +21,7 @@ export const SONG_TEMPLATES: SongTemplate[] = [
   {
     name: 'Minor synth-pop',
     think: 'Sweet Dreams (Are Made of This)',
+    icon: 'M3 5h18v14H3zM7.5 5v8M12 5v8M16.5 5v8',
     // C minor: Cm for a bar, then A♭ and the major V, G, borrowed from C major; a bouncing saw arpeggio over a drum machine.
     build: () =>
       songStart(
@@ -40,6 +43,7 @@ export const SONG_TEMPLATES: SongTemplate[] = [
   {
     name: 'Grunge anthem',
     think: 'Smells Like Teen Spirit',
+    icon: 'M13 2L4 14h7l-1 8 9-12h-7z',
     // F major: F and B♭, then A♭ and D♭ borrowed from F minor, two beats each, chugged in eighths; quiet verse, loud chorus.
     build: () => {
       const riff = () => times(4, () => [chord(0, 2), chord(3, 2), chord(2, 2, { borrowed: true }), chord(5, 2, { borrowed: true })])
@@ -66,6 +70,7 @@ export const SONG_TEMPLATES: SongTemplate[] = [
   {
     name: 'Desert ballad',
     think: 'Hotel California',
+    icon: 'M12 3v2M5.6 6.6l1.4 1.4M18.4 6.6L17 8M8 14a4 4 0 0 1 8 0M2 18c3-2 6-2 10 0s7 2 10 0',
     // B minor, a bar each: Bm F♯ A E G D Em F♯, the F♯ and E major borrowed from B major; the chorus starts on G. Arpeggiated piano.
     build: () =>
       songStart(
@@ -98,34 +103,9 @@ export const SONG_TEMPLATES: SongTemplate[] = [
       ),
   },
   {
-    name: 'Reggaeton pop',
-    think: 'Despacito',
-    // D major, a bar each: Bm G D A (vi IV I V), plucked in the three-three-two push over a kick on every beat.
-    build: () => {
-      const loop = () => times(2, () => [chord(5, 4), chord(3, 4), chord(0, 4), chord(4, 4)])
-      return songStart(
-        {
-          key: 2,
-          mode: 'major',
-          bpm: 89,
-          timeSig: [4, 4],
-          sound: preset('Pluck', { decay: 0.5, release: 0.3, brightness: 3000, bass: true }),
-          arp: DEFAULT_ARP,
-          rhythm: { chords: 'tresillo', bass: 'kick' },
-          chordsVolume: 0,
-          drumsVolume: 0,
-        },
-        [
-          { name: 'Verse', chords: loop(), drums: 'dembow', drumFill: 'end', drumIntensity: 'sparse' },
-          { name: 'Chorus', chords: loop(), drums: 'dembow', drumFill: 'end' },
-        ],
-        [0, 1, 0, 1],
-      )
-    },
-  },
-  {
     name: 'Alt-rock ballad',
     think: 'Creep',
+    icon: 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z',
     // G major, a bar each: G, B made major (outside the key), C, and C minor borrowed from G minor. Picked out, then strummed.
     build: () => {
       const loop = () => times(2, () => [chord(0, 4), chord(2, 4, { major: true }), chord(3, 4), chord(3, 4, { borrowed: true })])
@@ -150,54 +130,9 @@ export const SONG_TEMPLATES: SongTemplate[] = [
     },
   },
   {
-    name: 'Bleak piano ballad',
-    think: 'Mad World',
-    // F minor, a bar each: Fm A♭ E♭ B♭, the B♭ major borrowed from F major; the chorus rocks between Fm and B♭. Piano alone.
-    build: () =>
-      songStart(
-        {
-          key: 5,
-          mode: 'minor',
-          bpm: 88,
-          timeSig: [4, 4],
-          sound: preset('Piano', { reverb: 0.38 }),
-          arp: DEFAULT_ARP,
-          rhythm: { chords: 'beats', bass: 'held' },
-          chordsVolume: 0,
-          drumsVolume: 0,
-          drumTrack: false,
-        },
-        [
-          { name: 'Verse', chords: times(2, () => [chord(0, 4), chord(2, 4), chord(6, 4), chord(3, 4, { borrowed: true })]), drums: null },
-          { name: 'Chorus', chords: times(4, () => [chord(0, 4), chord(3, 4, { borrowed: true })]), drums: null },
-        ],
-        [0, 1, 0, 1],
-      ),
-  },
-  {
-    name: 'Picked new wave',
-    think: 'Every Breath You Take',
-    // A♭ major, a bar each: A♭ Fm D♭ E♭ (I vi IV V), picked out in eighths across two octaves.
-    build: () =>
-      songStart(
-        {
-          key: 8,
-          mode: 'major',
-          bpm: 117,
-          timeSig: [4, 4],
-          sound: preset('Pluck', { decay: 0.6, release: 0.5, brightness: 3400, bass: true }),
-          arp: { ...DEFAULT_ARP, on: true, pattern: 'up', rate: '1/8', octaves: 2, gate: 0.8, accent: 0.2 },
-          rhythm: { chords: 'held', bass: 'held' },
-          chordsVolume: 0,
-          drumsVolume: -2,
-        },
-        [{ name: 'Verse', chords: times(2, () => [chord(0, 4), chord(5, 4), chord(3, 4), chord(4, 4)]), drums: 'backbeat', drumFill: 'end' }],
-        [0, 0],
-      ),
-  },
-  {
     name: 'Cascading piano',
     think: 'Clocks',
+    icon: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM12 7v5l3 2',
     // E♭ major, a bar each: E♭ B♭m B♭m Fm, the B♭ minor borrowed from E♭ minor; piano tumbling down each chord, drums joining after the intro.
     build: () => {
       const loop = () => times(2, () => [chord(0, 4), chord(4, 4, { borrowed: true }), chord(4, 4, { borrowed: true }), chord(1, 4)])
@@ -224,6 +159,7 @@ export const SONG_TEMPLATES: SongTemplate[] = [
   {
     name: 'Disco sequencer',
     think: 'I Feel Love',
+    icon: 'M12 1v3M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM4 12h16M12 4v16M6 7.5h12M6 16.5h12',
     // Long on one chord, C, a squelchy sixteenth-note arpeggio over four on the floor, then a while on B♭ (borrowed from C minor) and back.
     build: () =>
       songStart(
@@ -248,6 +184,7 @@ export const SONG_TEMPLATES: SongTemplate[] = [
   {
     name: 'Piano singalong',
     think: 'Hey Jude',
+    icon: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M17 14a5 5 0 0 1 4 6',
     // F major: F C C7 F · B♭ F C7 F, struck on every beat; then the long outro, F E♭ B♭ F, the E♭ borrowed from F minor.
     build: () =>
       songStart(
@@ -275,60 +212,9 @@ export const SONG_TEMPLATES: SongTemplate[] = [
       ),
   },
   {
-    name: 'Swelling anthem',
-    think: 'With or Without You',
-    // D major, a bar each: D A Bm G (I V vi IV), a slow-swelling pad over a steady bass; the drums open up in the chorus.
-    build: () => {
-      const loop = () => times(2, () => [chord(0, 4), chord(4, 4), chord(5, 4), chord(3, 4)])
-      return songStart(
-        {
-          key: 2,
-          mode: 'major',
-          bpm: 110,
-          timeSig: [4, 4],
-          sound: preset('Pad', { reverb: 0.45 }),
-          arp: DEFAULT_ARP,
-          rhythm: { chords: 'held', bass: 'held' },
-          chordsVolume: 0,
-          drumsVolume: -2,
-        },
-        [
-          { name: 'Verse', chords: loop(), drums: 'light', drumFill: 'none' },
-          { name: 'Chorus', chords: loop(), drums: 'rock', drumFill: 'end' },
-        ],
-        [0, 1, 0, 1],
-      )
-    },
-  },
-  {
-    name: 'Slow power ballad',
-    think: 'Purple Rain',
-    // B♭ major, a bar each: B♭add9 Gm7 F E♭maj7 (I vi V IV), held strings, slow.
-    build: () => {
-      const loop = () => times(2, () => [chord(0, 4, { color: 'add9' }), chord(5, 4, { seventh: true }), chord(4, 4), chord(3, 4, { seventh: true })])
-      return songStart(
-        {
-          key: 10,
-          mode: 'major',
-          bpm: 57,
-          timeSig: [4, 4],
-          sound: preset('Strings', { reverb: 0.42 }),
-          arp: DEFAULT_ARP,
-          rhythm: { chords: 'held', bass: 'held' },
-          chordsVolume: 0,
-          drumsVolume: -2,
-        },
-        [
-          { name: 'Verse', chords: loop(), drums: 'ballad', drumFill: 'none' },
-          { name: 'Chorus', chords: loop(), drums: 'backbeat', drumFill: 'end' },
-        ],
-        [0, 1, 0, 1],
-      )
-    },
-  },
-  {
     name: 'Glitch hyperpop',
     think: 'money machine',
+    icon: 'M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8zM19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z',
     // E major falling by major thirds, Eadd9 C G♯, then a half step to Gsus2 and Bsus4; the chorus jumps a tritone
     // to B♭ (E♭maj7 B♭/D A♭ Gm7 C G♭), a drumless E minor glitch, and the last chorus up a half step again, in B.
     // A wide, squelchy saw scattered at random across three octaves, over trap verses and drum & bass choruses.
@@ -360,6 +246,7 @@ export const SONG_TEMPLATES: SongTemplate[] = [
   {
     name: 'Jazz-pop bossa nova',
     think: 'From the Start',
+    icon: 'M5 4h14l-7 8zM12 12v8M8 20h8',
     // F major, a bar each, all sevenths: Fmaj7 Dm7 Gm7 C7, then Am7 into D7 (the VI played major, leaning on the ii) Gm7 C7.
     // The chorus sighs from B♭maj7 to B♭m7, the minor iv borrowed from F minor, down Am7 D7 Gm7 C7 home; the bridge
     // starts on the vi with a G7 for the ii. A soft electric piano pushed across the bar over bossa rim clicks, the bass

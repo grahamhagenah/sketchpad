@@ -83,12 +83,6 @@ export function Toolbar() {
           </optgroup>
         ))}
       </select>
-      {/* A section in a key of its own says so, as the tempo says bpm. */}
-      {ownKey && (
-        <span className="lcd-unit" aria-hidden="true">
-          section
-        </span>
-      )}
     </label>
   )
   const modes = (
