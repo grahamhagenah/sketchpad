@@ -331,8 +331,19 @@ main > .panel {
 .lcd-meter select { width: 5ch; text-align-last: center; }
 .lcd-key select { width: 9ch; text-align-last: center; }
 .lcd-meter:hover select, .lcd-key:hover select { color: var(--accent); }
-/* A section in its own key: the key and its label show in the accent, so the change is noticed. */
-.lcd-key.is-own-key select, .lcd-key.is-own-key .lcd-unit { color: var(--accent); }
+/* A section in its own key: a small dot in the corner, as the save button marks unsaved changes; its title names the song's key. */
+.lcd-key.is-own-key { position: relative; }
+.lcd-key.is-own-key::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+}
 .record-spinner.is-still { animation: record-pulse 1.2s ease-in-out infinite; }
 .record-count { font-family: 'DM Mono', monospace; font-size: var(--fs-title); font-weight: 500; line-height: 1; color: var(--text); }
 .toolbar :disabled { opacity: 0.4; }
@@ -422,15 +433,22 @@ main > .panel {
   flex: none;
   width: 260px;
   margin-right: 12px;
-  /* Its edge runs the editor's full height, however little the settings take up. */
+  /* Its edge runs the editor's full height, however little the settings take up; however long they are, the page doesn't grow. */
+  align-self: stretch;
+  contain: size;
   border-right: 1px solid var(--line-strong);
 }
-/* The settings themselves stay in view while a long section scrolls. */
+/*
+ * The settings themselves stay in view while a long section scrolls,
+ * scrolling on their own in the room down to the status bar, and not
+ * handing the scroll on to the page when they reach an end.
+ */
 .inspector-body {
   position: sticky;
   top: 0;
-  max-height: 100vh;
+  max-height: min(100%, calc(100dvh - 32px));
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 12px 16px 0;
 }
 .track-sheet.is-docked { display: flex; flex-direction: column; gap: 12px; }
@@ -1395,26 +1413,29 @@ main > .panel {
 .song-row-bar,
 .song-row-drums,
 .song-row-vocals { position: absolute; left: 0; right: 0; overflow: hidden; }
-.song-row-bar { top: calc(50% - 18px); height: 36px; border-radius: 6px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--tile-edge); }
-.song-row.is-playing .song-row-bar { background: color-mix(in srgb, var(--text) 12%, var(--raised)); }
+.song-row-bar { top: calc(50% - 18px); height: 36px; }
+.song-row.is-playing .song-chord { background: color-mix(in srgb, var(--text) 12%, var(--raised)); }
 .song-row-drums { top: calc(50% + 22px); height: 10px; }
-.song-row-vocals { bottom: calc(50% + 22px); height: 8px; }
-/* Each chord a segment of the bar, its name inside, split from the next by a thin line. */
+.song-row-vocals { bottom: calc(50% + 21px); height: 12px; }
+/* Each chord its own block, styled like the Sections view's chords in miniature. */
 .song-chord {
   position: absolute;
   top: 0;
   bottom: 0;
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   padding: 0 8px;
-  border-left: 1px solid var(--line-strong);
-  font-family: 'DM Mono', monospace;
+  border-radius: var(--radius);
+  background: var(--raised);
+  border: 2px solid var(--line-strong);
   font-size: var(--fs-body);
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
 }
-.song-chord:first-child { border-left: 0; }
 /* A kick a full tick, a snare a shorter one. */
 .song-drum { position: absolute; bottom: 0; width: 2px; height: 100%; border-radius: 1px; background: var(--muted); opacity: 0.55; }
 .song-drum.is-snare,
@@ -1422,8 +1443,8 @@ main > .panel {
 .song-drum.is-rim,
 .song-drum.is-tomHigh,
 .song-drum.is-tomLow { height: 60%; top: 20%; bottom: auto; opacity: 0.35; }
-/* A take: a plain bar in its track's colour (set where it's drawn) along the stretch it plays, square-cornered. */
-.song-take { position: absolute; opacity: 0.75; }
+/* The vocals: one plain waveform for every take, along the stretch they play. */
+.song-vocals-shape { display: block; width: 100%; height: 100%; fill: var(--muted); }
 /* An empty section: just its name, with a dashed stub to show there's nothing to play yet. */
 /* An empty section: a dashed slot as tall as a row's chords, asking for some; it opens the section like the name does. */
 .song-row.is-empty .song-row-track { display: flex; align-items: center; }
@@ -1518,7 +1539,7 @@ main > .panel {
 /* Its chords right under the name, the drums and any vocals in strips below them, so the name reads as theirs. */
 .song-view.is-narrow .song-row-bar { top: 2px; }
 .song-view.is-narrow .song-row-drums { top: 41px; }
-.song-view.is-narrow .song-row-vocals { top: 54px; bottom: auto; height: 6px; }
+.song-view.is-narrow .song-row-vocals { top: 52px; bottom: auto; height: 10px; }
 .song-view.is-narrow .song-row.is-empty .song-row-track { align-items: flex-start; }
 .song-view.is-narrow .song-row-actions { top: 24px; gap: 4px; }
 /*
@@ -2023,6 +2044,10 @@ main > .panel {
 /* Over a list in a menu, such as the saved sketches. */
 .menu-heading { margin: 8px 12px 2px; font-family: 'DM Mono', monospace; font-size: var(--fs-heading); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .menu-empty { margin: 6px 12px 8px; font-size: var(--fs-body); color: var(--muted); }
+/* The Songs panel's lists, each under a line of its own, apart from the New song button and each other. */
+.songs-group { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.songs-group > .menu-heading { margin-top: 0; }
+.songs-group-about { margin: 0 12px 6px; font-size: var(--fs-small); color: var(--muted); }
 /* A quiet link at the foot of the File menu, out to the page about the app. */
 .menu-footnote { display: block; margin: 2px 0; padding: 6px 12px; border-radius: 6px; font-size: var(--fs-label); color: var(--muted); text-decoration: none; }
 .menu-footnote:hover, .menu-footnote:focus-visible { color: var(--text); background: var(--raised); }
@@ -2462,14 +2487,17 @@ main > .panel {
  * out in one go.)
  */
 .drum-region { --track: var(--track-drums); }
+.song-chord { --track: var(--track-chords); }
 .chord,
+.song-chord,
 .drum-region,
 .vocal-take {
   background: color-mix(in srgb, var(--track) var(--tint-fill), var(--raised));
   border-color: color-mix(in srgb, var(--track) var(--tint-edge), var(--line-strong));
   color: var(--on-track);
 }
-.chord.is-active { background: color-mix(in srgb, var(--track) var(--tint-active), var(--raised)); }
+.chord.is-active,
+.song-row.is-playing .song-chord { background: color-mix(in srgb, var(--track) var(--tint-active), var(--raised)); }
 /*
  * Hovered, a region brightens and glows softly in its colour; a vocal take
  * lights up with the row under it. A selected one keeps its white ring.

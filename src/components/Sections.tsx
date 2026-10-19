@@ -6,13 +6,14 @@ import { chordOf, keyLabel, type Mode } from '../music/theory'
 import { engine, seek, togglePlay } from '../audio/engine'
 import { songBeatOf, songSpans } from '../song'
 import { grooveHits } from '../audio/drums'
+import { trimOf, type TakeInfo, type Trim } from '../audio/take'
 import { Icon } from './Toolbar'
 import { useNarrow } from '../hooks/useNarrow'
 import { ChordKeysButton } from './ChordKeys'
 import { SongCards } from './SongCards'
 import { LyricsButton } from './Lyrics'
 import { KeyFinderButton } from './KeyFinder'
-import { vocalColor } from '../colors'
+import { colorHex, DEFAULT_CHORDS_COLOR } from '../colors'
 import { closeSheet, toggleTool, useToolSheet } from './SoundPanel'
 
 /** A gear, for a section's settings. */
@@ -601,6 +602,44 @@ function rowAt(spans: ReturnType<typeof songSpans>, beat: number) {
 }
 
 /**
+ * A section's vocals in the Song view: a single waveform along it, each
+ * slice as loud as the loudest take playing there, empty where none is.
+ * Each take sits where the timeline has it, moved and nudged, and only the
+ * part its trim keeps shows.
+ */
+function VocalsShape({ takes, trims, beats, width, takeBeats }: { takes: (TakeInfo | null)[]; trims: Record<string, Trim>; beats: number; width: number; takeBeats: (seconds: number) => number }) {
+  const count = Math.max(1, Math.floor(width / 3))
+  const perSecond = takeBeats(1)
+  const placed = takes.flatMap((t) => {
+    if (!t?.peaks.length) return []
+    const trim = trims[t.id]
+    const kept = trimOf(t, trim)
+    // Where the take's audio would begin, in beats, as it plays.
+    const origin = t.startBeat + (trim?.moved ?? 0) + (trim?.nudge ?? 0) * perSecond
+    return [{ t, origin, from: origin + kept.start * perSecond, to: origin + kept.end * perSecond }]
+  })
+  const bars = Array.from({ length: count }, (_, i) => {
+    const beat = ((i + 0.5) / count) * beats
+    let peak = -1
+    for (const { t, origin, from, to } of placed) {
+      if (beat < from || beat >= to) continue
+      const at = (beat - origin) / perSecond / t.seconds
+      peak = Math.max(peak, t.peaks[Math.min(t.peaks.length - 1, Math.floor(at * t.peaks.length))] ?? 0)
+    }
+    return peak
+  })
+  return (
+    <svg className="song-vocals-shape" viewBox={`0 0 ${count * 3} 16`} preserveAspectRatio="none" aria-hidden="true">
+      {bars.map((b, i) => {
+        if (b < 0) return null
+        const h = Math.max(1.5, b * 16)
+        return <rect key={i} x={i * 3} y={(16 - h) / 2} width="2" height={h} rx="1" />
+      })}
+    </svg>
+  )
+}
+
+/**
  * The whole song from above: each place a section plays is a row, in order
  * from the top, with its name and a miniature of its tracks, to scale: its
  * chords, its drums' kicks and snares, and where its vocals are. Click a row
@@ -798,7 +837,7 @@ export function SongView() {
                   else rowRefs.current.delete(entry.id)
                 }}
                 className={`song-row ${entry.id === current ? 'is-playing' : ''} ${entry.id === drag?.id ? 'is-dragging' : ''} ${beats ? '' : 'is-empty'}`}
-                style={{ top: tops.get(entry.id), height: rowH }}
+                style={{ top: tops.get(entry.id), height: rowH, ['--track-chords' as string]: colorHex(section.chordsColor ?? DEFAULT_CHORDS_COLOR) }}
                 onPointerDown={(e) => startPress(entry.id, e)}
               >
                 <button
@@ -850,7 +889,7 @@ export function SongView() {
                       {section.chords.map((c, i, all) => {
                         const at = chordStarts(all)[i]
                         return (
-                          <span key={c.id} className="song-chord" style={{ left: at * beatPx, width: c.beats * beatPx }}>
+                          <span key={c.id} className="song-chord" style={{ left: at * beatPx, width: c.beats * beatPx - 3 }}>
                             {chordOf(section.sectionKey?.key ?? key, section.sectionKey?.mode ?? mode, c).name}
                           </span>
                         )
@@ -867,29 +906,10 @@ export function SongView() {
                           ))}
                       </span>
                     )}
-                    {/* Where each vocal take sits and how long it runs; several share the strip. */}
+                    {/* Whether it has vocals and where: one waveform for all its takes, however many tracks they're on. */}
                     {beats > 0 && section.takes.some(Boolean) && (
                       <span className="song-row-vocals" aria-label="Vocals">
-                        {section.takes.map((t, lane) => {
-                          if (!t) return null
-                          const used = section.takes.filter(Boolean).length
-                          const slot = section.takes.slice(0, lane).filter(Boolean).length
-                          const length = Math.min(takeBeats(t.seconds), beats - t.startBeat)
-                          return (
-                            <span
-                              key={lane}
-                              className="song-take"
-                              style={{
-                                left: t.startBeat * beatPx,
-                                width: Math.max(2, length * beatPx),
-                                top: `${(slot / used) * 100}%`,
-                                height: `${100 / used}%`,
-                                // In its track's colour, as on the timeline.
-                                background: vocalColor(section.vocalColors, lane),
-                              }}
-                            />
-                          )
-                        })}
+                        <VocalsShape takes={section.takes} trims={section.trims} beats={beats} width={beats * beatPx} takeBeats={takeBeats} />
                       </span>
                     )}
                   </span>

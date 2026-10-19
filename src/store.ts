@@ -6,7 +6,7 @@ import { DEFAULT_SOUND, type Sound } from './audio/sound'
 import { DEFAULT_ARP, DEFAULT_RHYTHM, type Arp, type Rhythm } from './audio/arrange'
 import { LANES, type TakeInfo, type Trim } from './audio/take'
 import type { DrumIntensity, FillId, GrooveId } from './audio/drums'
-import type { ColorId } from './colors'
+import { DEFAULT_CHORDS_COLOR, randomColor, vocalColorId, type ColorId } from './colors'
 import { newId } from './id'
 
 export type TimeSig = [number, number]
@@ -88,6 +88,8 @@ export interface SectionParts {
   drumIntensity: DrumIntensity
   /** The section's own key, for a key change; null plays it in the song's key. */
   sectionKey: SectionKey | null
+  /** The colour of the section's chords, or null for their usual one. */
+  chordsColor: ColorId | null
   /** The section's words, a line to each line; every place it plays sings them. */
   lyrics: string
 }
@@ -134,8 +136,7 @@ interface State extends SectionParts {
   /** The chords' and drums' levels, in dB from their usual ones. */
   chordsVolume: number
   drumsVolume: number
-  /** The chords' and drums' colours, or null for their usual ones. */
-  chordsColor: ColorId | null
+  /** The drums' colour, or null for its usual one; each section has its own for its chords. */
   drumsColor: ColorId | null
   /** The sketch's name; empty until you give it one. */
   title: string
@@ -314,6 +315,7 @@ const PART_FIELDS: Record<keyof SectionParts, true> = {
   drumFill: true,
   drumIntensity: true,
   sectionKey: true,
+  chordsColor: true,
   lyrics: true,
 }
 export const PART_KEYS = Object.keys(PART_FIELDS) as (keyof SectionParts)[]
@@ -337,6 +339,7 @@ export const emptyParts = (): SectionParts => ({
   drumFill: 'none',
   drumIntensity: 'normal',
   sectionKey: null,
+  chordsColor: null,
   lyrics: '',
 })
 
@@ -358,7 +361,7 @@ function uniqueName(sections: { name: string }[], name: string) {
 const SONG_FIELDS = [
   'key', 'mode', 'bpm', 'timeSig', 'metronome', 'loopOn', 'sound', 'arp', 'rhythm',
   'chordsMuted', 'chordsSolo', 'drumTrack', 'drumsMuted', 'drumsSolo', 'chordsVolume', 'drumsVolume',
-  'chordsColor', 'drumsColor', 'title', 'chordsName', 'drumsName',
+  'drumsColor', 'title', 'chordsName', 'drumsName',
 ] as const satisfies readonly (keyof State)[]
 
 /** Everything a saved sketch keeps, apart from its takes, which are stored with their audio. */
@@ -399,8 +402,8 @@ export type SavedSong = Partial<Omit<SongData, 'sections'>> & LegacySong & { sec
  */
 export function songState(p: SavedSong) {
   const sections: Section[] = p.sections?.length
-    ? p.sections.map((sec) => ({ ...emptyParts(), id: newId(), name: 'Section', ...sec, ...lanesOf(sec), takes: Array(LANES).fill(null), allTakes: emptyParts().allTakes }))
-    : [{ ...emptyParts(), ...lanesOf(p), id: newId(), name: 'Verse', chords: p.chords ?? [], loop: p.loop ?? null, vocalTracks: p.vocalTracks ?? 0, drums: p.drums ?? null }]
+    ? p.sections.map((sec) => ({ ...emptyParts(), id: newId(), name: 'Section', ...sec, ...lanesOf(sec), chordsColor: sec.chordsColor ?? p.chordsColor ?? null, takes: Array(LANES).fill(null), allTakes: emptyParts().allTakes }))
+    : [{ ...emptyParts(), ...lanesOf(p), id: newId(), name: 'Verse', chords: p.chords ?? [], loop: p.loop ?? null, vocalTracks: p.vocalTracks ?? 0, drums: p.drums ?? null, chordsColor: p.chordsColor ?? null }]
   const ids = new Set(sections.map((sec) => sec.id))
   const arrangement = p.arrangement
     ? p.arrangement.filter((entry) => ids.has(entry.section))
@@ -579,7 +582,6 @@ export const useStore = create<State>()(
       chordsSolo: false,
       drumsMuted: false,
       drumsSolo: false,
-      chordsColor: null,
       drumsColor: null,
       title: '',
       sketchId: null,
@@ -669,8 +671,9 @@ export const useStore = create<State>()(
         const s = get()
         const lane = s.vocalTracks
         if (lane >= LANES || !s.chords.length) return
-        // The colour its place takes, the same every time: Vocal 1 violet, Vocal 2 teal, and so on.
-        const vocalColors = s.vocalColors.map((c, i) => (i === lane ? null : c))
+        // A colour of its own, picked at random from those the section's other tracks haven't got.
+        const color = randomColor([s.chordsColor ?? DEFAULT_CHORDS_COLOR, ...Array.from({ length: lane }, (_, i) => vocalColorId(s.vocalColors, i))])
+        const vocalColors = s.vocalColors.map((c, i) => (i === lane ? color : c))
         // Some room on a voice to start with, as a demo's vocal has; turned down to dry, or up, on the track.
         const vocalReverb = s.vocalReverb.map((r, i) => (i === lane ? DEFAULT_VOCAL_REVERB : r))
         set({ vocalTracks: lane + 1, vocalColors, vocalReverb, selectedVocal: lane, armedLane: lane, selectedId: null, chordsTrackSelected: false, drumsTrackSelected: false })
@@ -715,7 +718,7 @@ export const useStore = create<State>()(
       },
       addDrumTrack: () => {
         const s = get()
-        if (s.chords.length) set({ drumTrack: true, drums: s.drums ?? 'backbeat' })
+        if (s.chords.length) set({ drumTrack: true, drums: s.drums ?? 'backbeat', drumsColor: randomColor([s.chordsColor ?? DEFAULT_CHORDS_COLOR]) })
       },
       removeDrumTrack: () => set({ drumTrack: false, drumsMuted: false, drumsSolo: false, drumsTrackSelected: false }),
       renameDrums: (name) => set({ drumsName: name.trim() || null }),
@@ -842,7 +845,9 @@ export const useStore = create<State>()(
         const s = get()
         if (s.recording !== 'off') return
         const all = sectionsNow(s)
-        const section: Section = { ...emptyParts(), id: newId(), name: uniqueName(all, name) }
+        // Its chords in a colour picked at random, one the other sections haven't got while there are any left.
+        const chordsColor = randomColor(all.map((sec) => sec.chordsColor ?? DEFAULT_CHORDS_COLOR))
+        const section: Section = { ...emptyParts(), id: newId(), name: uniqueName(all, name), chordsColor }
         set({ sections: [...all, section], arrangement: [...s.arrangement, { id: newId(), section: section.id }] })
         get().openSection(section.id)
       },
@@ -855,7 +860,7 @@ export const useStore = create<State>()(
         const all = sectionsNow(get())
         const i = all.findIndex((sec) => sec.id === id)
         if (i === -1) return null
-        const { name, chords, loop, drums, drumFill, drumIntensity, sectionKey, lyrics } = all[i]
+        const { name, chords, loop, drums, drumFill, drumIntensity, sectionKey, chordsColor, lyrics } = all[i]
         // The copy plays the same chords, and starts from the same words; its vocal tracks start empty.
         const copy: Section = {
           ...emptyParts(),
@@ -867,6 +872,7 @@ export const useStore = create<State>()(
           drumFill,
           drumIntensity,
           sectionKey,
+          chordsColor,
           lyrics,
         }
         set({ sections: [...all.slice(0, i + 1), copy, ...all.slice(i + 1)] })

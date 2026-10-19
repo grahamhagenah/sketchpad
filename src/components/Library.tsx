@@ -11,7 +11,6 @@ import {
   isDirty,
   newSketch,
   openBackup,
-  openDemo,
   openSketch,
   openSong,
   refreshLibrary,
@@ -71,7 +70,6 @@ export function SongsPanel() {
   const sketches = useLibrary((s) => s.sketches)
   const deleted = useLibrary((s) => s.deleted)
   const current = useStore((s) => s.sketchId)
-  const [showStarts, setShowStarts] = useState(false)
   const [showDeleted, setShowDeleted] = useState(false)
 
   useEffect(() => {
@@ -92,63 +90,45 @@ export function SongsPanel() {
         <span className="menu-item-title">New song</span>
         <span className="menu-item-about">Your current one is saved first</span>
       </button>
-      <p className="menu-heading">Your songs</p>
-      {sketches.map((sketch) => (
-        <SketchRow
-          key={sketch.id}
-          sketch={sketch}
-          current={sketch.id === current}
-          onOpen={() => {
-            void openSketch(sketch.id).catch(reportStorageError('open that sketch'))
-            closeSheet()
-          }}
-        />
-      ))}
-      {sketches.length === 0 && <p className="menu-empty">Songs you save show up here.</p>}
-      <div className="menu-divider" role="separator" />
-      {/* Songs to start from, the demo first, folded away so they don't push your own down. */}
-      <button type="button" className="menu-item has-icon deleted-toggle" aria-expanded={showStarts} onClick={() => setShowStarts(!showStarts)}>
-        <MenuIcon d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0a3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0a3 3 0 0 1 6 0z" />
-        <span className="menu-item-title">
-          Start from a song
-          <Chevron />
-        </span>
-        <span className="menu-item-about">The demo, and {SONG_TEMPLATES.length} songs you’d know, to make your own</span>
-      </button>
-      {showStarts && (
-        <>
+      {/* Your own songs, set apart from the button above as a list of their own. */}
+      <section className="songs-group" aria-label="Your songs">
+        <p className="menu-heading">Your songs</p>
+        {sketches.map((sketch) => (
+          <SketchRow
+            key={sketch.id}
+            sketch={sketch}
+            current={sketch.id === current}
+            onOpen={() => {
+              void openSketch(sketch.id).catch(reportStorageError('open that sketch'))
+              closeSheet()
+            }}
+          />
+        ))}
+        {sketches.length === 0 && <p className="menu-empty">Songs you save show up here.</p>}
+      </section>
+      {/* Songs to start from, in view rather than folded away: there are few enough. */}
+      <section className="songs-group" aria-label="Start from a song">
+        <p className="menu-heading">Start from a song</p>
+        <p className="songs-group-about">{SONG_TEMPLATES.length} songs you’d know, to make your own</p>
+        {SONG_TEMPLATES.map((song) => (
           <button
+            key={song.name}
             type="button"
             className="menu-item has-icon"
             onClick={() => {
-              void openDemo().catch(reportStorageError('open the demo song'))
+              void openSong(song.build(), song.name).catch(reportStorageError('open that song'))
               closeSheet()
             }}
           >
-            <span className="menu-item-icon" aria-hidden="true" />
-            <span className="menu-item-title">Demo song</span>
-            <span className="menu-item-about">A short song to hear what Bounce does</span>
+            <MenuIcon d={song.icon} />
+            <span className="menu-item-title">{song.name}</span>
+            <span className="menu-item-about">Think “{song.think}”</span>
           </button>
-          {SONG_TEMPLATES.map((song) => (
-            <button
-              key={song.name}
-              type="button"
-              className="menu-item has-icon"
-              onClick={() => {
-                void openSong(song.build(), song.name).catch(reportStorageError('open that song'))
-                closeSheet()
-              }}
-            >
-              <span className="menu-item-icon" aria-hidden="true" />
-              <span className="menu-item-title">{song.name}</span>
-              <span className="menu-item-about">Think “{song.think}”</span>
-            </button>
-          ))}
-        </>
-      )}
+        ))}
+      </section>
       {/* Deleted songs wait here a while, to be put back. */}
       {deleted.length > 0 && (
-        <>
+        <section className="songs-group" aria-label="Recently deleted">
           <button type="button" className="menu-item has-icon deleted-toggle" aria-expanded={showDeleted} onClick={() => setShowDeleted(!showDeleted)}>
             <MenuIcon d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
             <span className="menu-item-title">
@@ -158,7 +138,7 @@ export function SongsPanel() {
             <span className="menu-item-about">Kept {DELETED_DAYS} days, to put back</span>
           </button>
           {showDeleted && deleted.map((sketch) => <DeletedRow key={sketch.id} sketch={sketch} />)}
-        </>
+        </section>
       )}
     </div>
   )
