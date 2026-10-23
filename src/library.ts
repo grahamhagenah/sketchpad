@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { DEFAULT_RHYTHM } from './audio/arrange'
-import { blankSong, demoSong, sketchSignature, songOf, songState, useStore, type SavedSong, type SongData, type SongStart } from './store'
+import { blankSong, demoSong, isDirty, sketchSignature, songOf, songState, useStore, type SavedSong, type SongData, type SongStart } from './store'
 import { engine, loadSongTakes } from './audio/engine'
 import { SKETCHES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage, type SectionTakes } from './audio/take'
 import { takeIdsBySection } from './song'
@@ -52,17 +52,8 @@ export async function refreshLibrary() {
   })
 }
 
-/**
- * Whether the sketch has changed since it was last saved (or has never been,
- * but has something in it). A ready-made song nobody has changed yet hasn't.
- */
-export function isDirty(s = useStore.getState()) {
-  if (s.savedSignature === null) {
-    if (s.startSignature !== null && sketchSignature(s) === s.startSignature) return false
-    return s.chords.length > 0 || s.takes.some(Boolean)
-  }
-  return sketchSignature(s) !== s.savedSignature
-}
+// Lives with the song's state, so it can be checked without the audio engine.
+export { isDirty }
 
 /** Thrown when a sketch isn't opened after all, the person having been told why (its recordings couldn't be fetched, say). */
 export class NotOpened extends Error {}

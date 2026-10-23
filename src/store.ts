@@ -446,6 +446,18 @@ export function sketchSignature(s: State) {
   return signature
 }
 
+/**
+ * Whether the sketch has changed since it was last saved (or has never been,
+ * but has something in it). A ready-made song nobody has changed yet hasn't.
+ */
+export function isDirty(s: State = useStore.getState()) {
+  if (s.savedSignature === null) {
+    if (s.startSignature !== null && sketchSignature(s) === s.startSignature) return false
+    return s.chords.length > 0 || s.takes.some(Boolean)
+  }
+  return sketchSignature(s) !== s.savedSignature
+}
+
 /** How long each section is, in beats. */
 const sectionBeats = (sections: Pick<Section, 'id' | 'chords'>[]) => new Map(sections.map((sec) => [sec.id, totalBeats(sec.chords)]))
 

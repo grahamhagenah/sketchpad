@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { isDirty } from './library'
-import { demoSong, sketchSignature, useStore } from './store'
+import { demoSong, isDirty, sketchSignature, useStore } from './store'
 
 beforeEach(() => useStore.setState(useStore.getInitialState(), true))
 
