@@ -1,7 +1,6 @@
 import { create } from 'zustand'
-import { DEFAULT_ARP, DEFAULT_RHYTHM } from './audio/arrange'
-import { newSketchSound } from './audio/sound'
-import { demoSong, sketchSignature, songOf, songState, useStore, type SavedSong, type SongData, type SongStart } from './store'
+import { DEFAULT_RHYTHM } from './audio/arrange'
+import { blankSong, demoSong, isDirty, sketchSignature, songOf, songState, useStore, type SavedSong, type SongData, type SongStart } from './store'
 import { engine, loadSongTakes } from './audio/engine'
 import { SKETCHES, deleteSketchTakes, idb, keepStorage, loadSketchTakes, saveSketchTakes, storageErrorMessage, type SectionTakes } from './audio/take'
 import { takeIdsBySection } from './song'
@@ -53,11 +52,8 @@ export async function refreshLibrary() {
   })
 }
 
-/** Whether the sketch has changed since it was last saved (or has never been, but has something in it). */
-export function isDirty(s = useStore.getState()) {
-  if (s.savedSignature === null) return s.chords.length > 0 || s.takes.some(Boolean)
-  return sketchSignature(s) !== s.savedSignature
-}
+// Lives with the song's state, so it can be checked without the audio engine.
+export { isDirty }
 
 /** Thrown when a sketch isn't opened after all, the person having been told why (its recordings couldn't be fetched, say). */
 export class NotOpened extends Error {}
@@ -185,6 +181,7 @@ export async function openBackup(file: File) {
   if (!(await keepCurrent())) return
   stopEverything()
   putSong({ key: 0, mode: 'major', bpm: 96, timeSig: [4, 4], ...song } as SketchRecord['song'], takes)
+  quietly(() => useStore.setState({ startSignature: null }))
   useStore.getState().setSaved(null, null)
   clearHistory()
 }
@@ -206,8 +203,8 @@ export function discardSketch() {
 
 function startBlank() {
   stopEverything()
-  // One empty section, called Verse, to start from, on a standard sound (the electric piano, its bass held to the kick, no arpeggiator) rather than whatever the last sketch was set to.
-  quietly(() => useStore.setState({ ...songState({}), sound: newSketchSound(), arp: DEFAULT_ARP, rhythm: DEFAULT_RHYTHM, title: '', chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumTrack: false, drumsMuted: false, drumsSolo: false, chordsVolume: 0, drumsVolume: 0, drumsColor: null }))
+  // A fresh empty song rather than whatever the last sketch was set to.
+  quietly(() => useStore.setState({ ...blankSong(), startSignature: null }))
   useStore.getState().setSaved(null, null)
   clearHistory()
 }
@@ -224,6 +221,8 @@ export async function openSong(start: SongStart, title: string) {
   stopEverything()
   quietly(() => useStore.setState({ title, chordsName: null, chordsMuted: false, chordsSolo: false, drumsName: null, drumsMuted: false, drumsSolo: false, drumsColor: null, ...start }))
   useStore.getState().setSaved(null, null)
+  // Not yours to keep until you change it: switching away won't save it to your songs.
+  quietly(() => useStore.setState({ startSignature: sketchSignature(useStore.getState()) }))
   clearHistory()
   // Which ready-made songs get opened, by name.
   tally(`song/${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`, title)
