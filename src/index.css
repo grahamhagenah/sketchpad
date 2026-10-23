@@ -86,15 +86,16 @@ kbd {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* The editor runs edge to edge, its contents too, with a gutter at each side: on a wide screen the timeline gets all the room. */
+  --gutter: 24px;
+  /* The bands' full-bleed edges reach past the window; don't let them make the page scroll sideways. */
+  overflow-x: clip;
 }
 main { flex: 1; display: flex; flex-direction: column; }
-/* No padding at the foot, so the timeline's lines run down to the status bar. */
-main > .panel { flex: 1; padding-bottom: 0 !important; }
-/* The editor runs edge to edge, its contents too, with a gutter at each side: on a wide screen the timeline gets all the room. */
-.app { --gutter: 24px; }
-/* The bands' full-bleed edges reach past the window; don't let them make the page scroll sideways. */
-.app { overflow-x: clip; }
 main > .panel {
+  flex: 1;
+  /* No padding at the foot, so the timeline's lines run down to the status bar. */
+  padding-bottom: 0 !important;
   --pad-top: 16px;
   border-width: 0;
   border-radius: 0;
@@ -165,7 +166,7 @@ main > .panel {
 
 /* Cycle, metronome and sound: joined into one unit like the transport. No overflow clip, since the sound panel opens from it. */
 /*
- * The joined units (transport, display, modes, the selected chord): each is
+ * The joined units (transport, display, modes): each is
  * one piece with a faint edge round it, its parts split by hairlines, and
  * each part's state shown in its fill.
  */
@@ -176,18 +177,15 @@ main > .panel {
   --tile-edge: color-mix(in srgb, var(--text) 13%, transparent);
 }
 .transport,
-.toolbar-modes,
-.selection { border: 1px solid var(--tile-edge); border-radius: 8px; background: var(--tile); }
+.toolbar-modes { border: 1px solid var(--tile-edge); border-radius: 8px; background: var(--tile); }
 /*
  * Each unit's fill stops inside its edge, so the faint edge is drawn over the
  * bar behind it and comes out the same on all of them, the black display included.
  */
 .transport,
-.toolbar-modes,
-.selection { background-clip: padding-box; }
+.toolbar-modes { background-clip: padding-box; }
 .toolbar .transport > * + *,
-.toolbar .toolbar-modes > * + *,
-.toolbar .selection > * + * { border-left: 1px solid var(--tile-edge); }
+.toolbar .toolbar-modes > * + * { border-left: 1px solid var(--tile-edge); }
 .toolbar-modes { gap: 0; height: var(--control-h); }
 .toolbar-modes .icon-btn { width: 40px; height: calc(var(--control-h) - 2px); border-radius: 0; background: var(--tile); color: var(--text); }
 /* No overflow clip on the modes, since the sound panel opens from them; their end buttons take the corners instead. */
@@ -233,48 +231,7 @@ main > .panel {
   .toolbar-icons .icon-btn svg { transition: none; transform: none !important; }
 }
 
-/* The selected chord's settings, joined like the transport, each part split from the next by a line. */
-.selection {
-  display: inline-flex;
-  align-items: stretch;
-  height: var(--control-h);
-  overflow: hidden;
-}
-.selection select,
-.selection-toggle,
-.selection-icon {
-  min-height: 0;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
-  background-color: var(--tile);
-  color: var(--text);
-  font-size: var(--fs-body);
-  font-weight: 500;
-}
-.selection select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding: 0 26px 0 12px;
-  /* A small chevron, the same in every browser. */
-  background: var(--tile) var(--chevron) no-repeat right 10px center;
-  cursor: pointer;
-}
-.selection .selection-chord { font-weight: 700; }
-.selection-toggle { padding: 0 12px; }
-.selection-toggle[aria-pressed='true'] { color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--tile)); }
-.selection-icon { width: 38px; display: grid; place-items: center; padding: 0; color: var(--muted); }
-.selection-icon.is-danger:not(:disabled):hover { color: var(--danger); }
-@media (hover: hover) {
-  .selection select:hover,
-  .selection-toggle:not(:disabled):hover,
-  .selection-icon:not(:disabled):hover { background-color: var(--tile-hover); color: var(--text); }
-  .selection-toggle[aria-pressed='true']:hover { color: var(--accent); }
-  .selection-icon.is-danger:not(:disabled):hover { color: var(--danger); }
-}
 /* Inside a joined unit a ring sits within its part, so the unit's corners and its neighbours don't cut it off. */
-.selection select:focus-visible,
-.selection button:focus-visible,
 .transport > button:focus-visible,
 .toolbar-modes .icon-btn:focus-visible,
 .chord-pad-length button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -438,6 +395,8 @@ main > .panel {
   position: relative;
   display: flex;
   min-width: 0;
+  /* It fills the editor's height, its bar and beat lines running on below the last track. */
+  flex: 1;
 }
 /* A line between the instruments and the vocals, across the names and the timeline. */
 .timeline-wrap.has-vocals::after {
@@ -450,8 +409,6 @@ main > .panel {
   background: var(--line-strong);
   pointer-events: none;
 }
-/* The timeline fills the editor's height, its bar and beat lines running on below the last track. */
-.timeline-wrap { flex: 1; }
 /*
  * Beside the tracks on a wider screen: the inspector, with the settings of
  * whatever's selected (or the section's), then the track names and timeline.
@@ -537,8 +494,8 @@ main > .panel {
 /* The bar line marks the bar on a wider screen; a phone, without them, shows a notch the longest of all. */
 .ruler-notches i.is-bar { display: none; height: 12px; background: var(--muted); }
 .ruler { position: absolute; top: var(--ruler-top); left: 0; right: 0; height: var(--ruler-h); cursor: pointer; }
-.ruler span { pointer-events: none; }
 .ruler span {
+  pointer-events: none;
   position: absolute;
   top: 0;
   /* The row's full height, so the numbers sit on its centre line, as the corner buttons do. */
@@ -799,10 +756,8 @@ main > .panel {
 .track-volume::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 0; }
 .track-volume:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Every track's header is the same: its track's height, and half a gap above and below. */
-.track-header.is-chords { top: calc(var(--head) - var(--gap) / 2); height: calc(var(--chord-h) + var(--gap)); }
-.track-header.is-chords { --track: var(--track-chords); }
-.track-header.is-drums { --track: var(--track-drums); }
-.track-header.is-drums { top: calc(var(--drum-top) - var(--gap) / 2); height: calc(var(--drum-h) + var(--gap)); }
+.track-header.is-chords { --track: var(--track-chords); top: calc(var(--head) - var(--gap) / 2); height: calc(var(--chord-h) + var(--gap)); }
+.track-header.is-drums { --track: var(--track-drums); top: calc(var(--drum-top) - var(--gap) / 2); height: calc(var(--drum-h) + var(--gap)); }
 .track-header.is-vocal {
   top: calc(var(--vocal-top) - var(--gap) / 2 + var(--row, 0) * var(--vocal-step));
   height: calc(var(--vocal-h) + var(--gap));
@@ -1076,6 +1031,7 @@ main > .panel {
   background: var(--accent);
   box-shadow: 0 0 8px rgb(90 216 200 / 0.35);
   cursor: grab;
+  transition: height 0.12s ease, filter 0.12s ease;
 }
 .loop-region::before {
   /* Hit area taller than the bar it draws. */
@@ -1098,7 +1054,6 @@ main > .panel {
  * Pointed at or dragged, the strip thickens and brightens, and each end shows
  * a tab to grab, with a line down it; on a touch screen the tabs are always there.
  */
-.loop-region { transition: height 0.12s ease, filter 0.12s ease; }
 .loop-lane:hover .loop-region,
 .loop-lane.is-dragging .loop-region { height: 9px; filter: brightness(1.12); }
 .loop-handle::after {
@@ -1289,10 +1244,10 @@ main > .panel {
   font-size: var(--fs-body);
   font-weight: 500;
   color: var(--muted);
+  /* Close after the last tab, as if one of them. */
+  margin-left: -8px;
 }
 .section-add svg { width: 18px; height: 18px; }
-/* Close after the last tab, as if one of them. */
-.section-add { margin-left: -8px; }
 /*
  * Always in reach: the + sits after the tabs, outside them, so when they run
  * longer than the strip they scroll on their own, fading out at whichever
@@ -1328,7 +1283,7 @@ main > .panel {
  */
 .key-finder { display: flex; flex-direction: column; gap: 10px; }
 .key-finder-title { margin: 0; font-size: var(--fs-heading); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.key-finder-about, .key-finder-hint { margin: 0; font-size: var(--fs-small); color: var(--muted); line-height: 1.4; }
+.key-finder-about { margin: 0; font-size: var(--fs-small); color: var(--muted); line-height: 1.4; }
 /* Four across, as the chord pad's are in a phone's width. */
 .chord-pad-grid.key-finder-notes-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 /* The octave the pads sound in: − and + either side of it, at the right, over the pads. */
@@ -1924,11 +1879,21 @@ main > .panel {
  * On a phone, the top bar is one row that stays put (play and record, where
  * you are and the key), with the rest sliding open beneath it on demand.
  */
-.toolbar.toolbar-compact { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0; }
-/* On a phone, it stays at the top as the song scrolls under it, so play and record are always to hand; a line under it marks where the song goes beneath. */
-.toolbar.toolbar-compact { position: sticky; top: 0; z-index: 20; box-shadow: 0 1px 0 var(--line); }
-/* Slimmer, as it stays over the song: its buttons a little shorter (still easy to tap), and less room above and below them. */
-.toolbar.toolbar-compact { --control-h: 40px; padding-top: 5px; padding-bottom: 5px; }
+.toolbar.toolbar-compact {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  /* On a phone, it stays at the top as the song scrolls under it, so play and record are always to hand; a line under it marks where the song goes beneath. */
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: 0 1px 0 var(--line);
+  /* Slimmer, as it stays over the song: its buttons a little shorter (still easy to tap), and less room above and below them. */
+  --control-h: 40px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
 .toolbar-compact-row,
 .toolbar-extra-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .toolbar-compact .lcd { flex: 1; min-width: 0; }
@@ -2100,7 +2065,6 @@ main > .panel {
   border-radius: 50%;
   background: var(--accent);
 }
-.sketches-menu { width: 340px; max-height: min(480px, 70vh); overflow-y: auto; }
 /* The account, in the sketches menu: who's signed in, or a field to sign in by email. */
 .account-menu { width: 320px; }
 .account-btn.is-signed-in { color: var(--accent); }
@@ -2208,8 +2172,6 @@ main > .panel {
   text-transform: uppercase;
   color: var(--muted);
 }
-.sound-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.sound-chips .chip { min-height: 36px; }
 
 .toggle-btn.is-on { color: var(--accent); border-color: var(--accent); }
 .arp-switch { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; }
@@ -2660,11 +2622,10 @@ main > .panel {
 .chord-pad-name { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chord-pad-roman { flex: none; }
 /* Under the pads, what their marks mean: a dashed edge, and the dot. */
-.chord-pad-legend { margin: -4px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: var(--fs-small); color: var(--muted); }
+.chord-pad-legend { margin: -4px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: var(--fs-small); color: var(--muted); }
 .chord-pad-legend-dash { width: 14px; height: 10px; border: 1px dashed var(--muted); border-radius: 3px; }
 .chord-pad-legend-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
 .chord-pad-legend > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.chord-pad-legend { column-gap: 14px; }
 
 /* On a phone, the sound panel is one list: the sounds, how they're played and the bass, then the shape. */
 .sound-body .is-sounds { order: 1; }
