@@ -28,16 +28,18 @@ import { TrackSheet } from './TrackSheet'
 /** Saves the sketch (⌘S does too): a dot on it while there are unsaved changes, and nothing to do without them. */
 export function SaveButton() {
   const dirty = useStore(isDirty)
+  const saved = useStore((s) => s.sketchId !== null)
   return (
     <button
       type="button"
       className={`icon-btn save-btn ${dirty ? 'has-changes' : ''}`}
-      aria-label={dirty ? 'Save, unsaved changes' : 'Saved'}
-      title={dirty ? 'Save (⌘S)' : 'Saved: nothing new since the last save'}
+      aria-label={!dirty ? 'Saved' : saved ? 'Save, edited since saved' : 'Save to your songs'}
+      title={!dirty ? 'Saved: nothing new since the last save' : saved ? 'Save your changes (⌘S)' : 'Save to your songs (⌘S)'}
       disabled={!dirty}
       onClick={() => void saveSketch().catch(reportStorageError('save the sketch'))}
     >
       <MenuIcon d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6" />
+      <span className="btn-label">Save</span>
     </button>
   )
 }
@@ -57,6 +59,7 @@ export function SongsButton() {
       onClick={() => toggleTool('songs')}
     >
       <MenuIcon d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" />
+      <span className="btn-label">Songs</span>
     </button>
   )
 }
@@ -176,6 +179,7 @@ export function ShareButton() {
       >
         {/* Out of Bounce, to another app: an arrow up out of a tray. */}
         <MenuIcon d="M12 15V4M7 9l5-5 5 5M5 14v6h14v-6" />
+        <span className="btn-label">Export</span>
       </button>
       {open && (
         <div className="menu share-menu" id="share-menu" role="dialog" aria-label="Export and backups" style={below}>

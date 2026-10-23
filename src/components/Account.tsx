@@ -38,6 +38,7 @@ export function AccountButton() {
           <circle cx="12" cy="8" r="4" />
           <path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" />
         </svg>
+        <span className="btn-label">{email ? 'Account' : 'Sign in'}</span>
       </button>
       {open && (
         <div className="menu account-menu" id="account-menu" role="dialog" aria-label="Account" style={below}>

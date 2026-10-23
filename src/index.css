@@ -1940,8 +1940,8 @@ main > .panel {
 .toolbar-compact-row { gap: 6px; }
 .toolbar-compact-row .toolbar-modes .icon-btn { width: 34px; }
 .toolbar-undo-extra { display: none; }
-/* On the smallest phones, undo and redo move into the panel below, so the row fits. */
-@media (max-width: 360px) {
+/* On most phones, undo and redo move into the panel below, so the row fits beside the labelled "More". */
+@media (max-width: 420px) {
   .toolbar-compact-row .toolbar-undo { display: none; }
   .toolbar-compact-row .toolbar-more { margin-left: auto; }
   .toolbar-undo-extra { display: flex; }
@@ -1949,6 +1949,13 @@ main > .panel {
 .toolbar-compact .lcd-cell { flex: 1; min-width: 0; padding: 0 8px; }
 .toolbar-compact .lcd-position { flex: none; padding: 0 10px; }
 .toolbar-more { flex: none; }
+/* Words beside icons, only where an icon alone isn't enough: the phone's button for the rest, and what it opens. */
+.btn-label { display: none; }
+.toolbar-more .btn-label { display: inline; font-size: 13px; font-weight: 500; }
+.toolbar-compact .toolbar-more { width: auto; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; }
+/* In the panel, each word sits under its icon, as in a phone's tab bar, so the four fit beside undo and redo. */
+.toolbar-extra .btn-label { display: block; font-size: 11px; font-weight: 500; line-height: 1; }
+.toolbar-extra .icon-btn:has(.btn-label) { width: auto; min-width: 52px; height: auto; min-height: var(--control-h); display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 4px 6px; }
 .toolbar-more svg { transition: transform 0.2s ease; }
 .toolbar-compact.is-expanded .toolbar-more svg { transform: rotate(180deg); }
 .toolbar-compact.is-expanded .toolbar-more { color: var(--text); background: var(--raised); }

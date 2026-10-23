@@ -38,7 +38,7 @@ export function SongSettings() {
   ]
     .filter(Boolean)
     .join(' · ')
-  const saved = !sketchId ? 'Not saved yet' : dirty ? 'Unsaved changes' : signedIn && sync.at && sync.state === 'idle' ? 'Saved and synced' : 'Saved'
+  const saved = !sketchId ? 'Not in your songs yet' : dirty ? 'Edited since saved' : signedIn && sync.at && sync.state === 'idle' ? 'Saved and synced' : 'Saved'
 
   return (
     <div className="song-settings">
