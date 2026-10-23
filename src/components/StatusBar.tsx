@@ -22,10 +22,11 @@ export function StatusBar() {
       <p className="status-main">
         <Status />
       </p>
+      {/* Work is kept in the browser either way; this says whether it's in your songs. */}
       <p className="status-save">
         {dirty ? (
           <>
-            Unsaved changes <kbd>⌘S</kbd>
+            {saved ? 'Edited since saved' : 'Not in your songs yet'} <kbd>⌘S</kbd>
           </>
         ) : saved ? (
           'Saved'
