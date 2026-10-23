@@ -10,7 +10,7 @@ interface Card {
 }
 
 const CARDS: Card[] = [
-  { name: 'Demo song', about: 'Made in Bounce', build: demoSong },
+  { name: 'Demo song', about: 'New here? Hear what Bounce can do', build: demoSong },
   ...SONG_TEMPLATES.map((song) => ({ name: song.name, about: `Think “${song.think}”`, build: song.build })),
 ]
 

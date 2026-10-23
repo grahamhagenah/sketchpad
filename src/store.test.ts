@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_CHORDS_COLOR } from './colors'
 import { LANES } from './audio/take'
-import { audibleTracks, loopRange, DEFAULT_VOCAL_REVERB, recordLane, sectionsNow, sketchSignature, songOf, songState, songSummary, totalBeats, useStore } from './store'
+import { audibleTracks, demoSong, loopRange, DEFAULT_VOCAL_REVERB, recordLane, sectionsNow, sketchSignature, songOf, songState, songSummary, totalBeats, useStore } from './store'
 
 describe('loopRange', () => {
   it('loops the whole progression when there is no region', () => {
@@ -283,9 +283,20 @@ describe('sketchSignature', () => {
   })
 })
 
-describe('the demo song', () => {
-  it('opens a first visit on a verse and chorus twice, then the chorus lifted a half step', () => {
+describe('a first visit', () => {
+  it('opens on an empty song in the song view, to start one or open a ready-made one', () => {
     const s = useStore.getInitialState()
+    expect(s.view).toBe('song')
+    expect(s.sections).toHaveLength(1)
+    expect(s.sections[0].chords).toEqual([])
+    expect([s.title, s.arp.on, s.drumTrack, s.sound.preset]).toEqual(['', false, false, 'E-piano'])
+    expect([s.sketchId, s.savedSignature, s.startSignature]).toEqual([null, null, null])
+  })
+})
+
+describe('the demo song', () => {
+  it('is a verse and chorus twice, then the chorus lifted a half step', () => {
+    const s = { ...useStore.getInitialState(), ...demoSong() }
     expect(s.sections.map((sec) => [sec.name, sec.drums, sec.drumFill, totalBeats(sec.chords), sec.sectionKey])).toEqual([
       ['Verse', 'halftime', 'end', 32, null],
       ['Chorus', 'backbeat', 'four', 32, null],

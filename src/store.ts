@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import type { ChordSpec, Mode } from './music/theory'
-import { DEFAULT_SOUND, type Sound } from './audio/sound'
+import { DEFAULT_SOUND, newSketchSound, type Sound } from './audio/sound'
 import { DEFAULT_ARP, DEFAULT_RHYTHM, type Arp, type Rhythm } from './audio/arrange'
 import { LANES, type TakeInfo, type Trim } from './audio/take'
 import type { DrumIntensity, FillId, GrooveId } from './audio/drums'
@@ -144,6 +144,11 @@ interface State extends SectionParts {
   sketchId: string | null
   /** The sketch as last saved (see sketchSignature), to tell whether it has changed since. */
   savedSignature: string | null
+  /**
+   * A ready-made song as it was when opened, never saved: while it's still
+   * just that, it isn't unsaved work (nothing to keep, nothing to warn about).
+   */
+  startSignature: string | null
   /** When the saved copy shown was saved (its `updated`), to tell when it has changed on another device since. */
   savedAt: number | null
   /** The name given to the chords track; null keeps the usual one. */
@@ -474,11 +479,35 @@ export function songStart(settings: SongSettings, sections: SectionStart[], orde
 }
 
 /**
- * The demo song, and what a first visit opens on: a quick minor song in G,
+ * An empty song: one section, called Verse, on a standard sound (the
+ * electric piano, its bass held to the kick, no arpeggiator). What a first
+ * visit opens on, where the song view offers it or a ready-made song.
+ */
+export function blankSong() {
+  return {
+    ...songState({}),
+    sound: newSketchSound(),
+    arp: DEFAULT_ARP,
+    rhythm: DEFAULT_RHYTHM,
+    title: '',
+    chordsName: null,
+    chordsMuted: false,
+    chordsSolo: false,
+    drumsName: null,
+    drumTrack: false,
+    drumsMuted: false,
+    drumsSolo: false,
+    chordsVolume: 0,
+    drumsVolume: 0,
+    drumsColor: null,
+  }
+}
+
+/**
+ * The demo song, first of the ready-made songs: a quick minor song in G,
  * a verse into a chorus and back, then the chorus again lifted a half step.
  * A down-arpeggiated saw over half-time drums, so what Bounce does is heard
- * straight away. "New sketch" starts from nothing; the File menu brings
- * the demo back.
+ * straight away.
  */
 export function demoSong() {
   const chord = newChord
@@ -574,8 +603,11 @@ function lazyStorage<T>(wait = 400): PersistStorage<T> {
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
-      // The demo song, in C major at 96 BPM in 4/4.
+      // The demo's key, tempo and meter, on an empty song: a first visit
+      // chooses to start its own or open a ready-made one.
       ...demoSong(),
+      ...blankSong(),
+      view: 'song',
       selectedId: null,
       metronome: false,
       chordsMuted: false,
@@ -586,6 +618,7 @@ export const useStore = create<State>()(
       title: '',
       sketchId: null,
       savedSignature: null,
+      startSignature: null,
       savedAt: null,
       chordsName: null,
       drumsName: null,
@@ -952,7 +985,7 @@ export const useStore = create<State>()(
         if (!p.sections && !p.chords) return current
         return { ...current, ...p, ...songState(p), sound: { ...DEFAULT_SOUND, ...p.sound }, arp: { ...DEFAULT_ARP, ...p.arp }, rhythm: { ...DEFAULT_RHYTHM, ...p.rhythm } }
       },
-      partialize: (s) => ({ ...songOf(s), view: s.view, zoom: s.zoom, sketchId: s.sketchId, savedSignature: s.savedSignature, savedAt: s.savedAt }),
+      partialize: (s) => ({ ...songOf(s), view: s.view, zoom: s.zoom, sketchId: s.sketchId, savedSignature: s.savedSignature, startSignature: s.startSignature, savedAt: s.savedAt }),
     },
   ),
 )
