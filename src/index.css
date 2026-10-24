@@ -365,6 +365,10 @@ main > .panel {
 .lcd .tempo::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 /* A reading's unit, or what kind it is: small and grey after it. */
 .lcd-unit { font-family: 'DM Mono', monospace; font-size: var(--fs-small); color: var(--muted); white-space: nowrap; }
+/* "bpm" taps the tempo: a button, though it reads as the unit; pointed at, or while tapping, in the accent. */
+.lcd-tap { padding: 2px 3px; margin: -2px -3px; border: 0; border-radius: 4px; background: none; cursor: pointer; }
+.lcd-tap:hover, .lcd-tap.is-tapping { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.lcd-tempo { cursor: default; }
 .lcd-position { min-width: 88px; cursor: default; }
 /* The reading and the widest it can be, in the same place: the cell takes the widest's width. */
 .lcd-position-value { display: grid; }
@@ -461,7 +465,8 @@ main > .panel {
 .editor-main { flex: 1; display: flex; min-width: 0; min-height: 0; }
 /* The titles over the inspector and the track names, side by side on one line: small capitals, in grey. */
 .column-title { margin: 0; font-size: var(--fs-heading); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.inspector-title { display: flex; align-items: center; justify-content: space-between; height: 30px; margin: 6px 0 10px; }
+/* The same header as the side panels' (see .side-panel-head): 42px, staying put as the panel scrolls, its button 10px in from the edge; its title level with the Tracks title beside it. */
+.inspector-title { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; height: 42px; margin: 0 -3px 4px 0; background: var(--panel); }
 .inspector-title .inspector-btn, .timeline-corner .inspector-btn { width: 30px; height: 30px; }
 /* Hidden, the button sits before the Tracks title, and the title after it. */
 .timeline-corner .inspector-btn + .column-title { margin-right: auto; margin-left: 4px; }
@@ -2030,10 +2035,9 @@ main > .panel {
 .status-keys { margin-left: 14px; }
 .status-main > .status-keys:first-child { margin-left: 0; }
 .status-bar kbd { font-size: var(--fs-label); padding: 0 4px; }
-.status-bar .status-save { flex: none; margin-left: auto; }
 /* All the keyboard shortcuts, from the corner of the status bar; the list opens upwards. */
 .status-bar .icon-btn { width: 26px; height: 26px; margin-right: -6px; }
-.status-zoom { flex: none; display: flex; gap: 2px; padding-left: 12px; border-left: 1px solid var(--line); }
+.status-zoom { flex: none; margin-left: auto; display: flex; gap: 2px; padding-left: 12px; border-left: 1px solid var(--line); }
 .status-zoom .icon-btn { margin-right: 0; }
 .status-bar .icon-btn svg { width: 16px; height: 16px; }
 .status-bar .shortcuts-menu { top: auto; bottom: calc(100% + 8px); right: 0; }
@@ -2687,6 +2691,18 @@ main > .panel {
   align-self: stretch;
   border-radius: 8px 0 0 8px;
   background: linear-gradient(to right, var(--row-fill) calc(100% - 10px), transparent);
+}
+/*
+ * With a mouse, a row's buttons (play from here, up, down, remove, more) show
+ * on the row pointed at, or one with the focus, its menu open, or playing:
+ * not on every row at once, which repeated them all down a long song.
+ */
+@media (hover: hover) {
+  .song-view:not(.is-narrow) .song-row-actions { opacity: 0; transition: opacity 0.12s ease; }
+  .song-view:not(.is-narrow) .song-row:hover .song-row-actions,
+  .song-view:not(.is-narrow) .song-row:focus-within .song-row-actions,
+  .song-view:not(.is-narrow) .song-row.is-playing .song-row-actions,
+  .song-view:not(.is-narrow) .song-row-actions:has([aria-expanded='true']) { opacity: 1; }
 }
 .song-view:not(.is-narrow) .song-row-actions {
   position: sticky;

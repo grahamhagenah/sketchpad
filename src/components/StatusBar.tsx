@@ -1,37 +1,24 @@
 import type { ReactNode } from 'react'
 import { create } from 'zustand'
-import { chordsTrackName, drumsTrackName, keyOf, useFields, useStore, vocalTrackName } from '../store'
+import { chordsTrackName, drumsTrackName, keyOf, useFields, vocalTrackName } from '../store'
 import { grooveLabel } from '../audio/drums'
 import { trimOf } from '../audio/take'
 import { InputMeter } from './InputMeter'
 import { chordOf } from '../music/theory'
-import { isDirty } from '../library'
 import { ShortcutsButton } from './Shortcuts'
 import { ZoomButtons } from './Toolbar'
 
 /**
  * A strip along the bottom of the window: what's selected, with the keys that
- * act on it, whether the sketch is saved, and the list of every shortcut.
+ * act on it, zoom, and the list of every shortcut. (Whether the sketch is
+ * saved is the dot on the Save button.)
  */
 export function StatusBar() {
-  const dirty = useStore(isDirty)
-  const saved = useStore((s) => s.sketchId !== null)
 
   return (
     <footer className="status-bar">
       <p className="status-main">
         <Status />
-      </p>
-      <p className="status-save">
-        {dirty ? (
-          <>
-            Unsaved changes <kbd>⌘S</kbd>
-          </>
-        ) : saved ? (
-          'Saved'
-        ) : (
-          ''
-        )}
       </p>
       {/* Zoom, in the corner, as in most editors: it changes the view, not the song. */}
       <div className="status-zoom" role="group" aria-label="Zoom">
