@@ -53,6 +53,16 @@ export function trimOf(take: Pick<TakeInfo, 'seconds'>, trim: Trim | undefined):
 
 const PEAKS_PER_SECOND = 60
 
+/** `peaks` gathered into `count` bars, each the loudest of the peaks it covers. */
+export function waveHeights(peaks: number[], count: number) {
+  const per = peaks.length / count
+  return Array.from({ length: count }, (_, i) => {
+    let max = 0
+    for (let j = Math.floor(i * per), end = Math.ceil((i + 1) * per); j < end && j < peaks.length; j++) max = Math.max(max, peaks[j])
+    return max
+  })
+}
+
 export function takeInfo(take: Take): TakeInfo {
   const slice = Math.max(1, Math.round(take.sampleRate / PEAKS_PER_SECOND))
   const peaks: number[] = []

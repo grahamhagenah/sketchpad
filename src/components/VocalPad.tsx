@@ -1,7 +1,7 @@
 import { useFields, useStore, vocalTrackName } from '../store'
 import { RecordOptions } from './RecordOptions'
 import { deleteOneTake, deleteTake, learnFromNudge, nudgeTake, toggleRecord, trimTake } from '../audio/engine'
-import { cuts, trimOf, type TakeInfo, type Trim } from '../audio/take'
+import { cuts, trimOf, waveHeights, type TakeInfo, type Trim } from '../audio/take'
 import { vocalColorId } from '../colors'
 import { LevelSlider, MuteSoloRow, SheetSlider, TrackSheet } from './TrackSheet'
 import { MicIcon } from './Timeline'
@@ -157,8 +157,7 @@ function Timing({ id, nudge, locked }: { id: string; nudge: number; locked: bool
 /** A take's loudness over its length, drawn small: a bar for each slice. */
 function TakeShape({ peaks }: { peaks: number[] }) {
   const count = 28
-  const per = peaks.length / count
-  const bars = Array.from({ length: count }, (_, i) => Math.max(0, ...peaks.slice(Math.floor(i * per), Math.ceil((i + 1) * per))))
+  const bars = waveHeights(peaks, count)
   return (
     <svg className="vocal-take-shape" viewBox={`0 0 ${count * 3} 16`} preserveAspectRatio="none" aria-hidden="true">
       {bars.map((b, i) => {
