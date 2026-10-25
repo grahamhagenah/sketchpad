@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNarrow } from '../hooks/useNarrow'
 import { MAX_BPM, MIN_BPM, recordLane, TIME_SIG_GROUPS, TIME_SIGS, useFields, useStore, ZOOMS } from '../store'
 import { keyLabel, type Mode } from '../music/theory'
@@ -7,6 +7,7 @@ import { redo, undo, useHistory } from '../history'
 import { ArpButton, SoundButton } from './SoundPanel'
 import { Position } from './Position'
 import { SongTitle } from './SongTitle'
+import { TAP_RESET_MS, tapTempo } from '../tapTempo'
 import { RecordOptionsButton } from './RecordOptions'
 import { AccountButton } from './Account'
 
@@ -308,9 +309,22 @@ function TempoField() {
   const setBpm = useStore((s) => s.setBpm)
   const [text, setText] = useState(String(bpm))
   useEffect(() => setText(String(bpm)), [bpm])
+  // Tapped in time on "bpm", the tempo follows the taps (see tapTempo); typed in the number, it's set as typed.
+  const taps = useRef<number[]>([])
+  const [tapping, setTapping] = useState(false)
+  const tapOff = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const tap = () => {
+    const now = performance.now()
+    const next = tapTempo(taps.current, now)
+    taps.current = next.taps
+    if (next.bpm !== null) setBpm(next.bpm)
+    setTapping(true)
+    clearTimeout(tapOff.current)
+    tapOff.current = setTimeout(() => setTapping(false), TAP_RESET_MS)
+  }
 
   return (
-    <label className="lcd-cell" title="Tempo">
+    <div className="lcd-cell lcd-tempo" title="Tempo">
       <input
         className="tempo"
         type="number"
@@ -329,10 +343,16 @@ function TempoField() {
           if (e.key === 'Enter') e.currentTarget.blur()
         }}
       />
-      <span className="lcd-unit" aria-hidden="true">
-        bpm
-      </span>
-    </label>
+      <button
+        type="button"
+        className={`lcd-unit lcd-tap ${tapping ? 'is-tapping' : ''}`}
+        onClick={tap}
+        aria-label="Tap tempo: tap in time to set it"
+        title="Tap in time to set the tempo"
+      >
+        {tapping ? 'tap' : 'bpm'}
+      </button>
+    </div>
   )
 }
 
